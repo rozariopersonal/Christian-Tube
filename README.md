@@ -1,13 +1,13 @@
-# 📺 PrivateTube - Multi-Instance White-Label Platform
+# 📺 ChristianApp - Multi-Instance White-Label Platform
 
-**PrivateTube** is a high-performance, white-label, config-driven video streaming and AI transcription platform. The repository is structured as an **Nx Monorepo** designed to deploy multiple distinct, fully-isolated Tube instances (**ChristianTube**, **Centum Academy**, etc.) from a single core codebase.
+**ChristianApp** is a high-performance, white-label, config-driven video streaming and AI transcription platform. The repository is structured as an **Nx Monorepo** designed to deploy multiple distinct, fully-isolated Tube instances (**ChristianApp**, **Centum Academy**, etc.) from a single core codebase.
 
 ---
 
 ## 🏗️ Monorepo Architecture
 
 ```
-PrivateTube/
+ChristianApp/
 ├── apps/
 │   ├── mobile/                     # 📱 Flutter Mobile Client (Multi-brand, themeable)
 │   │   ├── android/
@@ -28,7 +28,7 @@ PrivateTube/
 │       └── package.json
 │
 ├── instances/                      # 🎯 Instance Profiles & Assets
-│   ├── christian_tube/             # ChristianTube (org.rozario.christiantube.mobile)
+│   ├── christian_tube/             # ChristianApp (org.rozario.christiantube.mobile)
 │   │   ├── config.json
 │   │   ├── seed_channels.json
 │   │   └── assets/icon.png
@@ -59,7 +59,7 @@ PrivateTube/
 
 | Instance | Application ID | Theme | Target Release Repository |
 | :--- | :--- | :--- | :--- |
-| **ChristianTube** | `org.rozario.christiantube.mobile` | Blue & Gold | [Christian-Tube-Releases](https://github.com/rozariopersonal/Christian-Tube-Releases) |
+| **ChristianApp** | `org.rozario.christiantube.mobile` | Blue & Gold | [Christian-Tube-Releases](https://github.com/rozariopersonal/Christian-Tube-Releases) |
 | **Centum Academy** | `org.centumacademy.mobile` | Emerald & Tech | [Centum-Academy-Releases](https://github.com/rozariopersonal/Centum-Academy-Releases) |
 
 ---
@@ -69,7 +69,7 @@ PrivateTube/
 ### 1. Prepare an Instance for Mobile Build
 To switch the mobile app to a specific instance:
 ```bash
-# For ChristianTube
+# For ChristianApp
 node scripts/prepare-instance.js christian_tube
 
 # For Centum Academy
@@ -95,7 +95,7 @@ INSTANCE_ID=christian_tube pnpm start:dev
 ## 🤖 Automated CI/CD Releases
 
 Every release tag push (e.g. `v1.28.0`) automatically runs a **parallel GitHub Actions Matrix**:
-1. **Job 1**: Prepares & builds `ChristianTube` $\rightarrow$ publishes release `v1.28.0` with `christian-tube.apk` & QR code to `Christian-Tube-Releases`.
+1. **Job 1**: Prepares & builds `ChristianApp` $\rightarrow$ publishes release `v1.28.0` with `christian-app.apk` & QR code to `Christian-Tube-Releases`.
 2. **Job 2**: Prepares & builds `Centum Academy` $\rightarrow$ publishes release `v1.28.0` with `centum-academy.apk` & QR code to `Centum-Academy-Releases`.
 
 ---
@@ -103,5 +103,5 @@ Every release tag push (e.g. `v1.28.0`) automatically runs a **parallel GitHub A
 ## 🐳 Backend Deployment on Render
 
 Use `deployment/prod/Dockerfile.backend` on Render:
-* **Christian Tube Service**: Set Environment Variable `INSTANCE_ID=christian_tube`.
+* **ChristianApp Service**: Set Environment Variable `INSTANCE_ID=christian_tube`.
 * **Centum Academy Service**: Set Environment Variable `INSTANCE_ID=centum_academy`.

@@ -96,18 +96,22 @@ enum AppNavMode {
 ///   bottom bar to maximize screen real estate and reading/viewing immersion.
 /// - `compact` landscape shows the rail on root tabs so navigation stays reachable.
 /// - `medium`/`expanded` always use a rail, except during fullscreen media
-///   (shorts playing, or the landscape watch player on non-web platforms).
+///   (shorts playing, the landscape watch player on non-web platforms, or an
+///   explicitly fullscreen reader).
 /// - Explicit hides always suppress navigation.
 AppNavMode resolveNavMode({
   required double width,
   required bool isLandscape,
   required bool isShortPlaying,
+  bool isReaderFullscreen = false,
   required bool isExplicitlyHidden,
   String? currentPath,
   bool isWatchRoute = false,
   required bool isWeb,
 }) {
-  if (isExplicitlyHidden || isShortPlaying) return AppNavMode.hidden;
+  if (isExplicitlyHidden || isShortPlaying || isReaderFullscreen) {
+    return AppNavMode.hidden;
+  }
   final isCompact = width < 600;
   final isWatch = isWatchRoute || (currentPath?.startsWith('/watch') ?? false);
   if (isCompact) {

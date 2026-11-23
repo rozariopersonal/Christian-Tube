@@ -49,6 +49,7 @@ class UserItemSyncService {
 
   AuthService? _auth;
   String? _currentUserId;
+  bool _wasExpired = false;
   bool _attached = false;
   bool _pushing = false;
   bool _needsRepush = false;
@@ -75,9 +76,11 @@ class UserItemSyncService {
     }
   }
 
+  bool get _canSync => _auth?.canSync ?? (AuthService.shared?.canSync ?? true);
+
   Future<void> pullAndPush() async {
     final uid = _currentUserId;
-    if (uid == null || uid.isEmpty) return;
+    if (uid == null || uid.isEmpty || !_canSync) return;
     await _pushDirty(uid);
     await _pullAndMerge(uid);
   }
@@ -100,7 +103,16 @@ class UserItemSyncService {
   Future<void> _onAuthChanged() async {
     final user = _auth?.currentUser;
     final userId = user?.id ?? '';
-    if (userId == _currentUserId && userId.isNotEmpty) return;
+    final expired = _auth?.sessionExpired ?? false;
+    final recovered = _wasExpired && !expired;
+    _wasExpired = expired;
+
+    if (userId == _currentUserId && userId.isNotEmpty) {
+      if (recovered) {
+        unawaited(pullAndPush());
+      }
+      return;
+    }
 
     // Snapshot the device tier BEFORE routing flips to the user tier.
     var deviceHighlights = <BibleHighlight>[];
@@ -141,8 +153,10 @@ class UserItemSyncService {
         await BibleBookmarkService().clearDeviceBookmarks();
         await NoteService.instance.clearDeviceNotes();
       }
-      await _pushDirty(userId);
-      await _pullAndMerge(userId);
+      if (_canSync) {
+        await _pushDirty(userId);
+        await _pullAndMerge(userId);
+      }
     } catch (e) {
       debugPrint('UserItemSyncService re-home warning: $e');
     } finally {
@@ -175,6 +189,7 @@ class UserItemSyncService {
   }
 
   Future<void> _pushDirty(String userId) async {
+    if (!_canSync) return;
     if (_pushing) {
       _needsRepush = true;
       return;

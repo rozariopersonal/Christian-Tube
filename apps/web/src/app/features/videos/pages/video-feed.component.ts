@@ -9,6 +9,8 @@ import { VideoWatchedOverlaysComponent } from '../../../shared/ui/video-watched-
 import { ChannelService } from '../../channels/services/channel.service';
 import { VideoLibraryService } from '../services/video-library.service';
 import { VideoService } from '../services/video.service';
+import { normalizeVideo } from '../models/video.model';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 
 @Component({
   selector: 'app-video-feed',
@@ -46,6 +48,9 @@ import { VideoService } from '../services/video.service';
         }
 
         <div class="filter-strip max-width-box">
+          <button type="button" class="pill-chip" [class.active]="filterMode() === 'liked'" (click)="selectLiked()">
+            <span class="material-symbols-rounded" [class.filled]="filterMode() === 'liked'">favorite</span> Liked
+          </button>
           <button
             type="button"
             class="pill-chip"
@@ -122,7 +127,7 @@ import { VideoService } from '../services/video.service';
               Retry
             </button>
           </div>
-        } @else if (videos.videos().length === 0 && videos.isLoading()) {
+        } @else if (displayVideos().length === 0 && videos.isLoading() && filterMode() !== 'liked') {
           <div class="video-grid">
             @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
               <div class="skeleton-card">
@@ -132,10 +137,10 @@ import { VideoService } from '../services/video.service';
               </div>
             }
           </div>
-        } @else if (videos.videos().length === 0) {
+        } @else if (displayVideos().length === 0) {
           <div class="state-card">
-            <span class="material-symbols-rounded state-icon">video_library</span>
-            <p>No videos found for this category.</p>
+              <span class="material-symbols-rounded state-icon">{{ filterMode() === 'liked' ? 'favorite' : 'video_library' }}</span>
+              <p>{{ filterMode() === 'liked' ? 'No liked videos yet.' : 'No videos found for this category.' }}</p>
             <button type="button" class="pill-chip active" (click)="selectAll()">
               Show All Videos
             </button>
@@ -191,7 +196,7 @@ import { VideoService } from '../services/video.service';
             </div>
           }
 
-          @if (videos.hasMore()) {
+          @if (videos.hasMore() && filterMode() !== 'liked') {
             <div
               class="load-more-wrap"
               appInfiniteScrollTrigger
@@ -467,6 +472,7 @@ export class VideoFeedComponent implements OnInit {
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly auth = inject(AuthService);
+  readonly userSync = inject(UserSyncService);
 
   readonly appName = AppConfig.appName;
   readonly filterMode = signal<
@@ -474,7 +480,9 @@ export class VideoFeedComponent implements OnInit {
   >('all');
   readonly selectedChannelId = signal<string | null>(null);
 
-  readonly filteredVideos = computed(() => {
+  readonly displayVideos = computed(() => {
+    this.userSync.remoteState();
+    this.userSync.pendingOps();
     const list = this.videos.videos();
     switch (this.filterMode()) {
       case 'watched':
@@ -483,15 +491,23 @@ export class VideoFeedComponent implements OnInit {
         return list.filter((v) => !this.library.isWatched(v.id));
       case 'in_progress':
         return list.filter((v) => this.library.isInProgress(v.id));
-      case 'liked':
-        return list.filter((v) => this.library.isLiked(v.id));
+      case 'liked': {
+        const byId = new Map<string, ReturnType<typeof normalizeVideo>>();
+        for (const item of this.userSync.likedItems('liked_video')) {
+          const video = normalizeVideo(item);
+          if (video.id && video.title) byId.set(video.id, video);
+        }
+        const ids = this.userSync.likedIds('liked_video');
+        for (const video of list) if (ids.has(video.id)) byId.set(video.id, video);
+        return [...byId.values()];
+      }
       default:
         return list;
     }
   });
 
-  readonly topBatch = computed(() => this.filteredVideos().slice(0, 6));
-  readonly restBatch = computed(() => this.filteredVideos().slice(6));
+  readonly topBatch = computed(() => this.displayVideos().slice(0, 6));
+  readonly restBatch = computed(() => this.displayVideos().slice(6));
   readonly shelfShorts = computed(() => this.videos.shorts());
 
   private lastSyncedSubKey = [...this.channels.subscribedIds()].sort().join(',');
@@ -539,7 +555,14 @@ export class VideoFeedComponent implements OnInit {
     }
     this.filterMode.set(mode);
     this.selectedChannelId.set(null);
-    this.applyFilter();
+    if (mode !== 'liked') {
+      this.applyFilter();
+    }
+  }
+
+  selectLiked(): void {
+    this.selectStatus('liked');
+  }
   }
 
   selectChannel(channelId: string): void {

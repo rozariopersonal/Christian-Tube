@@ -1,35 +1,22 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// Import removed
-import '../../../core/config/app_config.dart';
+
 import '../../../core/theme/app_tokens.dart';
+
+import '../controllers/update_download_controller.dart';
+import '../services/release_highlights.dart';
+import '../services/update_preferences.dart';
 import '../update_service.dart';
 
 class UpdateDialog extends StatefulWidget {
+  const UpdateDialog({super.key, required this.updateData});
   final Map<String, dynamic> updateData;
 
-  const UpdateDialog({super.key, required this.updateData});
-
-  static Future<void> show(BuildContext context, Map<String, dynamic> updateData) {
+  static Future<void> show(BuildContext context, Map<String, dynamic> data) {
     if (kIsWeb) return Future.value();
-    return showGeneralDialog(
+    return showDialog<void>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: 'UpdateDialog',
-      barrierColor: context.tokens.scrim.withValues(alpha: 0.65),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) => UpdateDialog(updateData: updateData),
-      transitionBuilder: (context, anim1, anim2, child) {
-        final curvedValue = Curves.easeOutBack.transform(anim1.value) - 1.0;
-        return Transform(
-          transform: Matrix4.translationValues(0.0, curvedValue * -20, 0.0),
-          child: Opacity(
-            opacity: anim1.value.clamp(0.0, 1.0),
-            child: child,
-          ),
-        );
-      },
+      builder: (_) => UpdateDialog(updateData: data),
     );
   }
 
@@ -38,652 +25,304 @@ class UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogState extends State<UpdateDialog> {
-  bool _isDownloading = false;
-  bool _isRetrying = false;
-  bool _isCompleted = false;
-  double _progress = 0.0;
-  int _receivedBytes = 0;
-  int _totalBytes = 0;
-  String? _errorMessage;
-  String? _downloadedApkPath;
-  CancelToken? _cancelToken;
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 MB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  void _startDownload() {
-    setState(() {
-      _isDownloading = true;
-      _isRetrying = false;
-      _isCompleted = false;
-      _progress = 0.0;
-      _errorMessage = null;
-      _cancelToken = CancelToken();
-    });
-
-    final downloadUrl = widget.updateData['downloadUrl'] as String;
-    final sizeBytes = widget.updateData['sizeBytes'] as int? ?? 0;
-
-    UpdateService.downloadAndInstallApkWithProgress(
-      downloadUrl: downloadUrl,
-      cancelToken: _cancelToken,
-      onRetryStateChange: (retrying) {
-        if (mounted && _isRetrying != retrying) {
-          setState(() {
-            _isRetrying = retrying;
-          });
-        }
-      },
-      onProgress: (received, total) {
-        if (mounted) {
-          setState(() {
-            _isRetrying = false;
-            _receivedBytes = received;
-            final effectiveTotal = total > 0 ? total : sizeBytes;
-            _totalBytes = effectiveTotal;
-            if (effectiveTotal > 0) {
-              _progress = (received / effectiveTotal).clamp(0.0, 1.0);
-            }
-          });
-        }
-      },
-      onComplete: (savePath) {
-        if (mounted) {
-          setState(() {
-            _isDownloading = false;
-            _isRetrying = false;
-            _isCompleted = true;
-            _progress = 1.0;
-            _downloadedApkPath = savePath;
-          });
-          // Automatically invoke system package installer immediately upon download completion
-          _triggerInstall();
-        }
-      },
-      onError: (err) {
-        if (mounted) {
-          setState(() {
-            _isDownloading = false;
-            _isRetrying = false;
-            _errorMessage = err;
-          });
-        }
-      },
-    );
-  }
-
-  void _cancelDownload() {
-    _cancelToken?.cancel('Cancelled by user');
-    setState(() {
-      _isDownloading = false;
-      _isRetrying = false;
-      _progress = 0.0;
-    });
-  }
-
-  void _triggerInstall() {
-    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
-    if (_downloadedApkPath != null) {
-      UpdateService.launchApkInstaller(
-        _downloadedApkPath!,
-        downloadUrl,
-      );
-    } else {
-      UpdateService.openInBrowser(downloadUrl);
-    }
-  }
+  final _download = UpdateDownloadController();
 
   @override
   void dispose() {
-    _cancelToken?.cancel('Dialog disposed');
+    _download.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final latestVersion = widget.updateData['latestVersion'] ?? 'Latest';
-    final currentVersion = widget.updateData['currentVersion'] ?? 'Current';
-    final releaseNotes = widget.updateData['releaseNotes'] as String? ?? '';
-    final sizeBytes = widget.updateData['sizeBytes'] as int? ?? 0;
-    final downloadUrl = widget.updateData['downloadUrl'] as String? ?? '';
-
-    final formattedSize = sizeBytes > 0 ? _formatBytes(sizeBytes) : 'Direct APK';
-
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: (MediaQuery.sizeOf(context).width - 32.0).clamp(280.0, 420.0),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-          ),
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          decoration: BoxDecoration(
-            color: context.tokens.surface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: context.tokens.scrim.withValues(alpha: context.tokens.isDark ? 0.6 : 0.25),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-            border: Border.all(
-              color: context.tokens.surfaceBorder,
-              width: 1,
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
+    final theme = Theme.of(context);
+    final version = widget.updateData['latestVersion'] as String? ?? '';
+    final current = widget.updateData['currentVersion'] as String? ?? '';
+    final notes = releaseHighlights(
+      widget.updateData['releaseNotes'] as String? ?? '',
+    );
+    final size = widget.updateData['sizeBytes'] as int? ?? 0;
+    final url = widget.updateData['downloadUrl'] as String? ?? '';
+    final releaseUrl = widget.updateData['releaseUrl'] as String? ?? '';
+    return Dialog(
+      backgroundColor: context.tokens.surface,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: SingleChildScrollView(
+          child: ListenableBuilder(
+            listenable: _download,
+            builder: (context, _) {
+              final state = _download.state;
+              return Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                // Top Header Banner with Gradient & App Icon
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        context.tokens.surfaceVariant,
-                        context.tokens.surfaceVariant,
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.45,
+                      ),
+                      border: Border(
+                        bottom: BorderSide(color: context.tokens.surfaceBorder),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            Icons.system_update_rounded,
+                            color: theme.colorScheme.onPrimary,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Update Available!',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: context.tokens.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'A new version is ready when you are.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: context.tokens.onSurfaceMuted,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      // Glowing Icon Container
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [
-                                  Theme.of(context).colorScheme.primary,
-                                  Theme.of(context).colorScheme.tertiary,
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Image.asset(
-                                'assets/logo.png',
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.contain,
-                                errorBuilder: (ctx, _, __) => Icon(
-                                  Icons.rocket_launch_rounded,
-                                  color: Theme.of(context).colorScheme.onPrimary,
-                                  size: 36,
-                                ),
-                              ),
-                            ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (state.downloading) ...[
+                          Text(
+                            state.retrying
+                                ? 'Reconnecting…'
+                                : 'Downloading update…',
+                            style: theme.textTheme.titleMedium,
                           ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.arrow_upward_rounded,
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                size: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Update Available!',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: context.tokens.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Version comparison badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: context.tokens.surfaceVariant,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: context.tokens.surfaceBorder,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                currentVersion,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: context.tokens.onSurfaceMuted,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 12,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            Flexible(
-                              child: Text(
-                                latestVersion,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Main Content Body
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_isDownloading) ...[
-                        // Downloading Progress State
-                        _buildDownloadingView(),
-                      ] else if (_isCompleted) ...[
-                        // Completed State
-                        _buildCompletedView(downloadUrl),
-                      ] else ...[
-                        // Discovery / Ready State
-                        _buildChangelogView(releaseNotes, formattedSize),
-                        if (_errorMessage != null) ...[
                           const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                            value: state.total > 0 && !state.retrying
+                                ? (state.received / state.total).clamp(0.0, 1.0)
+                                : null,
+                            borderRadius: BorderRadius.circular(8),
+                            minHeight: 8,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: _download.cancel,
+                            child: const Text('Cancel Download'),
+                          ),
+                        ] else if (state.path != null) ...[
+                          Text(
+                            'Download complete',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Continue in the Android installer.',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 20),
+                          FilledButton(
+                            onPressed: () => UpdateService.launchApkInstaller(
+                              state.path!,
+                              url,
+                            ),
+                            child: const Text('Open installer'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Close'),
+                          ),
+                        ] else ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(12),
+                              color: context.tokens.surfaceElevated,
+                              borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                                color: context.tokens.surfaceBorder,
                               ),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.wifi_off_rounded,
-                                  color: Theme.of(context).colorScheme.error,
-                                  size: 18,
+                                Text(
+                                  'AVAILABLE VERSION',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: context.tokens.onSurfaceMuted,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onErrorContainer,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                const SizedBox(height: 5),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Text(
+                                      version,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    if (size > 0)
+                                      Text(
+                                        '·  ${(size / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color:
+                                                  context.tokens.onSurfaceMuted,
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                                if (current.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Installed: $current',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: context.tokens.onSurfaceMuted,
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
-                        ],
-                        const SizedBox(height: 20),
-                        // Action Buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  side: BorderSide(
-                                    color: context.tokens.surfaceBorder,
-                                  ),
-                                ),
-                                onPressed: () => Navigator.pop(context),
-                                child: Text(
-                                  'Later',
-                                  style: TextStyle(
-                                    color: context.tokens.onSurfaceMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
+                          const SizedBox(height: 22),
+                          Text(
+                            "What's New",
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Theme.of(context).colorScheme.primary,
-                                      Theme.of(context).colorScheme.tertiary,
-                                    ],
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
+                          ),
+                          const SizedBox(height: 12),
+                          if (notes.isEmpty)
+                            Text(
+                              'No release notes available.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: context.tokens.onSurfaceMuted,
+                              ),
+                            )
+                          else
+                            ...notes.map(
+                              (note) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 3,
+                                        right: 10,
+                                      ),
+                                      child: Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        size: 18,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        note,
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  onPressed: _startDownload,
-                                  icon: Icon(
-                                    _errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded,
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                    size: 18,
-                                  ),
-                                  label: Text(
-                                    _errorMessage != null ? 'Retry' : 'Update Now',
-                                    style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onPrimary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
                               ),
                             ),
+                          if (releaseUrl.isNotEmpty)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                ),
+                                onPressed: () =>
+                                    UpdateService.openInBrowser(releaseUrl),
+                                child: const Text('View full release notes'),
+                              ),
+                            ),
+                          if (state.error != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              state.error!,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                            if (url.isNotEmpty)
+                              TextButton(
+                                onPressed: () =>
+                                    UpdateService.openInBrowser(url),
+                                child: const Text('Download in browser'),
+                              ),
                           ],
-                        ),
-                        const SizedBox(height: 10),
-                        Center(
-                          child: TextButton.icon(
-                            onPressed: () {
-                              if (downloadUrl.isNotEmpty) {
-                                UpdateService.openInBrowser(downloadUrl);
-                              }
-                            },
-                            icon: const Icon(Icons.open_in_browser, size: 16),
-                            label: const Text('Download APK in Browser (Direct Link)'),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: url.isEmpty
+                                ? null
+                                : () => _download.start(url, size),
+                            icon: const Icon(Icons.download_rounded),
+                            label: Text(
+                              state.error == null ? 'Update Now' : 'Retry',
+                            ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          OverflowBar(
+                            alignment: MainAxisAlignment.spaceBetween,
+                            overflowAlignment: OverflowBarAlignment.center,
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Later'),
+                              ),
+                              TextButton(
+                                onPressed: version.isEmpty
+                                    ? null
+                                    : () async {
+                                        await UpdatePreferences.skip(version);
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                        }
+                                      },
+                                child: const Text('Skip this version'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
         ),
       ),
-    ),
-  );
-}
-
-  Widget _buildChangelogView(String releaseNotes, String formattedSize) {
-    final cleanNotes = releaseNotes.trim().isNotEmpty
-        ? releaseNotes.trim()
-        : '• Performance improvements and faster video streaming\n• Enhanced Shorts feed gestures\n• Bug fixes and general stability updates';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      "What's New",
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: context.tokens.onSurface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: context.tokens.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 12,
-                    color: context.tokens.onSurfaceMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    formattedSize,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: context.tokens.onSurfaceMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 140),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: context.tokens.surfaceVariant,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: context.tokens.surfaceBorder,
-            ),
-          ),
-          child: SingleChildScrollView(
-            child: Text(
-              cleanNotes,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: context.tokens.onSurfaceMuted,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDownloadingView() {
-    final percentInt = (_progress * 100).toInt();
-
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: 90,
-              height: 90,
-              child: CircularProgressIndicator(
-                value: (_progress > 0 && !_isRetrying) ? _progress : null,
-                strokeWidth: 7,
-                backgroundColor: context.tokens.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-              ),
-            ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _isRetrying ? '...' : '$percentInt%',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: context.tokens.onSurface,
-                  ),
-                ),
-                Text(
-                  _isRetrying ? 'Reconnecting' : 'Downloading',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: context.tokens.onSurfaceMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Text(
-          _isRetrying
-              ? 'Connection interrupted. Reconnecting...'
-              : 'Downloading ${AppConfig.appName} Update...',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: context.tokens.onSurface,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (!_isRetrying && _totalBytes > 0)
-          Text(
-            '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.tokens.onSurfaceMuted,
-            ),
-          )
-        else if (_isRetrying)
-          Text(
-            'Retrying download automatically...',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.tokens.onSurfaceMuted,
-            ),
-          ),
-        const SizedBox(height: 10),
-        TextButton(
-          onPressed: _cancelDownload,
-          child: Text(
-            'Cancel Download',
-            style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompletedView(String downloadUrl) {
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check_circle_rounded,
-            color: Theme.of(context).colorScheme.primary,
-            size: 48,
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Download Complete!',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Installer launched. If the system prompt did not appear, tap below to install or download directly via browser.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, color: context.tokens.onSurfaceMuted),
-        ),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            onPressed: _triggerInstall,
-            icon: Icon(Icons.install_mobile, color: Theme.of(context).colorScheme.onPrimary),
-            label: Text(
-              'Open / Install APK',
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
     );
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/models/video.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/watch/video_player_screen.dart';
+import 'package:mobile/features/watch/widgets/video_action_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void setSurfaceSize(WidgetTester tester, double width, double height) {
   tester.view.physicalSize = Size(width, height);
@@ -17,6 +19,10 @@ ThemeData testTheme() => ThemeData(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   final sampleVideo = Video(
     id: 'test_video_1',
@@ -64,13 +70,58 @@ void main() {
         // Channel title is rendered
         expect(find.text('Grace Community'), findsOneWidget);
 
-        // Action buttons are rendered
+        // Action buttons are rendered with heart-only Like (no hand/dislike)
         expect(find.text('Like'), findsOneWidget);
+        expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.thumb_up), findsNothing);
+        expect(find.byIcon(Icons.thumb_up_outlined), findsNothing);
+        expect(find.byIcon(Icons.thumb_down), findsNothing);
+        expect(find.byIcon(Icons.thumb_down_outlined), findsNothing);
         expect(find.text('Clip'), findsOneWidget);
         expect(find.text('Share'), findsOneWidget);
         expect(find.text('Save'), findsOneWidget);
       });
     }
+
+    testWidgets('VideoActionBar toggles heart Like <-> Liked without counts or dislike',
+        (tester) async {
+      var isLiked = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme(),
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => VideoActionBar(
+                isLiked: isLiked,
+                onToggleLike: () => setState(() => isLiked = !isLiked),
+                onClip: () {},
+                onShare: () {},
+                onSave: () {},
+                onOpenYouTube: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Like'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.thumb_up), findsNothing);
+      expect(find.byIcon(Icons.thumb_down), findsNothing);
+
+      await tester.tap(find.text('Like'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Liked'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+      expect(find.text('1'), findsNothing);
+
+      await tester.tap(find.text('Liked'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Like'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
+    });
 
     testWidgets('mobile phone portrait renders compact layout without back button',
         (tester) async {

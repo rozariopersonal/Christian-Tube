@@ -1,5 +1,7 @@
+import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
 import { MainShellComponent } from './core/layout/main-shell.component';
+import { ContentPreferencesService } from './core/services/content-preferences.service';
 import { VideoFeedComponent } from './features/videos/pages/video-feed.component';
 
 export const routes: Routes = [
@@ -14,7 +16,11 @@ export const routes: Routes = [
     path: '',
     component: MainShellComponent,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'feed' },
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: () => inject(ContentPreferencesService).defaultRoute(),
+      },
       { path: 'feed', component: VideoFeedComponent },
       {
         path: 'subscriptions',
@@ -172,5 +178,8 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: 'feed' },
+  {
+    path: '**',
+    redirectTo: () => inject(ContentPreferencesService).defaultRoute(),
+  },
 ];

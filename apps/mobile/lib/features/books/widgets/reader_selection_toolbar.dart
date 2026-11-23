@@ -14,23 +14,13 @@ Widget buildReaderSelectionToolbar(
   BuildContext context,
   SelectableRegionState selectableRegionState,
   int pageNum, {
+  required String selectedText,
   required void Function(String text, int pageNum) onHighlight,
   void Function(String text, int pageNum, int colorIndex)? onHighlightWithColor,
   void Function(String text, int pageNum)? onClearHighlight,
   void Function(String text, int pageNum)? onNote,
   void Function(String text)? onShare,
 }) {
-  String selectedText = '';
-  try {
-    final dynamic dyn = selectableRegionState;
-    final dynamic content = dyn.getSelectedContent();
-    if (content != null &&
-        content.plainText != null &&
-        (content.plainText as String).trim().isNotEmpty) {
-      selectedText = (content.plainText as String).trim();
-    }
-  } catch (_) {}
-
   final anchors = selectableRegionState.contextMenuAnchors;
 
   void triggerHighlight(int colorIndex) {

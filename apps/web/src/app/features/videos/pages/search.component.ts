@@ -3,8 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
-import { BibleVersionSheetComponent } from '../../bible/components/bible-version-sheet.component';
-import { BIBLE_VERSIONS, BibleSemanticHit } from '../../bible/models/bible.model';
+import { BibleVersionPickerComponent } from '../../../shared/ui/bible-version-picker.component';
+import { BibleSemanticHit } from '../../bible/models/bible.model';
 import { BibleService } from '../../bible/services/bible.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import { Video, formatTimeAgo, formatViewCount } from '../models/video.model';
@@ -20,7 +20,7 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
     FormsModule,
     RouterLink,
     InfiniteScrollTriggerDirective,
-    BibleVersionSheetComponent,
+    BibleVersionPickerComponent,
   ],
   template: `
     <div class="search-page max-width-box">
@@ -79,14 +79,12 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
             <div class="section-head">
               <h2 class="section-title">Bible</h2>
               <div class="bible-head-actions">
-                <button
-                  type="button"
-                  class="pill-chip"
-                  (click)="showBibleVersionPicker.set(true)"
-                  aria-label="Bible Version"
-                >
-                  {{ bibleVersionLabel(bibleService.version()) }} ▾
-                </button>
+                <app-bible-version-picker
+                  contextKey="bible-search"
+                  [maxSelections]="1"
+                  [alignRight]="true"
+                  (selectionChanged)="onBibleVersionChange($event.primary)"
+                />
                 @if (typeFilter() === 'ALL' && bibleResults().length > 3) {
                   <a
                     class="see-all-link"
@@ -204,14 +202,6 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         }
       }
     </div>
-
-    @if (showBibleVersionPicker()) {
-      <app-bible-version-sheet
-        [activeVersionId]="bibleService.version()"
-        (versionSelected)="onBibleVersionChange($event)"
-        (closed)="showBibleVersionPicker.set(false)"
-      />
-    }
   `,
   styles: [
     `
@@ -427,9 +417,9 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
         align-items: start;
       }
 
-      @media (min-width: 600px) {
+      @media (min-width: 720px) {
         .result-row {
-          grid-template-columns: 300px 1fr;
+          grid-template-columns: clamp(200px, 34vw, 300px) 1fr;
           gap: 16px;
         }
       }
@@ -523,7 +513,6 @@ export class SearchComponent implements OnInit {
   readonly sort = signal<SearchSort>('relevance');
   readonly results = signal<Video[]>([]);
   readonly bibleResults = signal<BibleSemanticHit[]>([]);
-  readonly showBibleVersionPicker = signal<boolean>(false);
   readonly loading = signal<boolean>(false);
   readonly hasMore = signal<boolean>(true);
 
@@ -581,12 +570,7 @@ export class SearchComponent implements OnInit {
     void this.loadMore(true);
   }
 
-  bibleVersionLabel(id: string): string {
-    return BIBLE_VERSIONS.find((v) => v.id === id)?.label ?? id.toUpperCase();
-  }
-
   async onBibleVersionChange(versionId: string): Promise<void> {
-    this.showBibleVersionPicker.set(false);
     await this.bibleService.loadVersion(
       versionId,
       this.bibleService.bookNumber(),

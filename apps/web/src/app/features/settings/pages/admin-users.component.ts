@@ -299,6 +299,7 @@ import { AdminUser, AdminUsersService } from '../services/admin-users.service';
       .user-email {
         font-size: 12px;
         color: var(--on-surface-muted);
+        overflow-wrap: anywhere;
       }
 
       .role-badge,

@@ -18,6 +18,16 @@ class NavigationHistoryService {
   /// The active root tab path.
   String get currentTab => _tabHistory.isNotEmpty ? _tabHistory.last : '/feed';
 
+  /// Seeds the base tab when the app opens to a user-configured default page.
+  void setInitialTab(String path) {
+    if (path.isEmpty) return;
+    if (_tabHistory.length <= 1) {
+      _tabHistory
+        ..clear()
+        ..add(path);
+    }
+  }
+
   /// Records a tab transition. Ignores consecutive duplicate paths.
   void recordTab(String path) {
     if (path.isEmpty) return;

@@ -50,6 +50,10 @@ services:
         sync: false
       - key: UPSTASH_VECTOR_REST_TOKEN
         sync: false
+      - key: AUTH_JWT_KEYS
+        sync: false
+      - key: AUTH_REJECT_LEGACY_GUEST_IMPERSONATION
+        value: "false"
 
   # ─── achristianapp Backend API ────────────────────────────────────────────
   - type: web
@@ -106,3 +110,7 @@ services:
         sync: false
       - key: UPSTASH_VECTOR_REST_TOKEN
         sync: false
+      - key: AUTH_JWT_KEYS
+        sync: false
+      - key: AUTH_REJECT_LEGACY_GUEST_IMPERSONATION
+        value: "false"

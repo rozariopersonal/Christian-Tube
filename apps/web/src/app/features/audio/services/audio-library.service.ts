@@ -47,7 +47,20 @@ export class AudioLibraryService {
     }
   }
 
-  resolveStreamUrl(trackId: string, directUrl?: string): string {
+  resolveStreamUrl(trackId: string, directUrl?: string, audioUrl?: string): string {
+    // Override any static/expiring S3 streamUrl with our backend resolver for Audio.com tracks.
+    const pageOrAudioUrl = audioUrl || directUrl || '';
+    if (pageOrAudioUrl.includes('audio.com/')) {
+      const audioId = pageOrAudioUrl
+        .split('audio.com/')
+        .pop()!
+        .split('?')[0]
+        .replace(/[^0-9]/g, '');
+      if (audioId) {
+        return this.api.streamUrl(`/api/audio/stream/${audioId}`);
+      }
+    }
+
     if (directUrl && directUrl.startsWith('http')) {
       if (
         typeof window !== 'undefined' &&

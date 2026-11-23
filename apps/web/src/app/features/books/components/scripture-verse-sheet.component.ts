@@ -10,10 +10,10 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
-import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { BibleVersionPickerComponent } from '../../../shared/ui/bible-version-picker.component';
+import { BibleVersionSelectionService } from '../../../core/services/bible-version-selection.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import {
-  BIBLE_VERSIONS,
   BOOK_ABBREVS,
   BibleVerse,
 } from '../../bible/models/bible.model';
@@ -23,21 +23,16 @@ import { ParsedScriptureRef } from '../services/scripture-ref-parser.service';
 @Component({
   selector: 'app-scripture-verse-sheet',
   standalone: true,
-  imports: [ModalSheetComponent],
+  imports: [ModalSheetComponent, BibleVersionPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal-sheet [title]="sheetTitle()" (closed)="closed.emit()">
       <div class="ver-row">
-        @for (v of quickVersions; track v.id) {
-          <button
-            type="button"
-            class="pill-chip"
-            [class.active]="versionId() === v.id"
-            (click)="switchVersion(v.id)"
-          >
-            {{ v.label }}
-          </button>
-        }
+        <app-bible-version-picker
+          contextKey="books"
+          [maxSelections]="1"
+          (selectionChanged)="switchVersion($event.primary)"
+        />
       </div>
 
       @if (loading()) {
@@ -117,15 +112,14 @@ import { ParsedScriptureRef } from '../services/scripture-ref-parser.service';
 })
 export class ScriptureVerseSheetComponent implements OnInit {
   private readonly releases = inject(ReleaseDataService);
-  private readonly appearance = inject(ReaderAppearanceService);
+  private readonly versionSelection = inject(BibleVersionSelectionService);
   private readonly onlineBible = inject(OnlineBibleService);
   private readonly router = inject(Router);
 
   readonly ref = input.required<ParsedScriptureRef>();
   readonly closed = output<void>();
 
-  readonly quickVersions = BIBLE_VERSIONS.slice(0, 6);
-  readonly versionId = signal<string>('kjv');
+  readonly versionId = signal<string>('nasb');
   readonly verses = signal<BibleVerse[]>([]);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
@@ -148,11 +142,7 @@ export class ScriptureVerseSheetComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    const preferred = this.appearance.primaryBibleVersion().toLowerCase();
-    const valid = BIBLE_VERSIONS.some((v) => v.id === preferred)
-      ? preferred
-      : 'kjv';
-    this.versionId.set(valid);
+    this.versionId.set(this.versionSelection.getPrimaryVersion('books'));
     void this.load();
   }
 

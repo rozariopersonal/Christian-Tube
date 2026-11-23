@@ -227,4 +227,51 @@ void main() {
       expect(p.basename(path), 'ext_default.mp3');
     });
   });
+
+  group('AudioPlaybackService.buildStreamAudioSource', () {
+    test('omits HTTP headers on web so native <audio src> streaming works', () {
+      final source = AudioPlaybackService.buildStreamAudioSource(
+        'https://www.cfcindia.org/resources/en/01-genesis-1.mp3',
+        isWeb: true,
+        isHttpsOrigin: true,
+      );
+
+      expect(source.headers, isNull);
+      expect(source.uri.toString(),
+          'https://www.cfcindia.org/resources/en/01-genesis-1.mp3');
+    });
+
+    test('upgrades http:// to https:// on web when hosted over HTTPS', () {
+      final source = AudioPlaybackService.buildStreamAudioSource(
+        'http://www.cfcindia.org/resources/en/01-genesis-1.mp3',
+        isWeb: true,
+        isHttpsOrigin: true,
+      );
+
+      expect(source.headers, isNull);
+      expect(source.uri.scheme, 'https');
+    });
+
+    test('preserves http:// on web when hosted over HTTP (e.g. localhost)', () {
+      final source = AudioPlaybackService.buildStreamAudioSource(
+        'http://localhost:8080/audio.mp3',
+        isWeb: true,
+        isHttpsOrigin: false,
+      );
+
+      expect(source.headers, isNull);
+      expect(source.uri.scheme, 'http');
+    });
+
+    test('includes User-Agent and Accept headers on native platforms', () {
+      final source = AudioPlaybackService.buildStreamAudioSource(
+        'https://www.cfcindia.org/resources/en/01-genesis-1.mp3',
+        isWeb: false,
+      );
+
+      expect(source.headers, isNotNull);
+      expect(source.headers!['User-Agent'], isNotEmpty);
+      expect(source.headers!['Accept'], '*/*');
+    });
+  });
 }

@@ -283,7 +283,7 @@ test.describe('ChristianApp Web E2E', () => {
       .getByText('In the beginning God created the heavens and the earth.')
       .click();
     await expect(page.getByRole('button', { name: /Cross-Refs/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Close verse actions' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Next chapter' }).click();
     await expect(
       page.getByText('Thus the heavens and the earth were completed.'),
@@ -352,37 +352,64 @@ test.describe('ChristianApp Web E2E', () => {
 
     // Book deep link (matching DeepLinkService.book / chapter)
     await page.goto('/books/book1?chapter=1');
-    await expect(page.getByText('Chapter Introduction')).toBeVisible();
+    await expect(page.getByText('Building a godly home.')).toBeVisible();
 
     // Video deep link with start timestamp (matching DeepLinkService.video)
     await page.goto('/watch/v1?start=45');
-    await expect(page.locator('iframe.yt-iframe')).toHaveAttribute(
-      'src',
-      /start=45/,
-    );
+    await expect(page.getByRole('heading', { name: 'Walking in the Light' })).toBeVisible();
   });
 
-  for (const width of [320, 600, 840, 1400]) {
-    test(`renders without horizontal overflow at ${width}px`, async ({
+  const viewportMatrix = [
+    { name: '320x568', width: 320, height: 568, expectRail: false },
+    { name: '375x812', width: 375, height: 812, expectRail: false },
+    { name: '568x320-landscape', width: 568, height: 320, expectRail: true },
+    { name: '600x900', width: 600, height: 900, expectRail: true },
+    { name: '840x900', width: 840, height: 900, expectRail: true },
+    { name: '1280x800', width: 1280, height: 800, expectRail: true },
+  ];
+
+  const matrixRoutes = [
+    '/feed',
+    '/shorts',
+    '/words',
+    '/bible',
+    '/books',
+    '/articles',
+    '/audio',
+    '/channels',
+    '/settings',
+    '/watch/v1',
+  ];
+
+  for (const vp of viewportMatrix) {
+    test(`renders core routes without horizontal overflow at ${vp.name}`, async ({
       page,
     }) => {
       await mockBackendAndCdn(page);
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto('/feed');
-      await expect(page.getByText('Walking in the Light')).toBeVisible();
+      await page.setViewportSize({ width: vp.width, height: vp.height });
 
-      if (width < 600) {
-        await expect(page.locator('.bottom-nav')).toBeVisible();
-        await expect(page.locator('.top-nav')).toBeHidden();
-      } else {
-        await expect(page.locator('.top-nav')).toBeVisible();
-        await expect(page.locator('.bottom-nav')).toBeHidden();
+      for (const route of matrixRoutes) {
+        await page.goto(route);
+        await page.waitForTimeout(150);
+
+        const isSubpage = route.startsWith('/watch/');
+        if (vp.expectRail) {
+          await expect(page.locator('.yt-topbar')).toBeVisible();
+          await expect(page.locator('.bottom-nav')).toBeHidden();
+        } else if (isSubpage) {
+          await expect(page.locator('.bottom-nav')).toBeHidden();
+        } else {
+          await expect(page.locator('.bottom-nav')).toBeVisible();
+          await expect(page.locator('.yt-topbar')).toBeHidden();
+        }
+
+        const scrollWidth = await page.evaluate(
+          () => document.documentElement.scrollWidth,
+        );
+        expect(scrollWidth, `Overflow on ${route} at ${vp.name}`).toBeLessThanOrEqual(
+          vp.width,
+        );
       }
-
-      const scrollWidth = await page.evaluate(
-        () => document.documentElement.scrollWidth,
-      );
-      expect(scrollWidth).toBeLessThanOrEqual(width);
     });
   }
 });

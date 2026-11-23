@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/short.dart';
+import '../../../core/services/user_sync_service.dart';
 import '../../profile/user_service.dart';
 import 'shorts_subscription_filter.dart';
 
@@ -33,6 +34,7 @@ class CommunityShortsController extends ChangeNotifier {
   bool _isAuthenticated = false;
   Set<String> _subscribedChannelIds = const {};
   Set<String>? _candidateChannelIds;
+  Set<String>? _selectedChannelIds;
 
   CommunityShortsController({
     ApiClient? apiClient,
@@ -56,11 +58,19 @@ class CommunityShortsController extends ChangeNotifier {
     return ids;
   }
 
+  /// Explicit channel selection from the Shorts grid. `null` means use the
+  /// normal feed (all followed channels for signed-in users, all otherwise).
+  Set<String>? get _activeChannelIds =>
+      _selectedChannelIds ?? _effectiveChannelIds;
+
+  Set<String> get selectedChannelIds =>
+      Set<String>.unmodifiable(_selectedChannelIds ?? const {});
+
   /// Cache key scoped to the active filter so a signed-out user (or a user
   /// with no subscriptions) never sees a stale subscriptions-filtered snapshot,
   /// and vice versa. Exposed for test assertions.
   String get activeCacheKey {
-    final ids = _effectiveChannelIds;
+    final ids = _activeChannelIds;
     if (ids == null) return _cacheKeyAll;
     return '${_cacheKeyAll}_sub_${_stableHash(_joinedSortedIds(ids))}';
   }
@@ -94,7 +104,7 @@ class CommunityShortsController extends ChangeNotifier {
     required bool isAuthenticated,
     required Set<String> subscribedChannelIds,
   }) async {
-    final previous = _effectiveChannelIds;
+    final previous = _activeChannelIds;
     _isAuthenticated = isAuthenticated;
     _subscribedChannelIds = subscribedChannelIds;
     _candidateChannelIds = resolveSubscribedChannelIds(
@@ -102,7 +112,15 @@ class CommunityShortsController extends ChangeNotifier {
       subscribedChannelIds: subscribedChannelIds,
     );
 
-    if (_filtersEqual(previous, _effectiveChannelIds)) {
+    if (_selectedChannelIds != null) {
+      final eligibleIds = _isAuthenticated
+          ? (_candidateChannelIds ?? const <String>{})
+          : const <String>{};
+      final retained = _selectedChannelIds!.intersection(eligibleIds);
+      _selectedChannelIds = retained.isEmpty ? null : retained;
+    }
+
+    if (_filtersEqual(previous, _activeChannelIds)) {
       _safeNotify();
       return;
     }
@@ -122,9 +140,11 @@ class CommunityShortsController extends ChangeNotifier {
   /// render without waiting on the network. A background refresh then updates
   /// it in place (stale-while-revalidate).
   Future<void> _loadCachedShorts() async {
+    final cacheKey = activeCacheKey;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cachedJson = prefs.getString(activeCacheKey);
+      if (cacheKey != activeCacheKey) return;
+      final cachedJson = prefs.getString(cacheKey);
       if (cachedJson == null || cachedJson.isEmpty) return;
       final List<dynamic> list = jsonDecode(cachedJson);
       final cached = list
@@ -140,11 +160,11 @@ class CommunityShortsController extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveCachedShorts(List<Short> shorts) async {
+  Future<void> _saveCachedShorts(List<Short> shorts, String cacheKey) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        activeCacheKey,
+        cacheKey,
         jsonEncode(shorts.take(50).map((s) => s.toJson()).toList()),
       );
     } catch (_) {}
@@ -157,61 +177,83 @@ class CommunityShortsController extends ChangeNotifier {
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
-  String _filter = 'all';
-  String get filter => _filter;
+  bool _likedOnly = false;
+  bool get likedOnly => _likedOnly;
 
-  List<Short> get filteredShorts {
-    final userService = UserService();
-    if (_filter == 'popular') {
-      final list = List<Short>.from(_shorts);
-      list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-      return list;
-    } else if (_filter == 'recent') {
-      final list = List<Short>.from(_shorts);
-      list.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-      return list;
-    } else if (_filter == 'watched') {
-      return _shorts
-          .where((s) => userService.isWatched(
-                s.id,
-                duration: s.duration,
-                durationSeconds: s.durationSeconds > 0 ? s.durationSeconds : null,
-              ))
-          .toList();
-    } else if (_filter == 'unwatched') {
-      return _shorts
-          .where((s) => !userService.isWatched(
-                s.id,
-                duration: s.duration,
-                durationSeconds: s.durationSeconds > 0 ? s.durationSeconds : null,
-              ))
-          .toList();
-    } else if (_filter == 'in_progress') {
-      return _shorts.where((s) {
-        final dur = s.durationSeconds > 0 ? s.durationSeconds : null;
-        return userService.progressFraction(s.id,
-                    duration: s.duration, durationSeconds: dur) >
-                0 &&
-            !userService.isWatched(s.id,
-                duration: s.duration, durationSeconds: dur);
-      }).toList();
-    } else if (_filter == 'liked') {
-      return _shorts.where((s) => userService.isVideoLiked(s.id)).toList();
+  String _watchStatusFilter = 'all';
+  String get watchStatusFilter => _watchStatusFilter;
+
+  List<Short> get displayShorts {
+    final byId = <String, Short>{for (final short in _shorts) short.id: short};
+    if (_likedOnly) {
+      for (final item in UserSyncService.instance.likedItems(UserSyncService.likedShortType)) {
+        if (item['id'] is String && item['title'] is String && (item['title'] as String).isNotEmpty) {
+          byId.putIfAbsent(item['id'] as String, () => Short.fromJson(item));
+        }
+      }
     }
-    return _shorts;
+    return byId.values.toList(growable: false);
   }
 
-  void setFilter(String newFilter) {
-    if (_filter != newFilter) {
-      _filter = newFilter;
-      _safeNotify();
-    }
+  List<Short> get filteredShorts {
+    final likedIds = UserSyncService.instance.likedIds(UserSyncService.likedShortType);
+    final selectedIds = _selectedChannelIds;
+    final userService = UserService();
+    return displayShorts.where((short) {
+      if (_likedOnly && !likedIds.contains(short.id)) return false;
+      if (selectedIds != null && !selectedIds.contains(short.channelId)) return false;
+      final dur = short.durationSeconds > 0 ? short.durationSeconds : null;
+      switch (_watchStatusFilter) {
+        case 'watched':
+          return userService.isWatched(short.id,
+              duration: short.duration, durationSeconds: dur);
+        case 'unwatched':
+          return !userService.isWatched(short.id,
+              duration: short.duration, durationSeconds: dur);
+        case 'in_progress':
+          return userService.progressFraction(short.id,
+                      duration: short.duration, durationSeconds: dur) >
+                  0 &&
+              !userService.isWatched(short.id,
+                  duration: short.duration, durationSeconds: dur);
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  void setWatchStatusFilter(String filter) {
+    final next = (_watchStatusFilter == filter) ? 'all' : filter;
+    if (_watchStatusFilter == next) return;
+    _watchStatusFilter = next;
+    _safeNotify();
+  }
+
+  void setLikedOnly(bool likedOnly) {
+    if (_likedOnly == likedOnly) return;
+    _likedOnly = likedOnly;
+    _safeNotify();
+  }
+
+  /// Applies an OR-based channel filter. An empty selection clears the filter.
+  Future<void> setChannelFilter(Set<String> channelIds) async {
+    final next = channelIds.isEmpty ? null : Set<String>.of(channelIds);
+    if (_filtersEqual(_selectedChannelIds, next)) return;
+    _selectedChannelIds = next;
+    _page = 1;
+    _hasMore = true;
+    _shorts = [];
+    _isLoading = true;
+    await _loadCachedShorts();
+    _safeNotify();
+    await fetchShorts();
   }
 
   Future<void> fetchShorts() async {
-    final filterSnapshot = _effectiveChannelIds == null
+    final cacheKeySnapshot = activeCacheKey;
+    final filterSnapshot = _activeChannelIds == null
         ? null
-        : Set<String>.of(_effectiveChannelIds!);
+        : Set<String>.of(_activeChannelIds!);
     _page = 1;
     _hasMore = true;
     // Only block the whole feed on the network when we have nothing to show yet.
@@ -230,7 +272,7 @@ class CommunityShortsController extends ChangeNotifier {
       );
       if (response.statusCode == 200 && response.data != null) {
         // Ignore a response that resolved under a now-stale filter mode.
-        if (!_filtersEqual(filterSnapshot, _effectiveChannelIds)) return;
+        if (!_filtersEqual(filterSnapshot, _activeChannelIds)) return;
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
@@ -241,25 +283,14 @@ class CommunityShortsController extends ChangeNotifier {
             .toList();
 
         if (allVideos.isNotEmpty) {
-          final shortsOnly = allVideos.where((s) {
-            if (s.durationSeconds > 0) {
-              return s.durationSeconds <= 180;
-            }
-            final durSec = Short.parseDurationInSeconds(s.duration);
-            if (durSec > 0) {
-              return durSec <= 180;
-            }
-            final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
-            final isShortTitle = s.title.toLowerCase().contains('#short');
-            final isShortDesc =
-                (s.description ?? '').toLowerCase().contains('#short');
-            return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
-          }).toList();
+          final shortsOnly = allVideos
+              .where((s) => s.type?.toUpperCase() == 'SHORT')
+              .toList();
 
           _shorts = shortsOnly;
           _isLoading = false;
           _safeNotify();
-          await _saveCachedShorts(shortsOnly);
+          await _saveCachedShorts(shortsOnly, cacheKeySnapshot);
           return;
         }
       }
@@ -269,7 +300,7 @@ class CommunityShortsController extends ChangeNotifier {
       _safeNotify();
     } catch (e) {
       debugPrint('Error fetching shorts: $e');
-      if (_filtersEqual(filterSnapshot, _effectiveChannelIds)) {
+      if (_filtersEqual(filterSnapshot, _activeChannelIds)) {
         _shorts = [];
         _isLoading = false;
         _safeNotify();
@@ -280,9 +311,9 @@ class CommunityShortsController extends ChangeNotifier {
   Future<void> loadMoreShorts() async {
     if (_isLoadingMore || !_hasMore) return;
 
-    final filterSnapshot = _effectiveChannelIds == null
+    final filterSnapshot = _activeChannelIds == null
         ? null
-        : Set<String>.of(_effectiveChannelIds!);
+        : Set<String>.of(_activeChannelIds!);
     _isLoadingMore = true;
     _safeNotify();
 
@@ -299,7 +330,7 @@ class CommunityShortsController extends ChangeNotifier {
         },
       );
       if (response.statusCode == 200 && response.data != null) {
-        if (!_filtersEqual(filterSnapshot, _effectiveChannelIds)) return;
+        if (!_filtersEqual(filterSnapshot, _activeChannelIds)) return;
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
@@ -307,7 +338,7 @@ class CommunityShortsController extends ChangeNotifier {
         final newVideos = list
             .whereType<Map<String, dynamic>>()
             .map((v) => Short.fromJson(v))
-            .where((s) => s.durationSeconds <= 180 || s.type == 'SHORT')
+            .where((s) => s.type?.toUpperCase() == 'SHORT')
             .toList();
 
         if (newVideos.isEmpty) {
