@@ -563,7 +563,6 @@ export class VideoFeedComponent implements OnInit {
   selectLiked(): void {
     this.selectStatus('liked');
   }
-  }
 
   selectChannel(channelId: string): void {
     this.filterMode.set('channel');
