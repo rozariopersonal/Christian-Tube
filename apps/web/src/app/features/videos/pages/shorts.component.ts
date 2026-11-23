@@ -161,7 +161,7 @@ import { normalizeVideo } from '../models/video.model';
         </div>
       </div>
     } @else {
-      <div class="shorts-page max-width-box wide-grid">
+      <div class="shorts-page max-width-box">
         <header class="page-head">
           <h1 class="font-display">Shorts</h1>
         </header>

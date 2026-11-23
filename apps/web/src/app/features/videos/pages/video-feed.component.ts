@@ -18,7 +18,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
     <div class="feed-page">
       <header class="feed-header">
         @if (screen.isCompact()) {
-          <div class="compact-bar max-width-box wide-grid">
+          <div class="compact-bar max-width-box">
             <div class="brand">
               <img src="logo.png" alt="ChristianApp" width="28" height="28" />
               <span class="brand-title font-display">{{ appName }}</span>
@@ -45,7 +45,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
           </div>
         }
 
-        <div class="filter-strip max-width-box wide-grid">
+        <div class="filter-strip max-width-box">
           <button type="button" class="pill-chip" [class.active]="filterMode() === 'liked'" (click)="selectLiked()">
             <span class="material-symbols-rounded" [class.filled]="filterMode() === 'liked'">favorite</span> Liked
           </button>
@@ -80,7 +80,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
         </div>
       </header>
 
-      <div class="feed-body max-width-box wide-grid">
+      <div class="feed-body max-width-box">
         @if (videos.error()) {
           <div class="state-card">
             <span class="material-symbols-rounded state-icon">cloud_off</span>
