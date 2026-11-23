@@ -41,9 +41,15 @@ if (isBeta) {
   config.applicationId = `${config.applicationId}.beta`;
   config.appName = `${config.appName} Beta`;
   config.apkFileName = config.apkFileName.replace(/\.apk$/, '-beta.apk');
+  config.apiBaseUrl = process.env.STAGING_API_BASE_URL || config.stagingApiBaseUrl || config.apiBaseUrl;
+  config.webAppUrl = process.env.STAGING_WEB_APP_URL || config.stagingWebAppUrl || config.webAppUrl;
+  config.feedbackEnabled = true;
 } else {
   config.isBeta = false;
   config.channel = 'prod';
+  if (config.feedbackEnabled === undefined) {
+    config.feedbackEnabled = true;
+  }
 }
 
 console.log(`🚀 Preparing PrivateTube engine for instance: ${config.appName} (${config.instanceId}) [Channel: ${channel.toUpperCase()}]...`);

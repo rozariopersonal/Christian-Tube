@@ -10,6 +10,7 @@ import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
 export class SyncService implements OnModuleInit {
   private readonly logger = new Logger(SyncService.name);
   private isSyncing = false;
+  private syncEnabledOverride: boolean | null = null;
 
   constructor(
     private readonly configService: ConfigService,
@@ -18,11 +19,28 @@ export class SyncService implements OnModuleInit {
     @Optional() private readonly cache?: CacheService,
   ) {}
 
+  isSyncEnabled(): boolean {
+    if (this.syncEnabledOverride !== null) return this.syncEnabledOverride;
+    const cfg = this.configService.get<boolean>('youtubeSyncEnabled');
+    if (cfg !== undefined) return cfg;
+    return process.env.YOUTUBE_SYNC_ENABLED !== 'false';
+  }
+
+  setSyncEnabled(enabled: boolean): void {
+    this.syncEnabledOverride = enabled;
+    this.logger.log(`YouTube sync runtime override set to: ${enabled}`);
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async onModuleInit() {
+    if (!this.isSyncEnabled()) {
+      this.logger.log('YouTube sync is disabled (YOUTUBE_SYNC_ENABLED=false). Skipping boot WebSub & channel sync.');
+      return;
+    }
+
     const syncOnBoot = process.env.SYNC_ON_BOOT === 'true' || this.configService.get<string>('SYNC_ON_BOOT') === 'true';
     setTimeout(async () => {
       // 1. Auto-subscribe all active channels to Google WebSub Hub
@@ -53,6 +71,10 @@ export class SyncService implements OnModuleInit {
     timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
   })
   async scheduledSync() {
+    if (!this.isSyncEnabled()) {
+      this.logger.log('Daily scheduled YouTube sync skipped (YOUTUBE_SYNC_ENABLED=false).');
+      return { status: 'disabled' };
+    }
     this.logger.log('⏰ Triggering daily daytime scheduled channel sync sweep at 12:00 PM (IST)...');
     return this.syncAllChannels();
   }
@@ -61,6 +83,10 @@ export class SyncService implements OnModuleInit {
    * Centralized sync method: Ingests videos for all active channels
    */
   async syncAllChannels(force = false) {
+    if (!force && !this.isSyncEnabled()) {
+      this.logger.log('YouTube sync is disabled (YOUTUBE_SYNC_ENABLED=false). Skipping syncAllChannels.');
+      return { status: 'disabled', message: 'YouTube sync is disabled in this environment.' };
+    }
     if (this.isSyncing) {
       this.logger.log('Previous channel sync cycle is still active. Skipping concurrent run.');
       return { status: 'skipped', message: 'Sync already in progress' };
@@ -116,7 +142,11 @@ export class SyncService implements OnModuleInit {
   /**
    * Sync a single channel using YouTube API or Web Scraper fallback
    */
-  async syncChannel(channelId: string, defaultCategory?: string | null) {
+  async syncChannel(channelId: string, defaultCategory?: string | null, force = false) {
+    if (!force && !this.isSyncEnabled()) {
+      this.logger.log(`YouTube sync disabled; skipping syncChannel(${channelId}).`);
+      return;
+    }
     try {
       // 1. Refresh channel metadata
       await this.refreshChannelMetadata(channelId);
@@ -448,6 +478,9 @@ export class SyncService implements OnModuleInit {
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async renewAllWebSubSubscriptions() {
+    if (!this.isSyncEnabled()) {
+      return;
+    }
     const channels = await this.prisma.channel.findMany({
       where: { isActive: true },
     });
@@ -462,6 +495,10 @@ export class SyncService implements OnModuleInit {
    * Handle incoming XML push notification from Google WebSub
    */
   async handleWebSubPushNotification(xmlBody: string) {
+    if (!this.isSyncEnabled()) {
+      this.logger.log('WebSub push ignored (YOUTUBE_SYNC_ENABLED=false).');
+      return;
+    }
     if (!xmlBody || typeof xmlBody !== 'string') return;
 
     try {
@@ -649,7 +686,11 @@ export class SyncService implements OnModuleInit {
     }
   }
 
-  async syncSingleVideo(videoId: string) {
+  async syncSingleVideo(videoId: string, force = false) {
+    if (!force && !this.isSyncEnabled()) {
+      this.logger.log(`YouTube sync disabled; skipping syncSingleVideo(${videoId}).`);
+      return null;
+    }
     this.logger.log(`Directly syncing video from YouTube: ${videoId}`);
     const detailMap = await this.youtubeService.fetchVideosDetails([videoId]);
     const item = detailMap.get(videoId);

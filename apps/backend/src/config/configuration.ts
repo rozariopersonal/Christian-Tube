@@ -44,6 +44,7 @@ export default () => {
     googleClientId: process.env.GOOGLE_CLIENT_ID || instanceConfig.googleClientId,
     googleClientIds,
     youtubeApiKey: process.env.YOUTUBE_API_KEY,
+    youtubeSyncEnabled: process.env.YOUTUBE_SYNC_ENABLED !== 'false',
     youtubeClientId: process.env.YOUTUBE_CLIENT_ID || instanceConfig.shorts?.youtubeClientId,
     youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET || instanceConfig.shorts?.youtubeClientSecret,
     youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN || instanceConfig.shorts?.youtubeRefreshToken,

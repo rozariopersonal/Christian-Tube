@@ -106,3 +106,70 @@ services:
         sync: false
       - key: UPSTASH_VECTOR_REST_TOKEN
         sync: false
+
+  # ─── christianapp-test Staging API (develop branch, free tier auto-sleep) ─
+  - type: web
+    name: christianapp-test
+    branch: develop
+    runtime: docker
+    dockerfilePath: deployment/staging/Dockerfile.backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: INSTANCE_ID
+        value: christian_tube
+      - key: YOUTUBE_SYNC_ENABLED
+        value: "false"
+      - key: SYNC_ON_BOOT
+        value: "false"
+      - key: CLONE_DB_ON_DEPLOY
+        value: "true"
+      - key: NEON_API_KEY
+        sync: false
+      - key: NEON_PROJECT_ID
+        sync: false
+      - key: NEON_STAGING_BRANCH_ID
+        sync: false
+      - key: NEON_PROD_BRANCH_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: ADMIN_EMAILS
+        value: arul.rozario4@gmail.com,admin@privatetube.org
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      - key: SHORTS_CUSTOM_CHANNEL_ID
+        value: UCSaJppP4zb2vivjxYfTqOKw
+      - key: SHORTS_PRIVACY_STATUS
+        value: unlisted
+      - key: EMBEDDING_SERVICE_URL
+        value: https://router.huggingface.co/hf-inference
+      - key: EMBEDDING_AUTH_TOKEN
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: intfloat/multilingual-e5-small
+      - key: EMBEDDING_DIM
+        value: "384"
+      - key: EMBEDDING_VERSION
+        value: "1"
+      - key: EMBEDDING_PROVIDER
+        value: huggingface
+      - key: EMBEDDING_TIMEOUT_MS
+        value: "8000"
+      - key: INTERNAL_JOB_SECRET
+        sync: false
+      - key: GITHUB_FEEDBACK_TOKEN
+        sync: false
