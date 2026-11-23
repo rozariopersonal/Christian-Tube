@@ -374,6 +374,12 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         letter-spacing: -0.02em;
       }
 
+      @media (max-width: 899px) {
+        .brand-name {
+          display: none;
+        }
+      }
+
       .topbar-center {
         position: relative;
         flex: 1;
@@ -384,7 +390,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
       .topbar-slot-center {
         flex: 1;
         min-width: 0;
-        overflow: visible;
+        overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
