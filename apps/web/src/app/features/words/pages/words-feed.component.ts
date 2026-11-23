@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   HostListener,
   OnInit,
   TemplateRef,
@@ -62,7 +63,7 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
             class="tb-action-btn"
             title="Previous Word (↑)"
             aria-label="Previous Word"
-            [disabled]="activeIndex() <= 0"
+            [disabled]="activeIndex() <= 0 || transitionPhase() !== 'idle'"
             (click)="prev()"
           >
             <span class="material-symbols-rounded">keyboard_arrow_up</span>
@@ -77,7 +78,7 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
             class="tb-action-btn"
             title="Next Word (↓)"
             aria-label="Next Word"
-            [disabled]="!canGoNext()"
+            [disabled]="!canGoNext() || transitionPhase() !== 'idle'"
             (click)="next()"
           >
             <span class="material-symbols-rounded">keyboard_arrow_down</span>
@@ -221,26 +222,14 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
           <article
             class="word-spotlight"
             [class.comparing]="isComparing"
+            [class.transition-exit-next]="transitionPhase() === 'exit' && transitionDirection() === 'next'"
+            [class.transition-exit-prev]="transitionPhase() === 'exit' && transitionDirection() === 'prev'"
+            [class.transition-enter-next]="transitionPhase() === 'enter' && transitionDirection() === 'next'"
+            [class.transition-enter-prev]="transitionPhase() === 'enter' && transitionDirection() === 'prev'"
             [style.color]="prefs.appearance().textColorHex"
+            (animationend)="onCardAnimationEnd($event)"
           >
-            <div class="spotlight-scroll">
-              <div class="spotlight-meta">
-                <div class="meta-badges">
-                  @if (item.theme || item.category) {
-                    <span class="theme-pill">{{ item.theme || item.category }}</span>
-                  }
-                  @if (words.filterState().readingOrder !== 'daily') {
-                    <span class="order-pill">{{ words.filterState().readingOrder }}</span>
-                  }
-                </div>
-                <span class="ver-tag">
-                  {{ (item.resolvedVersion || prefs.activeVersionId()).toUpperCase() }}
-                  @for (c of comparisons; track c.version) {
-                    · {{ c.version.toUpperCase() }}
-                  }
-                </span>
-              </div>
-
+            <div class="verse-scroll" #verseScroll>
               @if (isComparing) {
                 <div
                   class="compare-grid"
@@ -289,19 +278,35 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
                   “{{ item.verseText || item.theme || item.referenceLabel }}”
                 </blockquote>
               }
-
-              <div class="spotlight-footer">
-                <strong class="ref-label">{{ item.referenceLabel }}</strong>
-                <button
-                  type="button"
-                  class="read-btn"
-                  (click)="openInBible(item)"
-                >
-                  <span class="material-symbols-rounded">menu_book</span>
-                  Open in Bible
-                </button>
-              </div>
             </div>
+
+            <footer class="spotlight-footer">
+              <div class="footer-info">
+                <strong class="ref-label">{{ item.referenceLabel }}</strong>
+                <div class="meta-badges">
+                  @if (item.theme || item.category) {
+                    <span class="theme-pill">{{ item.theme || item.category }}</span>
+                  }
+                  @if (words.filterState().readingOrder !== 'daily') {
+                    <span class="order-pill">{{ words.filterState().readingOrder }}</span>
+                  }
+                  <span class="ver-tag">
+                    {{ (item.resolvedVersion || prefs.activeVersionId()).toUpperCase() }}
+                    @for (c of comparisons; track c.version) {
+                      · {{ c.version.toUpperCase() }}
+                    }
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="read-btn"
+                (click)="openInBible(item)"
+              >
+                <span class="material-symbols-rounded">menu_book</span>
+                Open in Bible
+              </button>
+            </footer>
           </article>
         } @else {
           <div class="status-msg">
@@ -436,7 +441,7 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
         color: #ffffff;
         display: flex;
         flex-direction: column;
-        padding: 12px;
+        padding: 16px;
         gap: 10px;
         transition: background 320ms ease;
         overflow: hidden;
@@ -448,7 +453,7 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
 
       @media (min-width: 600px) {
         .words-stage {
-          padding: 20px 28px;
+          padding: 24px;
         }
       }
 
@@ -465,15 +470,13 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
         flex: 1;
         min-height: 0;
         display: flex;
-        align-items: center;
+        align-items: stretch;
         justify-content: center;
       }
 
       .word-spotlight {
         width: 100%;
-        max-width: 1200px;
         height: 100%;
-        max-height: 760px;
         overflow: hidden;
         border-radius: var(--radius-lg);
         background-color: rgba(0, 0, 0, 0.24);
@@ -482,7 +485,74 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
         border: 1px solid rgba(255, 255, 255, 0.16);
         display: flex;
         flex-direction: column;
-        animation: cardFadeIn 240ms ease-out;
+      }
+
+      .word-spotlight.transition-exit-next,
+      .word-spotlight.transition-exit-prev,
+      .word-spotlight.transition-enter-next,
+      .word-spotlight.transition-enter-prev {
+        will-change: transform, opacity;
+      }
+
+      .word-spotlight.transition-exit-next {
+        animation: words-exit-next 180ms cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .word-spotlight.transition-exit-prev {
+        animation: words-exit-prev 180ms cubic-bezier(0.4, 0, 1, 1) both;
+      }
+
+      .word-spotlight.transition-enter-next {
+        animation: words-enter-next 220ms cubic-bezier(0, 0, 0.2, 1) both;
+      }
+
+      .word-spotlight.transition-enter-prev {
+        animation: words-enter-prev 220ms cubic-bezier(0, 0, 0.2, 1) both;
+      }
+
+      @keyframes words-exit-next {
+        to {
+          transform: translate3d(0, -110%, 0);
+          opacity: 0.35;
+        }
+      }
+
+      @keyframes words-exit-prev {
+        to {
+          transform: translate3d(0, 110%, 0);
+          opacity: 0.35;
+        }
+      }
+
+      @keyframes words-enter-next {
+        from {
+          transform: translate3d(0, 110%, 0);
+          opacity: 0.35;
+        }
+        to {
+          transform: translate3d(0, 0, 0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes words-enter-prev {
+        from {
+          transform: translate3d(0, -110%, 0);
+          opacity: 0.35;
+        }
+        to {
+          transform: translate3d(0, 0, 0);
+          opacity: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .word-spotlight.transition-exit-next,
+        .word-spotlight.transition-exit-prev,
+        .word-spotlight.transition-enter-next,
+        .word-spotlight.transition-enter-prev {
+          animation-duration: 1ms;
+        }
       }
 
       .light-stage .word-spotlight {
@@ -491,65 +561,51 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
         box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
       }
 
-      .spotlight-scroll {
+      .verse-scroll {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        padding: clamp(22px, 4vw, 44px);
+        overscroll-behavior: contain;
+        padding: clamp(20px, 3.5vw, 44px);
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        gap: 20px;
         scrollbar-width: thin;
         scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
       }
 
-      .spotlight-scroll::-webkit-scrollbar {
+      .verse-scroll > .verse-quote,
+      .verse-scroll > .compare-grid {
+        margin-block: auto;
+      }
+
+      .verse-scroll::-webkit-scrollbar {
         width: 6px;
       }
 
-      .spotlight-scroll::-webkit-scrollbar-track {
+      .verse-scroll::-webkit-scrollbar-track {
         background: transparent;
         margin: 14px 0;
       }
 
-      .spotlight-scroll::-webkit-scrollbar-thumb {
+      .verse-scroll::-webkit-scrollbar-thumb {
         border-radius: 999px;
         background-color: rgba(255, 255, 255, 0.26);
       }
 
-      .spotlight-scroll::-webkit-scrollbar-thumb:hover {
+      .verse-scroll::-webkit-scrollbar-thumb:hover {
         background-color: rgba(255, 255, 255, 0.42);
       }
 
-      .light-stage .spotlight-scroll {
+      .light-stage .verse-scroll {
         scrollbar-color: rgba(15, 23, 42, 0.22) transparent;
       }
 
-      .light-stage .spotlight-scroll::-webkit-scrollbar-thumb {
+      .light-stage .verse-scroll::-webkit-scrollbar-thumb {
         background-color: rgba(15, 23, 42, 0.2);
       }
 
-      .light-stage .spotlight-scroll::-webkit-scrollbar-thumb:hover {
+      .light-stage .verse-scroll::-webkit-scrollbar-thumb:hover {
         background-color: rgba(15, 23, 42, 0.35);
-      }
-
-      @keyframes cardFadeIn {
-        from {
-          opacity: 0.65;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .spotlight-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
       }
 
       .meta-badges {
@@ -647,13 +703,22 @@ import { WordsPreferencesService } from '../services/words-preferences.service';
       }
 
       .spotlight-footer {
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
-        padding-top: 12px;
+        padding: 14px clamp(16px, 3.5vw, 44px);
         border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .footer-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        min-width: 0;
       }
 
       .light-stage .spotlight-footer {
@@ -748,8 +813,11 @@ export class WordsFeedComponent implements OnInit, AfterViewInit {
 
   @ViewChild('topbarCenter') topbarCenterRef?: TemplateRef<unknown>;
   @ViewChild('topbarRight') topbarRightRef?: TemplateRef<unknown>;
+  @ViewChild('verseScroll') verseScrollRef?: ElementRef<HTMLElement>;
 
   readonly activeIndex = signal<number>(0);
+  readonly transitionPhase = signal<'idle' | 'exit' | 'enter'>('idle');
+  readonly transitionDirection = signal<'next' | 'prev'>('next');
   readonly activeModal = signal<'filter' | 'style' | null>(null);
   readonly toastMessage = signal<string | null>(null);
   private readonly viewInitialized = signal<boolean>(false);
@@ -852,15 +920,47 @@ export class WordsFeedComponent implements OnInit, AfterViewInit {
   }
 
   prev(): void {
-    if (this.activeIndex() > 0) {
-      this.activeIndex.update((i) => i - 1);
-    }
+    this.navigateWord('prev');
   }
 
   next(): void {
-    const nextIdx = this.activeIndex() + 1;
+    this.navigateWord('next');
+  }
+
+  onCardAnimationEnd(event: AnimationEvent): void {
+    if (event.target !== event.currentTarget) return;
+
+    if (this.transitionPhase() === 'exit') {
+      const idx = this.activeIndex();
+      const targetIdx =
+        this.transitionDirection() === 'next' ? idx + 1 : idx - 1;
+      if (targetIdx >= 0 && targetIdx < this.words.items().length) {
+        this.activeIndex.set(targetIdx);
+      }
+      if (this.verseScrollRef?.nativeElement) {
+        this.verseScrollRef.nativeElement.scrollTop = 0;
+      }
+      this.transitionPhase.set('enter');
+    } else if (this.transitionPhase() === 'enter') {
+      this.transitionPhase.set('idle');
+    }
+  }
+
+  private navigateWord(direction: 'next' | 'prev'): void {
+    if (this.transitionPhase() !== 'idle') return;
+    const idx = this.activeIndex();
+
+    if (direction === 'prev') {
+      if (idx <= 0) return;
+      this.transitionDirection.set('prev');
+      this.transitionPhase.set('exit');
+      return;
+    }
+
+    const nextIdx = idx + 1;
     if (nextIdx < this.words.items().length) {
-      this.activeIndex.set(nextIdx);
+      this.transitionDirection.set('next');
+      this.transitionPhase.set('exit');
       if (
         this.words.hasMore() &&
         nextIdx >= this.words.items().length - 4
@@ -986,19 +1086,36 @@ export class WordsFeedComponent implements OnInit, AfterViewInit {
     const delta = this.touchStartY - endY;
     this.touchStartY = null;
     if (Math.abs(delta) < 48) return;
-    if (delta > 0) this.next();
-    else this.prev();
+    const dir = delta > 0 ? 'next' : 'prev';
+    if (this.canScrollVerse(dir)) return;
+    this.navigateWord(dir);
   }
 
   onWheel(event: WheelEvent): void {
     const target = event.target as HTMLElement | null;
     if (target?.closest('.dropdown-panel')) return;
-    if (this.activeModal() || Math.abs(event.deltaY) < 28) return;
+    if (
+      this.activeModal() ||
+      this.transitionPhase() !== 'idle' ||
+      Math.abs(event.deltaY) < 28
+    ) {
+      return;
+    }
+    const dir = event.deltaY > 0 ? 'next' : 'prev';
+    if (this.canScrollVerse(dir)) return;
     const now = Date.now();
     if (now - this.lastWheelAt < 380) return;
     this.lastWheelAt = now;
-    if (event.deltaY > 0) this.next();
-    else this.prev();
+    this.navigateWord(dir);
+  }
+
+  private canScrollVerse(direction: 'next' | 'prev'): boolean {
+    const el = this.verseScrollRef?.nativeElement;
+    if (!el || el.scrollHeight <= el.clientHeight + 2) return false;
+    if (direction === 'next') {
+      return el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+    }
+    return el.scrollTop > 2;
   }
 
   private showToast(msg: string): void {
