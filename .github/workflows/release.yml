@@ -439,3 +439,28 @@ jobs:
             echo "::error::Failed to publish ${{ env.TAG }} to ${{ matrix.releaseRepo }} after 5 attempts."
             exit 1
           fi
+
+          # Maintain a rolling beta-latest tag so browser direct-download URLs never 404 on pre-releases
+          if [ "${{ env.RELEASE_CHANNEL }}" = "beta" ]; then
+            echo "Updating rolling beta-latest release in ${{ matrix.releaseRepo }}..."
+            if gh release view "beta-latest" --repo "${{ matrix.releaseRepo }}" > /dev/null 2>&1; then
+              gh release upload "beta-latest" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --clobber \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png
+              gh release edit "beta-latest" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} Latest (${{ env.TAG }})" \
+                --notes-file release_body.md \
+                --prerelease
+            else
+              gh release create "beta-latest" \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} Latest (${{ env.TAG }})" \
+                --notes-file release_body.md \
+                --prerelease
+            fi
+          fi

@@ -61,14 +61,63 @@ export class SyncController {
   }
 
   /**
+   * Check or toggle YouTube sync status at runtime
+   */
+  @Get('status')
+  getSyncStatus() {
+    return {
+      enabled: this.syncService.isSyncEnabled(),
+      envDefault: this.configService.get<boolean>('youtubeSyncEnabled') !== false,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('toggle')
+  toggleSync(
+    @Headers('x-job-secret') secret?: string,
+    @Query('enabled') enabledQuery?: string,
+    @Body() body?: { enabled?: boolean },
+  ) {
+    const internalSecret = this.configService.get<string>('internalJobSecret');
+    if (internalSecret && secret !== internalSecret) {
+      throw new UnauthorizedException('Invalid job secret');
+    }
+
+    const nextEnabled =
+      typeof body?.enabled === 'boolean'
+        ? body.enabled
+        : enabledQuery !== undefined
+          ? enabledQuery === 'true'
+          : !this.syncService.isSyncEnabled();
+
+    this.syncService.setSyncEnabled(nextEnabled);
+    return {
+      enabled: this.syncService.isSyncEnabled(),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Manual trigger to sync all channels
    */
   @Get(['', 'sync'])
   @Post(['', 'sync'])
-  async triggerSync(@Headers('x-job-secret') secret?: string) {
+  async triggerSync(
+    @Headers('x-job-secret') secret?: string,
+    @Query('force') force?: string,
+  ) {
     const internalSecret = this.configService.get<string>('internalJobSecret');
     if (internalSecret && secret && secret !== internalSecret) {
       throw new UnauthorizedException('Invalid job secret');
+    }
+
+    const isForced = force === 'true';
+    if (!isForced && !this.syncService.isSyncEnabled()) {
+      return {
+        status: 'disabled',
+        message: 'YouTube sync is disabled in this environment. Pass ?force=true or POST /sync/toggle {"enabled":true} to enable.',
+        timestamp: new Date().toISOString(),
+      };
     }
 
     this.logger.log('Manual channel sync triggered via API endpoint.');
@@ -87,9 +136,18 @@ export class SyncController {
    * Manual trigger to sync a single channel
    */
   @Post('channel/:id')
-  async triggerChannelSync(@Param('id') id: string) {
+  async triggerChannelSync(@Param('id') id: string, @Query('force') force?: string) {
+    const isForced = force === 'true';
+    if (!isForced && !this.syncService.isSyncEnabled()) {
+      return {
+        status: 'disabled',
+        message: 'YouTube sync is disabled in this environment. Pass ?force=true or POST /sync/toggle {"enabled":true} to enable.',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
     this.logger.log(`Manual sync triggered for channel: ${id}`);
-    this.syncService.syncChannel(id).catch((e) => {
+    this.syncService.syncChannel(id, undefined, true).catch((e) => {
       this.logger.error(`Single channel sync error: ${e.message}`);
     });
 
@@ -104,9 +162,18 @@ export class SyncController {
    * Manual trigger to sync a single newly uploaded video
    */
   @Post('video/:id')
-  async triggerVideoSync(@Param('id') id: string) {
+  async triggerVideoSync(@Param('id') id: string, @Query('force') force?: string) {
+    const isForced = force === 'true';
+    if (!isForced && !this.syncService.isSyncEnabled()) {
+      return {
+        status: 'disabled',
+        message: 'YouTube sync is disabled in this environment. Pass ?force=true or POST /sync/toggle {"enabled":true} to enable.',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
     this.logger.log(`Instant sync triggered for video: ${id}`);
-    const video = await this.syncService.syncSingleVideo(id);
+    const video = await this.syncService.syncSingleVideo(id, true);
 
     return {
       status: video ? 'synced' : 'pending',
