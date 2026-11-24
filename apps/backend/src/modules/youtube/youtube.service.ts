@@ -13,6 +13,22 @@ export interface ExtractedVideo {
   videoType: 'VIDEO' | 'SHORT';
 }
 
+export interface ScrapeTabOptions {
+  maxBatches?: number;
+  /** Called for each fetched page. Return `false` to stop pagination early (e.g., incremental sync). */
+  onPage?: (videos: ExtractedVideo[], batchIndex: number) => Promise<boolean | void>;
+  delayMs?: number;
+  retryDelayMs?: number;
+}
+
+export interface ScrapeTabResult {
+  videos: ExtractedVideo[];
+  exhausted: boolean;
+  stoppedEarly: boolean;
+  batchesProcessed: number;
+  error?: string;
+}
+
 export type VideoVisibilityStatus = 'eligible' | 'private' | 'unavailable' | 'error';
 
 export interface VideoVisibilityResult {
@@ -597,42 +613,137 @@ export class YoutubeService {
     return results;
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isRetryableError(err: any): boolean {
+    const status = err?.response?.status;
+    if (status) {
+      return status === 429 || status >= 500;
+    }
+    return true;
+  }
+
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    label: string,
+    maxAttempts = 3,
+    baseDelayMs = 400,
+  ): Promise<T> {
+    let lastError: any;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        lastError = err;
+        if (attempt >= maxAttempts || !this.isRetryableError(err)) {
+          throw err;
+        }
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        this.logger.warn(
+          `${label} failed (attempt ${attempt}/${maxAttempts}): ${err.message}. Retrying in ${delay}ms...`,
+        );
+        await this.sleep(delay);
+      }
+    }
+    throw lastError;
+  }
+
+  private normalizeTabOptions(maxBatchesOrOptions?: number | ScrapeTabOptions): ScrapeTabOptions {
+    if (typeof maxBatchesOrOptions === 'number') {
+      return { maxBatches: maxBatchesOrOptions };
+    }
+    return maxBatchesOrOptions || {};
+  }
+
   /**
-   * Scrape channel /videos tab with InnerTube continuation support
+   * Unified InnerTube tab scraper with retry, exponential backoff, and per-page streaming.
    */
-  async scrapeChannelVideosTab(channelId: string, maxBatches = 10): Promise<{ videos: ExtractedVideo[] }> {
+  private async scrapeChannelTab(
+    channelId: string,
+    tabPath: 'videos' | 'shorts' | 'streams',
+    tabTitle: string,
+    options: ScrapeTabOptions = {},
+    defaultVideoType?: 'VIDEO' | 'SHORT',
+  ): Promise<ScrapeTabResult> {
+    const maxBatches = options.maxBatches ?? 500;
+    const delayMs = options.delayMs ?? 150;
+    const retryDelayMs = options.retryDelayMs ?? 400;
     const allVideos: ExtractedVideo[] = [];
+    let batchesProcessed = 0;
+    let exhausted = false;
+    let stoppedEarly = false;
+    let errorMsg: string | undefined;
+
+    const mapPage = (items: ExtractedVideo[]) =>
+      defaultVideoType ? items.map((v) => ({ ...v, videoType: defaultVideoType })) : items;
+
     try {
-      const videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
-      const res = await axios.get(videosUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        timeout: 10000,
-      });
+      const targetUrl = `https://www.youtube.com/channel/${channelId}/${tabPath}`;
+      const res = await this.withRetry(
+        () =>
+          axios.get(targetUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+            },
+            timeout: 12000,
+          }),
+        `scrapeChannelTab(${channelId}/${tabPath})`,
+        3,
+        retryDelayMs,
+      );
 
       const html = res.data;
-      if (typeof html === 'string') {
-        const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-        if (jsonMatch) {
-          const data = JSON.parse(jsonMatch[1]);
-          const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
-          const videosTab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === 'videos');
-          const contents =
-            videosTab?.tabRenderer?.content?.richGridRenderer?.contents ||
-            data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[1]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.gridRenderer?.items ||
-            [];
+      if (typeof html !== 'string') {
+        return { videos: allVideos, exhausted: false, stoppedEarly: false, batchesProcessed: 0, error: 'Non-string HTML response' };
+      }
 
-          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
-          allVideos.push(...videos);
+      const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
+      if (!jsonMatch) {
+        return { videos: allVideos, exhausted: false, stoppedEarly: false, batchesProcessed: 0, error: 'ytInitialData not found' };
+      }
 
-          let batch = 1;
-          while (nextContinuationToken && batch < maxBatches) {
-            batch++;
-            try {
-              const browseRes = await axios.post(
+      const data = JSON.parse(jsonMatch[1]);
+      const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+      const tab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === tabTitle);
+
+      if (!tab) {
+        return { videos: allVideos, exhausted: true, stoppedEarly: false, batchesProcessed: 0 };
+      }
+
+      const contents =
+        tab?.tabRenderer?.content?.richGridRenderer?.contents ||
+        (tabPath === 'videos'
+          ? data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[1]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.gridRenderer?.items
+          : undefined) ||
+        [];
+
+      const firstPage = extractVideosFromRichContents(contents);
+      const firstMapped = mapPage(firstPage.videos);
+      batchesProcessed = 1;
+      allVideos.push(...firstMapped);
+
+      if (options.onPage) {
+        const shouldContinue = await options.onPage(firstMapped, batchesProcessed);
+        if (shouldContinue === false) {
+          stoppedEarly = true;
+        }
+      }
+
+      let nextContinuationToken = firstPage.nextContinuationToken;
+
+      while (!stoppedEarly && nextContinuationToken && batchesProcessed < maxBatches) {
+        if (delayMs > 0) {
+          await this.sleep(delayMs);
+        }
+        batchesProcessed++;
+        try {
+          const browseRes = await this.withRetry(
+            () =>
+              axios.post(
                 'https://www.youtube.com/youtubei/v1/browse',
                 {
                   context: { client: { clientName: 'WEB', clientVersion: '2.20240301.00.00' } },
@@ -643,154 +754,86 @@ export class YoutubeService {
                     'User-Agent':
                       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                   },
-                  timeout: 10000,
+                  timeout: 12000,
                 },
-              );
+              ),
+            `scrapeChannelTab(${channelId}/${tabPath}) page ${batchesProcessed}`,
+            3,
+            retryDelayMs,
+          );
 
-              const actions = browseRes.data?.onResponseReceivedActions || [];
-              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
-              const pageResult = extractVideosFromRichContents(continuationItems);
-              allVideos.push(...pageResult.videos);
-              nextContinuationToken = pageResult.nextContinuationToken;
-            } catch (pageErr) {
+          const actions = browseRes.data?.onResponseReceivedActions || [];
+          const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
+          const pageResult = extractVideosFromRichContents(continuationItems);
+          const mapped = mapPage(pageResult.videos);
+          allVideos.push(...mapped);
+          nextContinuationToken = pageResult.nextContinuationToken;
+
+          if (options.onPage) {
+            const shouldContinue = await options.onPage(mapped, batchesProcessed);
+            if (shouldContinue === false) {
+              stoppedEarly = true;
               break;
             }
           }
+        } catch (pageErr: any) {
+          errorMsg = pageErr?.message || 'Pagination error';
+          this.logger.warn(
+            `Web scraper ${tabPath} pagination stopped at batch ${batchesProcessed} for ${channelId}: ${errorMsg}`,
+          );
+          break;
         }
       }
+
+      exhausted = !nextContinuationToken && !errorMsg && !stoppedEarly;
     } catch (err: any) {
-      this.logger.warn(`Web scraper video pagination error for ${channelId}: ${err.message}`);
+      errorMsg = err?.message || 'Scrape error';
+      this.logger.warn(`Web scraper ${tabPath} error for ${channelId}: ${errorMsg}`);
     }
-    return { videos: allVideos };
+
+    return {
+      videos: allVideos,
+      exhausted,
+      stoppedEarly,
+      batchesProcessed,
+      error: errorMsg,
+    };
+  }
+
+  /**
+   * Scrape channel /videos tab with InnerTube continuation support
+   */
+  async scrapeChannelVideosTab(
+    channelId: string,
+    maxBatchesOrOptions: number | ScrapeTabOptions = 10,
+  ): Promise<ScrapeTabResult> {
+    return this.scrapeChannelTab(channelId, 'videos', 'videos', this.normalizeTabOptions(maxBatchesOrOptions));
   }
 
   /**
    * Scrape channel /shorts tab
    */
-  async scrapeChannelShortsTab(channelId: string, maxBatches = 10): Promise<{ videos: ExtractedVideo[] }> {
-    const allVideos: ExtractedVideo[] = [];
-    try {
-      const shortsUrl = `https://www.youtube.com/channel/${channelId}/shorts`;
-      const res = await axios.get(shortsUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        timeout: 10000,
-      });
-
-      const html = res.data;
-      if (typeof html === 'string') {
-        const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-        if (jsonMatch) {
-          const data = JSON.parse(jsonMatch[1]);
-          const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
-          const shortsTab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === 'shorts');
-          const contents = shortsTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
-
-          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
-          allVideos.push(...videos);
-
-          let sBatch = 1;
-          while (nextContinuationToken && sBatch < maxBatches) {
-            sBatch++;
-            try {
-              const browseRes = await axios.post(
-                'https://www.youtube.com/youtubei/v1/browse',
-                {
-                  context: { client: { clientName: 'WEB', clientVersion: '2.20240301.00.00' } },
-                  continuation: nextContinuationToken,
-                },
-                {
-                  headers: {
-                    'User-Agent':
-                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                  },
-                  timeout: 10000,
-                },
-              );
-
-              const actions = browseRes.data?.onResponseReceivedActions || [];
-              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
-              const pageResult = extractVideosFromRichContents(continuationItems);
-              allVideos.push(...pageResult.videos);
-              nextContinuationToken = pageResult.nextContinuationToken;
-            } catch (pageErr) {
-              break;
-            }
-          }
-        }
-      }
-    } catch (err: any) {
-      this.logger.warn(`Web scraper shorts pagination error for ${channelId}: ${err.message}`);
-    }
-    return { videos: allVideos };
+  async scrapeChannelShortsTab(
+    channelId: string,
+    maxBatchesOrOptions: number | ScrapeTabOptions = 10,
+  ): Promise<ScrapeTabResult> {
+    return this.scrapeChannelTab(channelId, 'shorts', 'shorts', this.normalizeTabOptions(maxBatchesOrOptions));
   }
 
   /**
    * Scrape channel /streams tab (Live broadcasts and recordings)
    */
-  async scrapeChannelStreamsTab(channelId: string, maxBatches = 50): Promise<{ videos: ExtractedVideo[] }> {
-    const allVideos: ExtractedVideo[] = [];
-    try {
-      const streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
-      const res = await axios.get(streamsUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        timeout: 10000,
-      });
-
-      const html = res.data;
-      if (typeof html === 'string') {
-        const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-        if (jsonMatch) {
-          const data = JSON.parse(jsonMatch[1]);
-          const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
-          const streamsTab = tabs.find((t: any) => t.tabRenderer?.title?.toLowerCase() === 'live');
-          const contents = streamsTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
-
-          let { videos, nextContinuationToken } = extractVideosFromRichContents(contents);
-          allVideos.push(...videos);
-
-          let batch = 1;
-          while (nextContinuationToken && batch < maxBatches) {
-            batch++;
-            try {
-              const browseRes = await axios.post(
-                'https://www.youtube.com/youtubei/v1/browse',
-                {
-                  context: { client: { clientName: 'WEB', clientVersion: '2.20240301.00.00' } },
-                  continuation: nextContinuationToken,
-                },
-                {
-                  headers: {
-                    'User-Agent':
-                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                  },
-                  timeout: 10000,
-                },
-              );
-
-              const actions = browseRes.data?.onResponseReceivedActions || [];
-              const continuationItems = actions[0]?.appendContinuationItemsAction?.continuationItems || [];
-              const pageResult = extractVideosFromRichContents(continuationItems);
-              allVideos.push(...pageResult.videos);
-              nextContinuationToken = pageResult.nextContinuationToken;
-            } catch (pageErr) {
-              break;
-            }
-          }
-        }
-      }
-    } catch (err: any) {
-      this.logger.warn(`Web scraper streams pagination error for ${channelId}: ${err.message}`);
-    }
-    const mapped = allVideos.map((v) => ({ ...v, videoType: 'VIDEO' as const }));
-    return { videos: mapped };
+  async scrapeChannelStreamsTab(
+    channelId: string,
+    maxBatchesOrOptions: number | ScrapeTabOptions = 50,
+  ): Promise<ScrapeTabResult> {
+    return this.scrapeChannelTab(
+      channelId,
+      'streams',
+      'live',
+      this.normalizeTabOptions(maxBatchesOrOptions),
+      'VIDEO',
+    );
   }
 
   /**
