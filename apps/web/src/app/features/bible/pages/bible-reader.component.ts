@@ -76,14 +76,11 @@ interface AppendedBibleChapter {
     NgTemplateOutlet,
     FormsModule,
     InfiniteScrollTriggerDirective,
-    ReaderColumnsToggleComponent,
-    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     BibleVersionPickerComponent,
     BibleBookChapterSheetComponent,
     BibleSidebarComponent,
     TextSelectionPopoverComponent,
-    ReaderAutoFullscreenToggleComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
     BibleCrossRefsSheetComponent,
@@ -131,13 +128,27 @@ interface AppendedBibleChapter {
       </ng-template>
 
       <ng-template #topbarRight>
-        @if (screen.width() >= 1280) {
-          <app-reader-columns-toggle [showLayoutToggle]="true" />
-        }
-        <app-reader-typography-toggle />
-        @if (screen.width() >= 1280) {
-          <app-reader-auto-fullscreen-toggle />
-        }
+        <div class="tb-font-stepper" aria-label="Font size">
+          <button
+            type="button"
+            class="tb-step-btn"
+            aria-label="Decrease font size"
+            title="Decrease font size"
+            (click)="appearance.stepFontSize(-1)"
+          >
+            −
+          </button>
+          <span class="tb-font-val">{{ appearance.fontSize() }}</span>
+          <button
+            type="button"
+            class="tb-step-btn"
+            aria-label="Increase font size"
+            title="Increase font size"
+            (click)="appearance.stepFontSize(1)"
+          >
+            +
+          </button>
+        </div>
         <div class="tb-actions-pill">
           <button
             type="button"
@@ -1060,6 +1071,40 @@ interface AppendedBibleChapter {
       .book-btn .material-symbols-rounded {
         flex-shrink: 0;
         font-size: 18px;
+      }
+
+      .tb-font-stepper {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 2px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .tb-step-btn {
+        width: 26px;
+        height: 28px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .tb-step-btn:hover {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .tb-font-val {
+        min-width: 22px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
       }
 
       .tb-actions-pill {
