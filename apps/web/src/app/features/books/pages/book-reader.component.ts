@@ -1121,27 +1121,6 @@ interface ImageSpread {
         transition: background-color 180ms ease, color 180ms ease;
       }
 
-      .book-reader-page[data-paper='paper'] {
-        --reader-bg: #faf8f5;
-        --reader-fg: #1f2937;
-        --reader-muted: #6b7280;
-        --reader-border: rgba(31, 41, 55, 0.12);
-      }
-
-      .book-reader-page[data-paper='sepia'] {
-        --reader-bg: #f4ecd8;
-        --reader-fg: #433422;
-        --reader-muted: #78644c;
-        --reader-border: rgba(67, 52, 34, 0.14);
-      }
-
-      .book-reader-page[data-paper='night'] {
-        --reader-bg: #121620;
-        --reader-fg: #e2e8f0;
-        --reader-muted: #94a3b8;
-        --reader-border: rgba(226, 232, 240, 0.12);
-      }
-
       .reader-bar {
         position: sticky;
         top: var(--shell-top-offset);

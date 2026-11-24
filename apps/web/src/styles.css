@@ -54,6 +54,49 @@
   --surface-border: rgba(255, 255, 255, 0.14);
 }
 
+/* Reader Paper Themes — light & dark mode dependent */
+[data-paper='paper'] {
+  --reader-bg: #faf8f5;
+  --reader-fg: #1f2937;
+  --reader-muted: #6b7280;
+  --reader-border: rgba(31, 41, 55, 0.12);
+}
+
+[data-paper='sepia'] {
+  --reader-bg: #f4ecd8;
+  --reader-fg: #433422;
+  --reader-muted: #78644c;
+  --reader-border: rgba(67, 52, 34, 0.14);
+}
+
+[data-paper='night'] {
+  --reader-bg: #121620;
+  --reader-fg: #e2e8f0;
+  --reader-muted: #94a3b8;
+  --reader-border: rgba(226, 232, 240, 0.12);
+}
+
+:root[data-theme='dark'] [data-paper='paper'] {
+  --reader-bg: #181b22;
+  --reader-fg: #e5e7eb;
+  --reader-muted: #9ca3af;
+  --reader-border: rgba(229, 231, 235, 0.12);
+}
+
+:root[data-theme='dark'] [data-paper='sepia'] {
+  --reader-bg: #1f1a14;
+  --reader-fg: #e6d8c3;
+  --reader-muted: #b09f87;
+  --reader-border: rgba(230, 216, 195, 0.14);
+}
+
+:root[data-theme='dark'] [data-paper='night'] {
+  --reader-bg: #080b10;
+  --reader-fg: #e2e8f0;
+  --reader-muted: #94a3b8;
+  --reader-border: rgba(226, 232, 240, 0.12);
+}
+
 *,
 *::before,
 *::after {
