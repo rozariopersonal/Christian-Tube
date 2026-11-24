@@ -399,6 +399,7 @@ const COMPACT_SUBPAGE_PREFIXES = [
       .topbar-center {
         position: relative;
         flex: 1;
+        min-width: 0;
         max-width: 580px;
         margin: 0 auto;
       }

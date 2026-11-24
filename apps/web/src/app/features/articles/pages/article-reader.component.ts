@@ -70,11 +70,11 @@ import { ArticlesService } from '../services/articles.service';
     </ng-template>
 
     <ng-template #topbarRight>
-      @if (screen.screenClass() === 'expanded') {
+      @if (screen.width() >= 1280) {
         <app-reader-columns-toggle />
       }
       <app-reader-typography-toggle />
-      @if (screen.screenClass() === 'expanded') {
+      @if (screen.width() >= 1280) {
         <app-reader-auto-fullscreen-toggle />
       }
       <div class="tb-actions-pill">
