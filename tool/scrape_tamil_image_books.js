@@ -68,7 +68,7 @@ async function get(url, bin = false, ms = 20000, tries = 3) {
   let lastErr;
   for (let t = 0; t < tries; t++) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(ms), headers: { "User-Agent": "Mozilla/5.0 ChristianTubeImagePipeline/1.0" } });
+      const r = await fetch(url, { signal: AbortSignal.timeout(ms), headers: { "User-Agent": "Mozilla/5.0 ChristianAppImagePipeline/1.0" } });
       if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
       return bin ? Buffer.from(await r.arrayBuffer()) : r.text();
     } catch (e) {

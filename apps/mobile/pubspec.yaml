@@ -62,6 +62,7 @@ dependencies:
   app_links: ^7.2.1
   just_audio_background: ^0.0.1-beta.17
   speech_to_text: ^7.4.0
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   flutter_test:

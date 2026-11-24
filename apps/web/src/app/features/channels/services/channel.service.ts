@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
@@ -34,6 +35,7 @@ export class ChannelService {
   constructor() {
     effect(() => {
       const user = this.auth.currentUser();
+      const needsSignIn = this.auth.sessionNeedsSignIn();
       const nextUid = user?.id ?? null;
       if (nextUid !== this.syncedUserId) {
         this.syncedUserId = nextUid;
@@ -43,11 +45,13 @@ export class ChannelService {
             if (!this.areSameIdSets(localIds, this.subscribedIds())) {
               this.setLocalSubscriptions(localIds);
             }
-            void this.loadSubscriptions();
+            if (!needsSignIn) void this.loadSubscriptions();
           } else {
-            this.subscribedIds.set([]);
+            const ids = this.readLocalSubscriptions();
+            const followed = new Set(ids);
+            this.subscribedIds.set(ids);
             this.channels.update((list) =>
-              list.map((c) => ({ ...c, isSubscribed: false })),
+              list.map((channel) => ({ ...channel, isSubscribed: followed.has(channel.id) })),
             );
           }
         });
@@ -114,7 +118,7 @@ export class ChannelService {
   }
 
   async loadSubscriptions(): Promise<void> {
-    if (!this.auth.isAuthenticated()) {
+    if (!this.auth.isAuthenticated() || !this.auth.canSync()) {
       return;
     }
     if (this.inFlightSubscriptionsSync) {
@@ -122,12 +126,16 @@ export class ChannelService {
     }
 
     const versionBefore = this.subscriptionMutationVersion;
+    const acknowledgementVersion = this.userSync.acknowledgementVersion;
+    const userId = this.auth.currentUser()?.id;
     this.inFlightSubscriptionsSync = (async () => {
       try {
         const res = await firstValueFrom(
           this.api.get<unknown>('/api/channels/subscriptions'),
         );
-        if (versionBefore !== this.subscriptionMutationVersion) {
+        if (versionBefore !== this.subscriptionMutationVersion ||
+            acknowledgementVersion !== this.userSync.acknowledgementVersion ||
+            userId !== this.auth.currentUser()?.id) {
           return;
         }
         const ids = this.extractSubscriptionIds(res);
@@ -137,7 +145,8 @@ export class ChannelService {
             this.setLocalSubscriptions(projected);
           }
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof HttpErrorResponse && error.status === 401) this.auth.markSessionRejected();
         // fallback to local storage
       } finally {
         this.inFlightSubscriptionsSync = null;
@@ -164,6 +173,19 @@ export class ChannelService {
     }
 
     this.userSync.enqueueSubscription(channelId, willSubscribe);
+  }
+
+  saveChannelSelections(selected: ReadonlySet<string>): void {
+    this.subscriptionMutationVersion++;
+    const previous = new Set(this.subscribedIds());
+    this.setLocalSubscriptions([...selected]);
+    if (!this.auth.isAuthenticated()) return;
+    for (const id of previous) {
+      if (!selected.has(id)) this.userSync.enqueueSubscription(id, false);
+    }
+    for (const id of selected) {
+      if (!previous.has(id)) this.userSync.enqueueSubscription(id, true);
+    }
   }
 
   async subscribeMany(channelIds: string[]): Promise<void> {

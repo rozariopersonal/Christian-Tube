@@ -31,7 +31,7 @@ import { ReaderAppearanceService } from '../../core/services/reader-appearance.s
             }
           }
 
-          @if (activeCols() === 1 && options().length > 1) {
+          @if (allowContinuous() && activeCols() === 1 && options().length > 1) {
             <span class="seg-divider" aria-hidden="true"></span>
             <button
               type="button"
@@ -131,6 +131,18 @@ import { ReaderAppearanceService } from '../../core/services/reader-appearance.s
         background-color: var(--surface-border);
         margin: 0 3px;
       }
+
+      @media (pointer: coarse) {
+        .cols-seg {
+          height: 38px;
+        }
+
+        .col-btn,
+        .layout-btn {
+          width: 32px;
+          height: 32px;
+        }
+      }
     `,
   ],
 })
@@ -140,6 +152,7 @@ export class ReaderColumnsToggleComponent {
 
   readonly showLayoutToggle = input<boolean>(false);
   readonly maxColumns = input<2 | 3>(3);
+  readonly allowContinuous = input(true);
   readonly hideSpacing = input<boolean>(false);
 
   readonly options = computed<readonly (1 | 2 | 3)[]>(() => {

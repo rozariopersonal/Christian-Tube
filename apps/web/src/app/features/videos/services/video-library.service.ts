@@ -1,7 +1,9 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UserSyncService } from '../../../core/services/user-sync.service';
-import { Video, normalizeVideo } from '../models/video.model';
+import { Video, normalizeVideo, parseDurationSeconds } from '../models/video.model';
+
+export type WatchStatus = 'watched' | 'in_progress' | 'unwatched';
 
 export interface WatchHistoryEntry {
   video: Video;
@@ -13,6 +15,7 @@ export interface WatchHistoryEntry {
 const HISTORY_STORAGE_KEY = 'ct_web_watch_history_v1';
 const WATCH_LATER_STORAGE_KEY = 'ct_web_watch_later_v1';
 const PLAYHEADS_STORAGE_KEY = 'ct_web_video_playheads_v1';
+const LIKED_VIDEOS_STORAGE_KEY = 'ct_web_liked_videos_v1';
 const AUTOPLAY_STORAGE_KEY = 'ct_web_autoplay_v1';
 const RECENT_SEARCHES_KEY = 'ct_web_recent_searches_v1';
 
@@ -28,6 +31,7 @@ export class VideoLibraryService {
 
   readonly history = signal<WatchHistoryEntry[]>([]);
   readonly watchLater = signal<Video[]>([]);
+  readonly likedIds = signal<string[]>([]);
   readonly playheads = signal<Record<string, VideoPlayheadEntry>>({});
   readonly queue = signal<Video[]>([]);
   readonly autoplay = signal<boolean>(this.readBool(AUTOPLAY_STORAGE_KEY, true));
@@ -61,6 +65,7 @@ export class VideoLibraryService {
   private reloadFromUserCache(): void {
     this.history.set(this.readUserJson(HISTORY_STORAGE_KEY, []));
     this.watchLater.set(this.readUserJson(WATCH_LATER_STORAGE_KEY, []));
+    this.likedIds.set(this.readUserJson(LIKED_VIDEOS_STORAGE_KEY, []));
     this.playheads.set(this.readUserJson(PLAYHEADS_STORAGE_KEY, {}));
     this.recentSearches.set(this.readJson(RECENT_SEARCHES_KEY, []));
     if (!this.auth.isAuthenticated()) {
@@ -70,6 +75,24 @@ export class VideoLibraryService {
 
   isWatchLater(videoId: string): boolean {
     return this.watchLaterIds().has(videoId);
+  }
+
+  isLiked(videoId: string): boolean {
+    return this.likedIds().includes(videoId);
+  }
+
+  toggleLike(videoId: string): boolean {
+    const exists = this.isLiked(videoId);
+    const next = exists
+      ? this.likedIds().filter((id) => id !== videoId)
+      : [videoId, ...this.likedIds()];
+    this.likedIds.set(next);
+    this.writeUserJson(LIKED_VIDEOS_STORAGE_KEY, next);
+    return !exists;
+  }
+
+  isInProgress(videoId: string): boolean {
+    return this.progressFraction(videoId) > 0 && !this.isWatched(videoId);
   }
 
   toggleWatchLater(video: Video): boolean {
@@ -103,8 +126,18 @@ export class VideoLibraryService {
     progressSeconds: number,
     durationSeconds: number,
   ): void {
-    const cleanPos = Math.max(0, Math.floor(progressSeconds));
-    const cleanDur = Math.max(0, Math.floor(durationSeconds));
+    const existing = this.history().find((e) => e.video.id === video.id);
+    const inputPos = Math.max(0, Math.floor(progressSeconds));
+    const cleanPos =
+      inputPos === 0 && existing && existing.progressSeconds > 0
+        ? existing.progressSeconds
+        : inputPos;
+    const cleanDur =
+      durationSeconds > 0
+        ? Math.floor(durationSeconds)
+        : existing && existing.durationSeconds > 0
+          ? existing.durationSeconds
+          : parseDurationSeconds(video.duration);
     const current = this.history().filter((e) => e.video.id !== video.id);
     const entry: WatchHistoryEntry = {
       video,
@@ -125,10 +158,34 @@ export class VideoLibraryService {
     this.saveVideoPosition(video.id, cleanPos);
   }
 
+  markWatched(video: Video, durationSeconds?: number): void {
+    const existing = this.history().find((e) => e.video.id === video.id);
+    const parsedDur = parseDurationSeconds(video.duration);
+    const resolvedDur =
+      durationSeconds && durationSeconds > 0
+        ? Math.floor(durationSeconds)
+        : existing && existing.durationSeconds > 0
+          ? existing.durationSeconds
+          : parsedDur > 0
+            ? parsedDur
+            : 1;
+    this.recordProgress(video, resolvedDur, resolvedDur);
+  }
+
+  markUnwatched(videoId: string): void {
+    this.removeFromHistory(videoId);
+  }
+
   removeFromHistory(videoId: string): void {
     const next = this.history().filter((e) => e.video.id !== videoId);
     this.history.set(next);
     this.writeUserJson(HISTORY_STORAGE_KEY, next);
+    if (this.playheads()[videoId]) {
+      const nextPh = { ...this.playheads() };
+      delete nextPh[videoId];
+      this.playheads.set(nextPh);
+      this.writeUserJson(PLAYHEADS_STORAGE_KEY, nextPh);
+    }
     this.userSync.enqueueWatchItem({
       itemType: 'video_history',
       itemId: videoId,
@@ -140,6 +197,8 @@ export class VideoLibraryService {
     const currentIds = this.history().map((e) => e.video.id);
     this.history.set([]);
     this.writeUserJson(HISTORY_STORAGE_KEY, []);
+    this.playheads.set({});
+    this.writeUserJson(PLAYHEADS_STORAGE_KEY, {});
     for (const id of currentIds) {
       this.userSync.enqueueWatchItem({
         itemType: 'video_history',
@@ -149,24 +208,53 @@ export class VideoLibraryService {
     }
   }
 
-  progressFraction(videoId: string): number {
+  private resolveMetrics(
+    videoId: string,
+  ): { progressSeconds: number; durationSeconds: number } | null {
     const entry = this.history().find((e) => e.video.id === videoId);
-    if (!entry || entry.durationSeconds <= 0) return 0;
-    const ratio = entry.progressSeconds / entry.durationSeconds;
+    if (!entry) return null;
+    const durationSeconds =
+      entry.durationSeconds > 0
+        ? entry.durationSeconds
+        : parseDurationSeconds(entry.video.duration);
+    const playheadPos = this.playheads()[videoId]?.positionSeconds ?? 0;
+    const progressSeconds = Math.max(entry.progressSeconds, playheadPos);
+    return { progressSeconds, durationSeconds };
+  }
+
+  watchStatus(videoId: string): WatchStatus {
+    const metrics = this.resolveMetrics(videoId);
+    if (!metrics || metrics.durationSeconds <= 0) return 'unwatched';
+    const { progressSeconds, durationSeconds } = metrics;
+    const ratio = progressSeconds / durationSeconds;
+    if (ratio >= 0.9 || (durationSeconds >= 60 && progressSeconds >= durationSeconds - 10)) {
+      return 'watched';
+    }
+    if (ratio >= 0.03) {
+      return 'in_progress';
+    }
+    return 'unwatched';
+  }
+
+  isWatched(videoId: string): boolean {
+    return this.watchStatus(videoId) === 'watched';
+  }
+
+  progressFraction(videoId: string): number {
+    const metrics = this.resolveMetrics(videoId);
+    if (!metrics || metrics.durationSeconds <= 0) return 0;
+    const ratio = metrics.progressSeconds / metrics.durationSeconds;
     if (ratio < 0.03) return 0;
     return Math.min(1, ratio);
   }
 
   resumeSeconds(videoId: string): number {
-    const entry = this.history().find((e) => e.video.id === videoId);
-    if (!entry) return 0;
-    if (
-      entry.durationSeconds > 0 &&
-      entry.progressSeconds >= entry.durationSeconds - 10
-    ) {
+    const metrics = this.resolveMetrics(videoId);
+    if (!metrics) return 0;
+    if (this.watchStatus(videoId) === 'watched') {
       return 0;
     }
-    return entry.progressSeconds;
+    return metrics.progressSeconds;
   }
 
   addToQueue(video: Video): void {

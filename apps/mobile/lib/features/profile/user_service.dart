@@ -355,16 +355,117 @@ class UserService extends ChangeNotifier {
   }
 
   static const String _videoPositionPrefix = 'video_playhead_';
+  static const String _likedVideosStorageKey = 'liked_video_ids_v1';
+  Set<String> _likedVideoIds = {};
+  bool _likedLoaded = false;
+
+  Future<void> _ensureLikedLoaded() async {
+    if (_likedLoaded) return;
+    _likedLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_likedVideosStorageKey);
+      if (list != null) {
+        _likedVideoIds = list.toSet();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  bool isVideoLiked(String videoId) {
+    if (!_likedLoaded) {
+      unawaited(_ensureLikedLoaded());
+    }
+    return _likedVideoIds.contains(videoId);
+  }
+
+  Future<void> setVideoLiked(String videoId, bool liked) async {
+    if (videoId.isEmpty) return;
+    await _ensureLikedLoaded();
+    if (liked) {
+      _likedVideoIds = {..._likedVideoIds, videoId};
+    } else {
+      _likedVideoIds = {..._likedVideoIds}..remove(videoId);
+    }
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_likedVideosStorageKey, _likedVideoIds.toList());
+    } catch (_) {}
+  }
+
+  /// Parses a formatted duration (`MM:SS` or `HH:MM:SS`) into total seconds.
+  static int parseDurationSeconds(String? duration) {
+    if (duration == null || duration.isEmpty) return 0;
+    final parts = duration.trim().split(':').map(int.tryParse).toList();
+    if (parts.any((p) => p == null)) return 0;
+    if (parts.length == 2) {
+      return parts[0]! * 60 + parts[1]!;
+    }
+    if (parts.length == 3) {
+      return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+    }
+    return 0;
+  }
+
+  /// Fraction watched in `[0.0, 1.0]`, returning `0.0` below 3% or without duration.
+  double progressFraction(
+    String videoId, {
+    String? duration,
+    int? durationSeconds,
+  }) {
+    if (videoId.isEmpty) return 0.0;
+    final entry = _playheads[videoId];
+    final pos = (entry?['positionSeconds'] as num?)?.toDouble() ?? 0.0;
+    final dur = (durationSeconds != null && durationSeconds > 0)
+        ? durationSeconds
+        : ((entry?['durationSeconds'] as num?)?.toInt() ??
+            parseDurationSeconds(duration));
+    if (dur <= 0 || pos <= 0) return 0.0;
+    final ratio = pos / dur;
+    if (ratio < 0.03) return 0.0;
+    return ratio.clamp(0.0, 1.0);
+  }
+
+  /// True when the user has reached the last 10 seconds of the video/short
+  /// (or last 1 second for clips <= 10 seconds).
+  bool isWatched(
+    String videoId, {
+    String? duration,
+    int? durationSeconds,
+  }) {
+    if (videoId.isEmpty) return false;
+    final entry = _playheads[videoId];
+    final pos = (entry?['positionSeconds'] as num?)?.toDouble() ?? 0.0;
+    final dur = (durationSeconds != null && durationSeconds > 0)
+        ? durationSeconds
+        : ((entry?['durationSeconds'] as num?)?.toInt() ??
+            parseDurationSeconds(duration));
+    if (dur <= 0 || pos <= 0) return false;
+    final threshold = dur > 10 ? dur - 10 : dur - 1;
+    return pos >= threshold;
+  }
 
   /// Saves the last known playback position in seconds for [videoId].
-  Future<void> saveVideoPosition(String videoId, double seconds) async {
+  Future<void> saveVideoPosition(
+    String videoId,
+    double seconds, {
+    int? durationSeconds,
+  }) async {
     if (videoId.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('$_videoPositionPrefix$videoId', seconds);
 
+      final existingDur =
+          (_playheads[videoId]?['durationSeconds'] as num?)?.toInt() ?? 0;
+      final resolvedDur = (durationSeconds != null && durationSeconds > 0)
+          ? durationSeconds
+          : existingDur;
+
       _playheads[videoId] = {
         'positionSeconds': seconds.round(),
+        if (resolvedDur > 0) 'durationSeconds': resolvedDur,
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
       };
       if (_playheads.length > 200) {
@@ -373,6 +474,7 @@ class UserService extends ChangeNotifier {
               .compareTo((a.value['updatedAt'] as num?)?.toInt() ?? 0));
         _playheads = Map.fromEntries(sorted.take(200));
       }
+      notifyListeners();
       await prefs.setString(_playheadsStorageKey, jsonEncode(_playheads));
 
       unawaited(

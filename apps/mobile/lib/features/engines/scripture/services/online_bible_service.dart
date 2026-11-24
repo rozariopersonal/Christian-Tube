@@ -189,6 +189,13 @@ class OnlineBibleService {
     receiveTimeout: const Duration(seconds: 15),
   ));
 
+  @visibleForTesting
+  static HttpClientAdapter swapHttpClientAdapter(HttpClientAdapter adapter) {
+    final previous = _dio.httpClientAdapter;
+    _dio.httpClientAdapter = adapter;
+    return previous;
+  }
+
   static final Map<String, List<Map<String, dynamic>>> _memoryCache = {};
   static final Map<String, Future<List<Map<String, dynamic>>>> _inFlight = {};
   static final List<OnlineChapterListener> _chapterListeners = [];

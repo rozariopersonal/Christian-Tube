@@ -78,6 +78,9 @@ class _AppShareDialogState extends State<AppShareDialog> {
 
   String get _downloadUrl {
     if (AppConfig.releasesRepo.isNotEmpty && AppConfig.apkFileName.isNotEmpty) {
+      if (AppConfig.isBeta) {
+        return 'https://github.com/${AppConfig.releasesRepo}/releases/download/beta-latest/${AppConfig.apkFileName}';
+      }
       return 'https://github.com/${AppConfig.releasesRepo}/releases/latest/download/${AppConfig.apkFileName}';
     }
     return '${AppConfig.apiBaseUrl}/download';
@@ -88,6 +91,9 @@ class _AppShareDialogState extends State<AppShareDialog> {
 
   String get _releasePageUrl {
     if (AppConfig.releasesRepo.isNotEmpty) {
+      if (AppConfig.isBeta) {
+        return 'https://github.com/${AppConfig.releasesRepo}/releases/tag/beta-latest';
+      }
       return 'https://github.com/${AppConfig.releasesRepo}/releases/latest';
     }
     return _downloadUrl;

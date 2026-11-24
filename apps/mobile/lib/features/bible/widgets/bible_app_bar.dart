@@ -17,6 +17,7 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onShowReadingSettings,
     required this.onOpenBookmarks,
     required this.onPushManager,
+    required this.onToggleFullscreen,
   });
 
   final BibleController controller;
@@ -24,6 +25,7 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onShowReadingSettings;
   final VoidCallback onOpenBookmarks;
   final VoidCallback onPushManager;
+  final VoidCallback onToggleFullscreen;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -63,6 +65,7 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 tokens: tokens,
                 onSearch: onShowSearch,
                 onAppearance: onShowReadingSettings,
+                onFullscreen: onToggleFullscreen,
                 onDownloads: onPushManager,
                 onBooks: () => context.push('/books'),
                 onBookmarks: onOpenBookmarks,
@@ -85,6 +88,12 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onDownloads: onPushManager,
                 onBooks: () => context.push('/books'),
                 onBookmarks: onOpenBookmarks,
+              ),
+              IconButton(
+                tooltip: 'Enter fullscreen reading',
+                icon: Icon(Icons.fullscreen_rounded,
+                    color: appearance.textColor(tokens)),
+                onPressed: onToggleFullscreen,
               ),
             ],
     );
@@ -140,6 +149,7 @@ class _MoreMenu extends StatelessWidget {
     required this.onBookmarks,
     this.onSearch,
     this.onAppearance,
+    this.onFullscreen,
   });
 
   final ReaderAppearance appearance;
@@ -149,6 +159,7 @@ class _MoreMenu extends StatelessWidget {
   final VoidCallback onBookmarks;
   final VoidCallback? onSearch;
   final VoidCallback? onAppearance;
+  final VoidCallback? onFullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -163,6 +174,9 @@ class _MoreMenu extends StatelessWidget {
             break;
           case 'appearance':
             onAppearance?.call();
+            break;
+          case 'fullscreen':
+            onFullscreen?.call();
             break;
           case 'books':
             onBooks();
@@ -209,6 +223,23 @@ class _MoreMenu extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text('Appearance',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: appearance.textColor(tokens))),
+                ),
+              ],
+            ),
+          ),
+        if (onFullscreen != null)
+          PopupMenuItem(
+            value: 'fullscreen',
+            child: Row(
+              children: [
+                Icon(Icons.fullscreen_rounded,
+                    size: 18, color: appearance.textColor(tokens)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Fullscreen reading',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: appearance.textColor(tokens))),

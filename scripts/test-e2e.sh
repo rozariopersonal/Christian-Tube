@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Automated E2E Test Runner for Christian-Tube APKs (Bash / CI / Linux / macOS)
+# Automated E2E Test Runner for ChristianApp APKs (Bash / CI / Linux / macOS)
 # ==============================================================================
 set -e
 
@@ -10,7 +10,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOBILE_DIR="$ROOT_DIR/apps/mobile"
 
 echo "======================================================"
-echo "   Christian-Tube E2E Quality Gate (Bash/CI Runner)   "
+echo "   ChristianApp E2E Quality Gate (Bash/CI Runner)   "
 echo "   Instance: $INSTANCE | Flow: $FLOW                  "
 echo "======================================================"
 

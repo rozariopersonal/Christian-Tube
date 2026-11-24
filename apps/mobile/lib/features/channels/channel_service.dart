@@ -71,6 +71,14 @@ class ChannelService extends ChangeNotifier {
   })  : _dio = dio ?? ApiClient().dio,
         _syncService = syncService ?? UserSyncService.instance {
     attachToAuth(authService);
+    _syncService.addListener(_onSyncStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _authService?.removeListener(_onAuthChanged);
+    _syncService.removeListener(_onSyncStateChanged);
+    super.dispose();
   }
 
   @visibleForTesting
@@ -144,14 +152,10 @@ class ChannelService extends ChangeNotifier {
       _saveToPrefs();
       notifyListeners();
     }
-    if (_isAuthenticated && newIds.isNotEmpty) {
-      for (final id in newIds) {
-        if (_syncService.activeUserId != null) {
-          unawaited(_syncService.enqueueSubscription(id, true));
-        } else {
-          _syncSubscriptionToBackend(id, true, false);
-        }
-      }
+    if (_isAuthenticated && _syncService.activeUserId != null) {
+      unawaited(_syncService.enqueueSubscriptions({
+        for (final id in newIds) id: true,
+      }));
     }
   }
 
@@ -191,6 +195,8 @@ class ChannelService extends ChangeNotifier {
 
   Future<void> _loadFromBackend() async {
     final versionBefore = _subscriptionMutationVersion;
+    final acknowledgementVersion = _syncService.acknowledgementVersion;
+    final userId = _authService?.currentUser?.id;
     try {
       dynamic response;
       try {
@@ -199,7 +205,9 @@ class ChannelService extends ChangeNotifier {
         response = await _dio.get('/channels/subscriptions');
       }
 
-      if (versionBefore != _subscriptionMutationVersion) {
+      if (versionBefore != _subscriptionMutationVersion ||
+          acknowledgementVersion != _syncService.acknowledgementVersion ||
+          userId != _authService?.currentUser?.id) {
         return;
       }
 
@@ -225,7 +233,11 @@ class ChannelService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading subscriptions from backend: $e');
-      await _loadFromPrefs();
+      if (versionBefore == _subscriptionMutationVersion &&
+          acknowledgementVersion == _syncService.acknowledgementVersion &&
+          userId == _authService?.currentUser?.id) {
+        await _loadFromPrefs();
+      }
     }
   }
 
@@ -539,20 +551,73 @@ class ChannelService extends ChangeNotifier {
           (c) => c?.id == channelId,
           orElse: () => null,
         );
-    try {
-      UserPreferenceService.instance.syncChannelFollowState(
-        channelId,
-        willSubscribe,
-        hasShorts: ch?.hasShorts ?? true,
-      );
-    } catch (_) {}
+    unawaited(_persistFollowChange(
+      channelId,
+      willSubscribe,
+      wasSubscribed,
+      ch?.hasShorts ?? true,
+    ));
+  }
 
+  Future<void> _persistFollowChange(
+    String channelId,
+    bool followed,
+    bool wasFollowed,
+    bool hasShorts,
+  ) async {
     if (_isAuthenticated) {
-      if (_syncService.activeUserId != null) {
-        unawaited(_syncService.enqueueSubscription(channelId, willSubscribe));
+      if (_syncService.activeUserId != null &&
+          (_authService?.currentUser == null ||
+              _authService!.currentUser!.id == _syncService.activeUserId)) {
+        await _syncService.enqueueSubscription(channelId, followed);
       } else {
-        _syncSubscriptionToBackend(channelId, willSubscribe, wasSubscribed);
+        try {
+          if (followed) {
+            await _dio.post('/api/channels/$channelId/subscribe');
+          } else {
+            await _dio.delete('/api/channels/$channelId/subscribe');
+          }
+        } catch (error) {
+          debugPrint('Subscription backend sync failed, reverting: $error');
+          _applySubscriptionState(channelId, wasFollowed);
+          await _saveToPrefs();
+          notifyListeners();
+          return;
+        }
       }
+    }
+    try {
+      await UserPreferenceService.instance.syncChannelFollowState(
+        channelId,
+        followed,
+        auth: _authService,
+        hasShorts: hasShorts,
+      );
+    } catch (error) {
+      debugPrint('Could not persist channel follow: $error');
+    }
+  }
+
+  /// Applies the difference between two explicit sets of channel selections.
+  Future<void> saveChannelSelections(
+    Set<String> previous,
+    Set<String> selected,
+  ) async {
+    final changes = {
+      for (final id in previous.difference(selected)) id: false,
+      for (final id in selected.difference(previous)) id: true,
+    };
+    if (changes.isEmpty) return;
+    _subscriptionMutationVersion++;
+    for (final change in changes.entries) {
+      _applySubscriptionState(change.key, change.value);
+    }
+    notifyListeners();
+    await _saveToPrefs();
+    if (_syncService.activeUserId != null &&
+        (_authService?.currentUser == null ||
+            _authService!.currentUser!.id == _syncService.activeUserId)) {
+      await _syncService.enqueueSubscriptions(changes);
     }
   }
 
@@ -567,25 +632,6 @@ class ChannelService extends ChangeNotifier {
     if (index != -1) {
       final ch = _channels[index];
       _channels[index] = ch.copyWith(isSubscribed: subscribed);
-    }
-  }
-
-  Future<void> _syncSubscriptionToBackend(
-    String channelId,
-    bool willSubscribe,
-    bool wasSubscribed,
-  ) async {
-    try {
-      if (willSubscribe) {
-        await _dio.post('/api/channels/$channelId/subscribe');
-      } else {
-        await _dio.delete('/api/channels/$channelId/subscribe');
-      }
-    } catch (e) {
-      debugPrint('Subscription backend sync failed, reverting: $e');
-      _applySubscriptionState(channelId, wasSubscribed);
-      _saveToPrefs();
-      notifyListeners();
     }
   }
 }

@@ -10,6 +10,19 @@ OUTPUT_DIR="$ROOT_DIR/.vercel/output"
 
 echo "==> Building Angular web for instance: $INSTANCE_ID"
 
+# Determine target API base URL:
+# - Explicit API_BASE_URL env var wins
+# - Otherwise, if Vercel preview / develop branch and STAGING_API_BASE_URL is set, use it
+# - Fallback to staging URL on develop branch if not production
+EFFECTIVE_API_URL="${API_BASE_URL:-}"
+if [ -z "$EFFECTIVE_API_URL" ] && [ "${VERCEL_ENV:-}" != "production" ]; then
+  if [ -n "${STAGING_API_BASE_URL:-}" ]; then
+    EFFECTIVE_API_URL="$STAGING_API_BASE_URL"
+  elif [ "${VERCEL_GIT_COMMIT_REF:-}" = "develop" ]; then
+    EFFECTIVE_API_URL="https://christianapp-test.onrender.com"
+  fi
+fi
+
 cd "$WEB_DIR"
 npm ci
 npm run build
@@ -33,6 +46,15 @@ mkdir -p "$OUTPUT_DIR/static"
 mkdir -p "$OUTPUT_DIR/functions/og.func"
 
 cp -R "$WEB_BUILD/." "$OUTPUT_DIR/static/"
+if [ -n "$EFFECTIVE_API_URL" ]; then
+  echo "==> Writing runtime env-config.js (apiBaseUrl=$EFFECTIVE_API_URL)"
+  node -e "
+    const fs = require('fs');
+    const out = process.argv[1];
+    const url = process.argv[2];
+    fs.writeFileSync(out, 'window.__APP_CONFIG__ = ' + JSON.stringify({ apiBaseUrl: url }) + ';\n');
+  " "$OUTPUT_DIR/static/env-config.js" "$EFFECTIVE_API_URL"
+fi
 cp "$ROOT_DIR/serverless/og.js" "$OUTPUT_DIR/functions/og.func/index.js"
 cat > "$OUTPUT_DIR/functions/og.func/.vc-config.json" <<'VC'
 {
@@ -47,6 +69,10 @@ cat > "$OUTPUT_DIR/config.json" <<'CONFIG'
   "headers": [
     {
       "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/env-config.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {

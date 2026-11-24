@@ -221,7 +221,7 @@ class FontSpecimenCard extends StatelessWidget {
     required bool isLoading,
   }) {
     final tokens = context.tokens;
-    final sampleText = _getLocalizedScriptureSample(languageCode);
+    final sampleText = fontOption.sampleText ?? _getLocalizedScriptureSample(languageCode);
 
     return AnimatedCrossFade(
       duration: const Duration(milliseconds: 250),

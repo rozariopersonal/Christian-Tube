@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from model import embed_texts, warmup
 from model_contract import EMBEDDING_DIM, EMBEDDING_VERSION, MODEL_ID
 
-app = FastAPI(title="ChristianTube Embeddings")
+app = FastAPI(title="ChristianApp Embeddings")
 
 AUTH_TOKEN = os.environ.get("EMBEDDING_AUTH_TOKEN", "")
 

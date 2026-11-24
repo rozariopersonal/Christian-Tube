@@ -74,7 +74,7 @@ async function fetchWithTimeout(url, isBinary = false, timeoutMs = 8000) {
   const res = await fetch(url, {
     signal: AbortSignal.timeout(timeoutMs),
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChristianTubeBookPipeline/1.0',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChristianAppBookPipeline/1.0',
     },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);

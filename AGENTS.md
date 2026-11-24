@@ -52,7 +52,8 @@ shell navigation:
   The bottom bar **must not** remain visible at these sizes.
 - The bottom bar **must not** be hidden in landscape on tablets/web — an
   alternate (rail) must be present there. Hidden nav is only acceptable for
-  fullscreen players/shorts (via `BottomBarVisibilityService`).
+  fullscreen players/shorts or an active Bible, book, or article fullscreen
+  reading session (via `BottomBarVisibilityService`).
 
 ### 3. Content width — never stretch
 
@@ -527,8 +528,10 @@ Every change to the Flutter mobile client is subject to a 3-tier quality gate lo
 
 ### 3. Agent Branching & Local Test Standard
 
-- **Dedicated Branch per Task**: Agents and developers **must not** commit or push directly to `main` or `develop`. Every task must be performed on an isolated branch created from `develop`:
+- **Dedicated Branch per Task**: Agents and developers **must not** commit or push directly to `main` or `develop`. Every task must be performed on an isolated branch created from `develop`.
+- **One-Way Promotion (`feature/*` → `develop` → `main`)**: Feature and fix PRs **must** target `develop` (never `main` directly). Once staging (`develop`) is verified, promote `develop` → `main` using a **standard merge commit** (never squash or rebase, and never force-push `develop`). If an emergency hotfix ever lands on `main`, merge `main` back into `develop` before creating new branches:
   ```bash
+  git fetch origin
   git checkout develop
   git pull origin develop
   git checkout -b agent/<short-task-name>

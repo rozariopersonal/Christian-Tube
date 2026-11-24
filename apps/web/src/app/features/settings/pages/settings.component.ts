@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { ReleaseDataService } from '../../../core/api/release-data.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { GoogleSignInButtonComponent } from '../../../core/auth/google-sign-in-button.component';
 import {
   READER_FONTS,
   ReaderAppearanceService,
@@ -24,7 +25,7 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
 @Component({
   selector: 'app-settings-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, GoogleSignInButtonComponent],
   template: `
     <div class="settings-page max-width-box">
       <header class="page-head">
@@ -50,6 +51,12 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
               Sign Out
             </button>
           </div>
+          @if (auth.sessionNeedsSignIn()) {
+            <div class="account-actions">
+              <p class="muted">Your session has expired. Sign in again to resume syncing.</p>
+              <app-google-sign-in-button />
+            </div>
+          }
         } @else {
           <div class="account-actions">
             <p class="muted">Sign in to sync followed channels &amp; preferences.</p>
@@ -119,6 +126,25 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
                 (click)="theme.setAppFont(f)"
               >
                 {{ f }}
+              </button>
+            }
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h2>Default Page on Open</h2>
+        <div class="field-group">
+          <span class="label">Choose which page opens first when you launch the app</span>
+          <div class="chip-wrap">
+            @for (opt of defaultPageOptions; track opt.id) {
+              <button
+                type="button"
+                class="pill-chip"
+                [class.active]="prefs.defaultPage() === opt.id"
+                (click)="prefs.setDefaultPage(opt.id)"
+              >
+                {{ opt.label }}
               </button>
             }
           </div>
@@ -486,6 +512,7 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
       }
 
       .select-input {
+        width: 100%;
         max-width: 280px;
         height: 40px;
         padding: 0 12px;
@@ -555,6 +582,15 @@ export class SettingsComponent {
 
   readonly colorThemes = APP_COLOR_THEMES;
   readonly appFonts = APP_FONT_FAMILIES;
+  readonly defaultPageOptions = [
+    { id: 'feed', label: 'Videos' },
+    { id: 'shorts', label: 'Shorts' },
+    { id: 'words', label: 'Words' },
+    { id: 'bible', label: 'Bible' },
+    { id: 'library', label: 'Books' },
+    { id: 'articles', label: 'Articles' },
+    { id: 'audio', label: 'Audio' },
+  ];
   readonly fonts = READER_FONTS;
   readonly bibleVersions = BIBLE_VERSIONS;
   readonly preferredBibleVersions = computed(() => {

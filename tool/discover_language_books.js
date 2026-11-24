@@ -23,7 +23,7 @@ async function checkLang(lang) {
     const res = await fetch(lang.url, {
       signal: AbortSignal.timeout(10000),
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChristianTubeBookPipeline/1.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChristianAppBookPipeline/1.0',
       },
     });
     if (!res.ok) {

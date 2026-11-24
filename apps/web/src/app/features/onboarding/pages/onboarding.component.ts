@@ -1,8 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../../../core/api/api.service';
+import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import {
@@ -317,7 +317,8 @@ const BIBLE_VERSIONS = ['NASB', 'KJV', 'ASV', 'NLT', 'WEB', 'TAOBVSI'];
 })
 export class OnboardingComponent implements OnInit {
   private readonly router = inject(Router);
-  private readonly api = inject(ApiService);
+  private readonly preferences = inject(ContentPreferencesService);
+  private readonly userSync = inject(UserSyncService);
   private readonly channels = inject(ChannelService);
   private readonly appearance = inject(ReaderAppearanceService);
   readonly auth = inject(AuthService);
@@ -325,8 +326,9 @@ export class OnboardingComponent implements OnInit {
 
   readonly step = signal<number>(0);
   readonly saving = signal<boolean>(false);
-  readonly selectedLanguages = signal<Set<string>>(new Set(['en']));
-  readonly selectedChannelIds = signal<Set<string>>(new Set());
+  readonly selectedLanguages = signal(new Set(this.preferences.preferredLanguages()));
+  readonly selectedChannelIds = signal(new Set(this.channels.subscribedIds()));
+  private channelSelectionEdited = false;
   readonly channelSearch = signal<string>('');
   readonly primaryBible = signal<string>(this.appearance.primaryBibleVersion());
 
@@ -343,6 +345,11 @@ export class OnboardingComponent implements OnInit {
 
   ngOnInit(): void {
     void this.channels.fetchChannels();
+    void this.channels.loadSubscriptions().then(() => {
+      if (!this.channelSelectionEdited) {
+        this.selectedChannelIds.set(new Set(this.channels.subscribedIds()));
+      }
+    });
   }
 
   toggleLanguage(code: string): void {
@@ -356,6 +363,7 @@ export class OnboardingComponent implements OnInit {
   }
 
   toggleChannel(id: string): void {
+    this.channelSelectionEdited = true;
     const next = new Set(this.selectedChannelIds());
     if (next.has(id)) {
       next.delete(id);
@@ -369,26 +377,16 @@ export class OnboardingComponent implements OnInit {
     this.saving.set(true);
     try {
       this.appearance.setPrimaryBibleVersion(this.primaryBible());
-      const langs = [...this.selectedLanguages()];
-      localStorage.setItem('selected_languages', JSON.stringify(langs));
-      localStorage.setItem('onboarding_completed', 'true');
-
-      const chIds = [...this.selectedChannelIds()];
-      if (chIds.length > 0) {
-        await this.channels.subscribeMany(chIds);
+      this.preferences.setLanguages([...this.selectedLanguages()]);
+      this.theme.setThemeMode(this.theme.themeMode());
+      this.theme.setColorTheme(this.theme.colorTheme().id);
+      if (this.channelSelectionEdited) {
+        this.channels.saveChannelSelections(this.selectedChannelIds());
       }
-
       if (this.auth.isAuthenticated()) {
-        await firstValueFrom(
-          this.api.put('/api/users/preferences', {
-            languages: langs,
-            primaryBibleVersion: this.primaryBible(),
-            themeMode: this.theme.themeMode(),
-            colorTheme: this.theme.colorTheme().id,
-            isAmoled: this.theme.isAmoled(),
-          }),
-        ).catch(() => null);
+        this.userSync.enqueuePreference('hasCompletedOnboarding', true);
       }
+      localStorage.setItem('onboarding_completed', 'true');
       await this.router.navigateByUrl('/feed');
     } finally {
       this.saving.set(false);

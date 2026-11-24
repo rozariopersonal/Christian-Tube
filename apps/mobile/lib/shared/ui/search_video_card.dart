@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
+import 'video_thumbnail_overlays.dart';
 
 class SearchVideoCard extends StatelessWidget {
   final Video video;
@@ -53,6 +54,13 @@ class SearchVideoCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    VideoWatchedOverlays(
+                      videoId: video.id,
+                      duration: video.duration,
+                      compact: true,
+                      badgeTopOffset: 4,
+                      badgeLeftOffset: 4,
+                    ),
                   ],
                 ),
               ),

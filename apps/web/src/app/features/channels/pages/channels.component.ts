@@ -325,12 +325,14 @@ import { ChannelService } from '../services/channel.service';
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        flex-wrap: wrap;
       }
 
       .req-url {
         margin: 4px 0 0;
         font-size: 12px;
         color: var(--on-surface-muted);
+        overflow-wrap: anywhere;
       }
 
       .status-badge {

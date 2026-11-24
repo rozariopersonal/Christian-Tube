@@ -23,16 +23,26 @@ export class ScreenClassService {
   readonly width = signal<number>(
     typeof window !== 'undefined' ? window.innerWidth : 1024,
   );
+  readonly height = signal<number>(
+    typeof window !== 'undefined' ? window.innerHeight : 768,
+  );
 
   readonly screenClass = computed<ScreenClass>(() =>
     screenClassOfWidth(this.width()),
   );
   readonly isCompact = computed(() => this.screenClass() === 'compact');
+  readonly isLandscapeCompact = computed(
+    () => this.width() < 600 && this.height() < this.width(),
+  );
+  readonly showNavigationRail = computed(
+    () => !this.isCompact() || this.isLandscapeCompact(),
+  );
   readonly isMediumOrExpanded = computed(() => !this.isCompact());
   readonly isDesktop = computed(() => supportsPersistentSidebar(this.width()));
   readonly collapseAppBarActions = computed(() =>
     needsCollapsedActions(this.width()),
   );
+  readonly collapseReaderActions = computed(() => this.width() < 480);
 
   readonly feedColumns = computed(() => {
     switch (this.screenClass()) {
@@ -47,7 +57,10 @@ export class ScreenClassService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      window.addEventListener('resize', () => this.width.set(window.innerWidth));
+      window.addEventListener('resize', () => {
+        this.width.set(window.innerWidth);
+        this.height.set(window.innerHeight);
+      });
     }
   }
 }

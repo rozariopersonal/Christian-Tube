@@ -49,7 +49,7 @@ function clean(html) {
 async function get(url, bin = false, ms = 15000) {
   const r = await fetch(url, {
     signal: AbortSignal.timeout(ms),
-    headers: { "User-Agent": "Mozilla/5.0 ChristianTubeBookPipeline/2.0" },
+    headers: { "User-Agent": "Mozilla/5.0 ChristianAppBookPipeline/2.0" },
   });
   if (!r.ok) throw new Error(`HTTP ${r.status} ${url}`);
   return bin ? Buffer.from(await r.arrayBuffer()) : r.text();

@@ -5,7 +5,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../core/theme/app_tokens.dart';
 
 /// A rich, ultra-smooth Flutter-native video player control overlay.
-/// Replaces YouTube webview/iframe native controls with a clean, branded Christian-Tube UI.
+/// Replaces YouTube webview/iframe native controls with a clean, branded ChristianApp UI.
 class FlutterVideoControlsOverlay extends StatefulWidget {
   final YoutubePlayerController? controller;
 

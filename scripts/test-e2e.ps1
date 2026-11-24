@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Automated E2E Test Runner for Christian-Tube APKs (Local & Agent friendly).
+    Automated E2E Test Runner for ChristianApp APKs (Local & Agent friendly).
 .DESCRIPTION
     Runs static analysis, unit/widget tests, builds the APK, installs it on a running
     Android device/emulator, and executes Maestro E2E test flows.
@@ -32,7 +32,7 @@ if (-not $env:ANDROID_HOME) {
 $env:GRADLE_OPTS = "-Djava.net.preferIPv4Stack=true"
 
 Write-Host "======================================================" -ForegroundColor Cyan
-Write-Host "   Christian-Tube E2E Quality Gate (Local Runner)     " -ForegroundColor Cyan
+Write-Host "   ChristianApp E2E Quality Gate (Local Runner)     " -ForegroundColor Cyan
 Write-Host "   Instance: $Instance | Flow: $Flow                  " -ForegroundColor Cyan
 Write-Host "======================================================" -ForegroundColor Cyan
 

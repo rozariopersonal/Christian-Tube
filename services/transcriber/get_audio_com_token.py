@@ -32,7 +32,7 @@ def register_client() -> str:
     resp = requests.post(
         CLIENT_REGISTRATION_URL,
         json={
-            "client_name": "ChristianTubeTranscriber",
+            "client_name": "ChristianAppTranscriber",
             "redirect_uris": [REDIRECT_URI],
         },
         timeout=15,

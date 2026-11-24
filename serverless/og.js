@@ -13,10 +13,7 @@
 // JSDoc: Vercel Edge Runtime exposes the Web Request/Response APIs.
 
 const APP_NAME = 'ChristianApp';
-const WEB_ORIGIN = 'https://christianapp.vercel.app';
-
-// Branded fallback card used for content without a dedicated thumbnail.
-const BRAND_IMAGE = WEB_ORIGIN + '/icons/Icon-512.png';
+const DEFAULT_ORIGIN = 'https://christianapp.vercel.app';
 
 function prop(name, content) {
   if (!content) return '';
@@ -61,11 +58,12 @@ async function ytOembed(id) {
   }
 }
 
-async function resolveMeta(path) {
+async function resolveMeta(path, origin) {
   let kind = 'app';
   let title = APP_NAME;
   let description = 'Watch high-quality Christian videos, shorts, devotions and words.';
-  let image = BRAND_IMAGE;
+  // Branded fallback card used for content without a dedicated thumbnail.
+  let image = origin + '/icons/Icon-512.png';
 
   const videoId = videoIdFromPath(path);
   const shortId = shortsId(path);
@@ -105,16 +103,17 @@ async function resolveMeta(path) {
 
 export default async function handler(request) {
   const url = new URL(request.url);
+  const origin = url.origin || DEFAULT_ORIGIN;
 
   // The original shared path was passed as ?u= by the vercel route.
   let path = url.searchParams.get('u') || url.pathname || '/';
 
-  const meta = await resolveMeta(path);
+  const meta = await resolveMeta(path, origin);
 
-  // Load the SPA shell so real browsers still boot the app.
+  // Load the SPA shell from the current deployment origin so real browsers still boot the app.
   let html = '';
   try {
-    const res = await fetch(WEB_ORIGIN + '/index.html');
+    const res = await fetch(origin + '/index.html', { cache: 'no-store' });
     html = await res.text();
   } catch (_) {
     html =
@@ -129,7 +128,7 @@ export default async function handler(request) {
   const ogBlock =
     `<meta property="og:type" content="website" />` +
     `<meta property="og:site_name" content="${APP_NAME}" />` +
-    `<meta property="og:url" content="${WEB_ORIGIN}${path}" />` +
+    `<meta property="og:url" content="${origin}${path}" />` +
     prop('title', meta.title) +
     prop('description', meta.description) +
     prop('image', meta.image) +
@@ -144,7 +143,7 @@ export default async function handler(request) {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=0, s-maxage=3600',
+      'cache-control': 'no-cache, no-store, must-revalidate',
     },
   });
 }

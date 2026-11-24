@@ -11,7 +11,9 @@
     "lightBackground": "#FFFFFF"
   },
   "apiBaseUrl": "https://christianapp-zjdh.onrender.com",
+  "stagingApiBaseUrl": "https://christianapp-test.onrender.com",
   "webAppUrl": "https://christianapp.vercel.app",
+  "stagingWebAppUrl": "https://christianapp-test.vercel.app",
   "releasesRepo": "rozariopersonal/Christian-Tube-Releases",
   "apkFileName": "christian-app.apk",
   "adminEmails": [
