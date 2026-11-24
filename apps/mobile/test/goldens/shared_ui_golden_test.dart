@@ -64,7 +64,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(
-      buildHarness(tokens: AppTokens.light, brightness: Brightness.light),
+      buildHarness(
+        tokens: AppTokens.light.copyWith(accent: const Color(0xFFF59E0B)),
+        brightness: Brightness.light,
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -80,7 +83,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(
-      buildHarness(tokens: AppTokens.dark, brightness: Brightness.dark),
+      buildHarness(
+        tokens: AppTokens.dark.copyWith(accent: const Color(0xFFF59E0B)),
+        brightness: Brightness.dark,
+      ),
     );
     await tester.pumpAndSettle();
 
