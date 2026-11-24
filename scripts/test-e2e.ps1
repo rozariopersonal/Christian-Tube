@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Automated E2E Test Runner for Christian-Tube APKs (Local & Agent friendly).
 .DESCRIPTION
@@ -195,18 +195,45 @@ if (-not (Test-Path $flowPath)) {
     exit 1
 }
 
-Write-Host "`n[5/5] Running Maestro E2E Flow: $Flow..." -ForegroundColor Yellow
+Write-Host "`n[5/5] Running Maestro E2E Flow: $Flow (with video & screenshot capture)..." -ForegroundColor Yellow
+$resultsDir = Join-Path $RootDir "e2e-results\mobile"
+New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+$flowBase = [System.IO.Path]::GetFileNameWithoutExtension($Flow)
+$deviceVideoPath = "/sdcard/e2e_${flowBase}.mp4"
+$localVideoPath = Join-Path $resultsDir "${flowBase}.mp4"
+
 Push-Location $RootDir
 try {
-    & maestro test $flowPath
-    if ($LASTEXITCODE -eq 0) {
+    # Start background screen recording on emulator/device
+    $recordProc = Start-Process -FilePath "adb" -ArgumentList @("shell", "screenrecord", "--time-limit", "180", $deviceVideoPath) -PassThru -NoNewWindow
+
+    try {
+        & maestro test $flowPath --debug-output (Join-Path $resultsDir "maestro-debug")
+        $maestroExit = $LASTEXITCODE
+    } finally {
+        # Stop screenrecord cleanly with SIGINT so mp4 header is finalized
+        & adb shell pkill -l INT screenrecord 2>$null
+        Start-Sleep -Seconds 2
+        if ($recordProc -and -not $recordProc.HasExited) {
+            Stop-Process -Id $recordProc.Id -Force -ErrorAction SilentlyContinue
+        }
+        & adb pull $deviceVideoPath $localVideoPath 2>$null | Out-Null
+        & adb shell rm -f $deviceVideoPath 2>$null | Out-Null
+        # Collect any Maestro-generated screenshots into e2e-results/mobile
+        Get-ChildItem -Path $RootDir -Filter "*.png" -File -ErrorAction SilentlyContinue | ForEach-Object {
+            Move-Item -Path $_.FullName -Destination (Join-Path $resultsDir $_.Name) -Force
+        }
+    }
+
+    if ($maestroExit -eq 0) {
         Write-Host "`n======================================================" -ForegroundColor Green
         Write-Host "🎉 ALL QUALITY GATES PASSED! E2E VERIFICATION COMPLETE " -ForegroundColor Green
+        Write-Host "   Media saved to: $resultsDir" -ForegroundColor Gray
         Write-Host "======================================================" -ForegroundColor Green
     } else {
         Write-Host "`n❌ MAESTRO E2E TEST FAILED!" -ForegroundColor Red
-        Write-Host "Check the output above for the failing step and screenshots." -ForegroundColor Red
-        exit $LASTEXITCODE
+        Write-Host "Check the output above and media in $resultsDir." -ForegroundColor Red
+        exit $maestroExit
     }
 } finally {
     Pop-Location

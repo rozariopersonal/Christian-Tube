@@ -107,6 +107,10 @@ void main() {
   group('OnlineBibleService Live Chapter Fetching', () {
     test('fetches John 3 (book 43, ch 3) for NASB from API.Bible', () async {
       final verses = await OnlineBibleService.fetchLiveChapter('NASB', 43, 3);
+      if (verses.isEmpty && OnlineBibleService.isRateLimited('NASB')) {
+        markTestSkipped('NASB API rate limit reached (403/429)');
+        return;
+      }
       expect(verses, isNotEmpty);
       final v16 = verses.where((v) => v['verse'] == 16).firstOrNull;
       expect(v16, isNotNull);
@@ -115,6 +119,10 @@ void main() {
 
     test('fetches Genesis 1 (book 1, ch 1) for MSG with clubbed verse spans', () async {
       final verses = await OnlineBibleService.fetchLiveChapter('MSG', 1, 1);
+      if (verses.isEmpty && OnlineBibleService.isRateLimited('MSG')) {
+        markTestSkipped('MSG API rate limit reached (403/429)');
+        return;
+      }
       expect(verses, isNotEmpty);
       expect(verses.length, greaterThan(5));
       final v1 = verses.where((v) => v['verse'] == 1).firstOrNull;
@@ -122,6 +130,17 @@ void main() {
       expect((v1!['text'] as String).isNotEmpty, isTrue);
       expect(v1['verse_span'], isNotNull);
     }, timeout: const Timeout(Duration(seconds: 25)));
+
+    test('tracks rate limit state and clears cleanly', () {
+      OnlineBibleService.clearRateLimitStateForTest();
+      expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
+
+      OnlineBibleService.markRateLimitedForTest('MSG');
+      expect(OnlineBibleService.isRateLimited('msg'), isTrue);
+
+      OnlineBibleService.clearRateLimitStateForTest();
+      expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
+    });
   });
 
   group('Canonical Bible Chapter Navigation Helpers', () {

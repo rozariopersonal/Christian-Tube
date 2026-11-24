@@ -49,14 +49,30 @@ jobs:
   # GATE 1: CODE & UNIT QUALITY GATE
   # ============================================================================
   backend_quality_check:
-    name: 'Backend Quality Gate (Jest & TypeScript)'
+    name: 'Backend Quality Gate (Jest, Postgres Int & Diff Coverage)'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: paths
     if: needs.paths.outputs.backend == 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: pass
+          POSTGRES_DB: db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -69,14 +85,25 @@ jobs:
         run: npm ci
         working-directory: apps/backend
 
-      - name: Prisma Schema Validation
+      - name: Prisma Schema Validation & Migrate
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
-        run: npx prisma validate
+        run: |
+          npx prisma validate
+          npx prisma migrate deploy
         working-directory: apps/backend
 
-      - name: Backend Unit Tests
-        run: npm test -- --runInBand
+      - name: Backend Unit Tests & Coverage
+        run: npm test -- --runInBand --coverage
+        working-directory: apps/backend
+
+      - name: Backend Diff Coverage (>= 80%)
+        run: node scripts/check-diff-coverage.mjs --lcov apps/backend/coverage/lcov.info --prefix apps/backend/ --min 80 --base "origin/${{ github.base_ref }}"
+
+      - name: Backend DB Integration Tests
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
+        run: npm run test:int
         working-directory: apps/backend
 
       - name: TypeScript Compile
@@ -84,7 +111,7 @@ jobs:
         working-directory: apps/backend
 
   web_quality_check:
-    name: 'Web Quality Gate (Angular Test & Build)'
+    name: 'Web Quality Gate (Angular Test, Diff Coverage & Build)'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: paths
@@ -92,6 +119,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -104,9 +133,12 @@ jobs:
         run: npm ci
         working-directory: apps/web
 
-      - name: Angular Unit Tests
-        run: npm test -- --watch=false
+      - name: Angular Unit Tests & Coverage
+        run: npm test -- --watch=false --coverage --coverage-reporters=lcov --coverage-reporters=text
         working-directory: apps/web
+
+      - name: Web Diff Coverage (>= 80%)
+        run: node scripts/check-diff-coverage.mjs --lcov apps/web/coverage/web/lcov.info --prefix apps/web/ --min 80 --base "origin/${{ github.base_ref }}"
 
       - name: Angular Production Build
         run: npm run build
@@ -116,7 +148,7 @@ jobs:
   # GATE 1: CODE & UNIT QUALITY GATE
   # ============================================================================
   pr_quality_check:
-    name: 'PR Quality Gate (Flutter Analyze & Tests)'
+    name: 'PR Quality Gate (Flutter Analyze, Tests & Diff Coverage)'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: paths
@@ -150,10 +182,13 @@ jobs:
           cd apps/mobile
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Flutter Unit & Widget Tests
+      - name: Flutter Unit & Widget Tests (with Coverage)
         run: |
           cd apps/mobile
-          flutter test
+          flutter test --coverage
+
+      - name: Mobile Diff Coverage (>= 80%)
+        run: node scripts/check-diff-coverage.mjs --lcov apps/mobile/coverage/lcov.info --prefix apps/mobile/ --min 80 --base "origin/${{ github.base_ref }}"
 
   # ============================================================================
   # AUTOMATED MERGE TO DEVELOP BRANCH

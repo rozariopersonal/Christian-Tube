@@ -192,6 +192,39 @@ class OnlineBibleService {
   static final Map<String, List<Map<String, dynamic>>> _memoryCache = {};
   static final Map<String, Future<List<Map<String, dynamic>>>> _inFlight = {};
   static final List<OnlineChapterListener> _chapterListeners = [];
+  static final Map<String, DateTime> _rateLimitedUntil = {};
+  static const Duration rateLimitCooldown = Duration(minutes: 15);
+
+  /// Returns `true` when [versionId] recently hit an API rate limit (HTTP 403/429).
+  static bool isRateLimited(String versionId) {
+    final key = versionId.toUpperCase();
+    final until = _rateLimitedUntil[key];
+    if (until == null) return false;
+    if (DateTime.now().isAfter(until)) {
+      _rateLimitedUntil.remove(key);
+      return false;
+    }
+    return true;
+  }
+
+  @visibleForTesting
+  static void markRateLimitedForTest(String versionId, [Duration? duration]) {
+    _rateLimitedUntil[versionId.toUpperCase()] =
+        DateTime.now().add(duration ?? rateLimitCooldown);
+  }
+
+  @visibleForTesting
+  static void clearRateLimitStateForTest() {
+    _rateLimitedUntil.clear();
+  }
+
+  static bool _isRateLimitError(Object error) {
+    if (error is DioException) {
+      final code = error.response?.statusCode;
+      return code == 403 || code == 429;
+    }
+    return false;
+  }
 
   static final List<({String versionId, int bookNumber, int chapter})> _prefetchQueue = [];
   static final Set<String> _queuedKeys = {};
@@ -264,29 +297,42 @@ class OnlineBibleService {
     int bookNumber,
     int chapter,
   ) async {
+    if (isRateLimited(config.versionId)) return const [];
+
     final bookUsfm = BookAbbreviation.abbreviationFor(bookNumber) ?? 'GEN';
     final bookName = BookNameService.englishNameFor(bookNumber);
 
     try {
-      if (config.provider == OnlineProvider.apiBible) {
-        return await _fetchApiBible(config, bookUsfm, bookNumber, bookName, chapter);
-      } else {
-        return await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
-      }
+      final verses = config.provider == OnlineProvider.apiBible
+          ? await _fetchApiBible(config, bookUsfm, bookNumber, bookName, chapter)
+          : await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
+      _rateLimitedUntil.remove(config.versionId.toUpperCase());
+      return verses;
     } catch (e) {
       debugPrint('OnlineBibleService primary fetch failed for ${config.versionId}: $e');
+      var rateLimited = _isRateLimitError(e);
       if (config.fallbackProvider == OnlineProvider.youVersion && config.youVersionId > 0) {
         try {
-          return await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
+          final verses = await _fetchYouVersion(config, bookUsfm, bookNumber, bookName, chapter);
+          _rateLimitedUntil.remove(config.versionId.toUpperCase());
+          return verses;
         } catch (e2) {
+          rateLimited = _isRateLimitError(e2);
           debugPrint('OnlineBibleService fallback fetch failed for ${config.versionId}: $e2');
         }
       } else if (config.fallbackProvider == OnlineProvider.apiBible && config.apiBibleId.isNotEmpty) {
         try {
-          return await _fetchApiBible(config, bookUsfm, bookNumber, bookName, chapter);
+          final verses = await _fetchApiBible(config, bookUsfm, bookNumber, bookName, chapter);
+          _rateLimitedUntil.remove(config.versionId.toUpperCase());
+          return verses;
         } catch (e2) {
+          rateLimited = _isRateLimitError(e2);
           debugPrint('OnlineBibleService fallback fetch failed for ${config.versionId}: $e2');
         }
+      }
+      if (rateLimited) {
+        _rateLimitedUntil[config.versionId.toUpperCase()] =
+            DateTime.now().add(rateLimitCooldown);
       }
       return const [];
     }
