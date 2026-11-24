@@ -43,6 +43,10 @@ describe('VideoFeedComponent', () => {
     expect(Array.from(chips).map((c) => c.textContent?.trim())).toEqual([
       'favorite Liked',
       'All',
+      'Watched',
+      'Unwatched',
+      'In Progress',
+      'Liked',
     ]);
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
