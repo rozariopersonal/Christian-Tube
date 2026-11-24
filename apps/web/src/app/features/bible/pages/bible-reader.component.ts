@@ -131,36 +131,6 @@ interface AppendedBibleChapter {
       </ng-template>
 
       <ng-template #topbarRight>
-        @if (!screen.isCompact()) {
-          <div class="chapter-nav-group">
-            <button
-              type="button"
-              class="nav-step-btn"
-              aria-label="Previous chapter"
-              title="Previous chapter"
-              (click)="prevChapter()"
-            >
-              <span class="material-symbols-rounded">chevron_left</span>
-            </button>
-            <button
-              type="button"
-              class="book-btn"
-              (click)="openBookPicker('books')"
-            >
-              <span>{{ displayBookName() }} {{ displayChapter() }}</span>
-              <span class="material-symbols-rounded">expand_more</span>
-            </button>
-            <button
-              type="button"
-              class="nav-step-btn"
-              aria-label="Next chapter"
-              title="Next chapter"
-              (click)="nextChapter()"
-            >
-              <span class="material-symbols-rounded">chevron_right</span>
-            </button>
-          </div>
-        }
         @if (screen.screenClass() === 'expanded') {
           <app-reader-columns-toggle [showLayoutToggle]="true" />
         }
@@ -707,7 +677,7 @@ interface AppendedBibleChapter {
         </div>
       </div>
 
-      @if (!immersive() && screen.isCompact() && !spreadMode()) {
+      @if (!immersive() && !spreadMode()) {
         <nav class="bible-bottom-pill" aria-label="Bible chapter navigation">
           <button
             type="button"
@@ -1208,7 +1178,7 @@ interface AppendedBibleChapter {
 
       .bible-bottom-pill {
         position: fixed;
-        left: 12px;
+        left: calc(var(--sidebar-width, 0px) + 12px);
         right: 12px;
         bottom: calc(var(--shell-bottom-offset) + 8px);
         z-index: 32;
