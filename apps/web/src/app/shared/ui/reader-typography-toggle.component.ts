@@ -886,7 +886,10 @@ export class ReaderTypographyToggleComponent {
     event.stopPropagation();
     const next = !this.fontMenuOpen();
     this.fontMenuOpen.set(next);
-    if (next) this.spacingOpen.set(false);
+    if (next) {
+      this.spacingOpen.set(false);
+      void this.appearance.ensureRemoteFontCatalog();
+    }
   }
 
   selectFont(fontId: string): void {

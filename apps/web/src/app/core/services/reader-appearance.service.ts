@@ -770,11 +770,14 @@ export class ReaderAppearanceService {
     });
   });
 
+  private catalogLoadPromise: Promise<void> | null = null;
+
   constructor() {
-    void this.loadRemoteFontCatalog();
     const initialFont = this.findFontOption(this.fontId());
-    if (initialFont?.releaseFile || initialFont?.releaseFiles) {
+    if (initialFont?.releaseFiles || initialFont?.releaseFile) {
       void this.downloadFont(initialFont.id);
+    } else if (this.fontId() !== 'system' && this.fontId() !== 'system-serif') {
+      void this.ensureRemoteFontCatalog();
     }
     for (const id of this.downloadedFontIds()) {
       const f = this.findFontOption(id);
@@ -785,6 +788,13 @@ export class ReaderAppearanceService {
         );
       }
     }
+  }
+
+  ensureRemoteFontCatalog(): Promise<void> {
+    if (this.remoteFonts().length > 0) return Promise.resolve();
+    return (this.catalogLoadPromise ??= this.loadRemoteFontCatalog().finally(() => {
+      this.catalogLoadPromise = null;
+    }));
   }
 
   private async loadRemoteFontCatalog(): Promise<void> {
