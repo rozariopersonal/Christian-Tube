@@ -328,12 +328,6 @@ import { AudioPlayerService } from '../services/audio-player.service';
         color: var(--on-scrim-muted);
       }
 
-      .series-sub {
-        margin: 2px 0 0;
-        font-size: 12px;
-        color: var(--on-surface-muted);
-      }
-
       .status-msg {
         text-align: center;
         padding: 36px 0;
