@@ -276,37 +276,6 @@ interface AppendedBibleChapter {
                 (selectionChanged)="onVersionPickerChanged($event)"
               />
 
-              <div class="chapter-nav-group">
-                <button
-                  type="button"
-                  class="nav-step-btn"
-                  aria-label="Previous chapter"
-                  title="Previous chapter"
-                  (click)="prevChapter()"
-                >
-                  <span class="material-symbols-rounded">chevron_left</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="book-btn"
-                  (click)="openBookPicker('books')"
-                >
-                  <span>{{ displayBookName() }} {{ displayChapter() }}</span>
-                  <span class="material-symbols-rounded">expand_more</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="nav-step-btn"
-                  aria-label="Next chapter"
-                  title="Next chapter"
-                  (click)="nextChapter()"
-                >
-                  <span class="material-symbols-rounded">chevron_right</span>
-                </button>
-              </div>
-
               @if (
                 !screen.isCompact() &&
                 !bible.loading() &&
@@ -768,6 +737,39 @@ interface AppendedBibleChapter {
         </ng-template>
         </div>
       </div>
+
+      @if (!immersive() && screen.isCompact() && !spreadMode()) {
+        <nav class="bible-bottom-pill" aria-label="Bible chapter navigation">
+          <button
+            type="button"
+            class="pill-step-btn"
+            aria-label="Previous chapter"
+            title="Previous chapter"
+            (click)="prevChapter()"
+          >
+            <span class="material-symbols-rounded">chevron_left</span>
+          </button>
+
+          <button
+            type="button"
+            class="pill-book-btn"
+            (click)="openBookPicker('books')"
+          >
+            <span>{{ displayBookName() }} {{ displayChapter() }}</span>
+            <span class="material-symbols-rounded">expand_more</span>
+          </button>
+
+          <button
+            type="button"
+            class="pill-step-btn"
+            aria-label="Next chapter"
+            title="Next chapter"
+            (click)="nextChapter()"
+          >
+            <span class="material-symbols-rounded">chevron_right</span>
+          </button>
+        </nav>
+      }
 
       @if (state.selectedVerse(); as selected) {
         <app-text-selection-popover
@@ -1233,6 +1235,61 @@ interface AppendedBibleChapter {
         display: grid;
         place-items: center;
         opacity: 0.75;
+      }
+
+      .bible-bottom-pill {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: calc(var(--shell-bottom-offset) + 8px);
+        z-index: 32;
+        max-width: 460px;
+        height: 48px;
+        margin-inline: auto;
+        padding: 0 6px;
+        border-radius: 24px;
+        background-color: var(--accent);
+        color: var(--on-accent);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--scrim) 24%, transparent);
+      }
+
+      .pill-step-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        color: var(--on-accent);
+        flex-shrink: 0;
+      }
+
+      .pill-book-btn {
+        flex: 1;
+        min-width: 0;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        color: var(--on-accent);
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .pill-book-btn span:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 599px) {
+        .reader-body {
+          padding-bottom: 132px;
+        }
       }
 
       .reader-body {
