@@ -33,6 +33,36 @@ const LIBRARY_SECTIONS: readonly LibrarySection[] = [
     route: '/audio',
     icon: 'headphones',
   },
+  {
+    title: 'Channels',
+    subtitle: 'Browse & follow ministries and creators',
+    route: '/channels',
+    icon: 'video_library',
+  },
+  {
+    title: 'Subscriptions',
+    subtitle: 'Latest videos from your followed channels',
+    route: '/subscriptions',
+    icon: 'subscriptions',
+  },
+  {
+    title: 'History',
+    subtitle: 'Recently watched videos & progress',
+    route: '/history',
+    icon: 'history',
+  },
+  {
+    title: 'Watch Later',
+    subtitle: 'Saved videos for later viewing',
+    route: '/watch-later',
+    icon: 'watch_later',
+  },
+  {
+    title: 'Settings',
+    subtitle: 'Appearance, languages, account & preferences',
+    route: '/settings',
+    icon: 'tune',
+  },
 ];
 
 @Component({
