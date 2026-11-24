@@ -126,43 +126,12 @@ interface AppendedBibleChapter {
               contextKey="bible"
               (selectionChanged)="onVersionPickerChanged($event)"
             />
-
-            <div class="chapter-nav-group">
-              <button
-                type="button"
-                class="nav-step-btn"
-                aria-label="Previous chapter"
-                title="Previous chapter"
-                (click)="prevChapter()"
-              >
-                <span class="material-symbols-rounded">chevron_left</span>
-              </button>
-
-              <button
-                type="button"
-                class="book-btn"
-                (click)="openBookPicker('books')"
-              >
-                <span>{{ displayBookName() }} {{ displayChapter() }}</span>
-                <span class="material-symbols-rounded">expand_more</span>
-              </button>
-
-              <button
-                type="button"
-                class="nav-step-btn"
-                aria-label="Next chapter"
-                title="Next chapter"
-                (click)="nextChapter()"
-              >
-                <span class="material-symbols-rounded">chevron_right</span>
-              </button>
-            </div>
           </div>
         }
       </ng-template>
 
       <ng-template #topbarRight>
-        @if (isDesktop()) {
+        @if (!screen.isCompact()) {
           <div class="chapter-nav-group">
             <button
               type="button"
