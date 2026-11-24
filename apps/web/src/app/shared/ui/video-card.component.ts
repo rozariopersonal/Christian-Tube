@@ -21,6 +21,12 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
           [alt]="video().title"
           loading="lazy"
         />
+        @if (isWatched()) {
+          <span class="badge watched-badge">
+            <span class="material-symbols-rounded badge-icon">check_circle</span>
+            Watched
+          </span>
+        }
         @if (video().isLive) {
           <span class="badge live-badge">
             <span class="material-symbols-rounded badge-icon">sensors</span>
@@ -76,6 +82,17 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
             @if (timeLabel()) {
               <span>{{ timeLabel() }}</span>
             }
+            @if (isWatched()) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="watched-status">Watched</span>
+            } @else if (progressPct() > 0) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="progress-status">{{ progressPct() }}% watched</span>
+            }
           </p>
         </div>
 
@@ -100,6 +117,12 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
                   {{ isSaved() ? 'bookmark_remove' : 'watch_later' }}
                 </span>
                 {{ isSaved() ? 'Remove from Watch Later' : 'Save to Watch Later' }}
+              </button>
+              <button type="button" class="card-menu-item" (click)="toggleWatched()">
+                <span class="material-symbols-rounded">
+                  {{ isWatched() ? 'visibility_off' : 'check_circle' }}
+                </span>
+                {{ isWatched() ? 'Mark as unwatched' : 'Mark as watched' }}
               </button>
               <button type="button" class="card-menu-item" (click)="share()">
                 <span class="material-symbols-rounded">share</span>
@@ -172,6 +195,19 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
         font-weight: 700;
       }
 
+      .watched-badge {
+        left: 8px;
+        top: 8px;
+        right: auto;
+        bottom: auto;
+        background-color: rgba(0, 0, 0, 0.82);
+        color: #ffffff;
+      }
+
+      .watched-badge .badge-icon {
+        color: var(--accent);
+      }
+
       .badge-icon {
         font-size: 13px;
       }
@@ -235,6 +271,16 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
 
       .channel-link:hover {
         color: var(--on-surface);
+      }
+
+      .watched-status {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .progress-status {
+        color: var(--on-surface-muted);
+        font-weight: 500;
       }
 
       .card-menu-wrap {
@@ -306,6 +352,11 @@ export class VideoCardComponent {
 
   readonly menuOpen = signal<boolean>(false);
   readonly isSaved = computed(() => this.library.isWatchLater(this.video().id));
+  readonly watchStatus = computed(() => this.library.watchStatus(this.video().id));
+  readonly isWatched = computed(() => this.watchStatus() === 'watched');
+  readonly progressPct = computed(() =>
+    Math.round(this.library.progressFraction(this.video().id) * 100),
+  );
 
   viewsLabel(): string {
     return formatViewCount(this.video().viewCount);
@@ -322,6 +373,16 @@ export class VideoCardComponent {
 
   toggleWatchLater(): void {
     this.library.toggleWatchLater(this.video());
+    this.menuOpen.set(false);
+  }
+
+  toggleWatched(): void {
+    const v = this.video();
+    if (this.isWatched()) {
+      this.library.markUnwatched(v.id);
+    } else {
+      this.library.markWatched(v);
+    }
     this.menuOpen.set(false);
   }
 
