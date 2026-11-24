@@ -1,0 +1,76 @@
+name: Promote Staging (develop) to Production (main)
+
+on:
+  workflow_dispatch:
+    inputs:
+      auto_merge:
+        description: 'Attempt to merge the promotion PR immediately (uses merge commit, never squash)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    name: Open & Merge develop -> main Promotion PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Branch Divergence
+        id: check
+        run: |
+          git fetch origin develop main
+          AHEAD=$(git rev-list --count origin/main..origin/develop)
+          BEHIND=$(git rev-list --count origin/develop..origin/main)
+          echo "develop is $AHEAD commits ahead of main, $BEHIND commits behind main."
+          echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "Nothing to promote: develop has no new commits ahead of main."
+            exit 0
+          fi
+
+          if [ "$BEHIND" -gt 0 ]; then
+            echo "::warning::origin/develop is $BEHIND commits behind origin/main. Merge main into develop first if conflicts occur."
+          fi
+
+      - name: Create or Update Promotion PR
+        if: steps.check.outputs.ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING_PR=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            PR_NUMBER="$EXISTING_PR"
+            echo "Reusing existing promotion PR #$PR_NUMBER"
+          else
+            COMMIT_LOG=$(git log --oneline --no-merges origin/main..origin/develop | head -n 30)
+            PR_BODY=$(cat <<EOF
+          ## Staging → Production Promotion
+
+          Promoting verified staging changes from \`develop\` to \`main\`.
+
+          ### Included commits
+          \`\`\`
+          ${COMMIT_LOG}
+          \`\`\`
+
+          > **Important:** Merge using a **standard merge commit** (do not squash or rebase) so \`develop\` and \`main\` retain shared history.
+          EOF
+          )
+            PR_URL=$(gh pr create --base main --head develop --title "chore(release): promote develop to main" --body "$PR_BODY")
+            PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+            echo "Created promotion PR #$PR_NUMBER ($PR_URL)"
+          fi
+
+          if [ "${{ inputs.auto_merge }}" = "true" ]; then
+            gh pr merge "$PR_NUMBER" --merge || \
+              echo "::warning::Auto-merge did not complete (branch protection or pending checks). Review and merge PR #$PR_NUMBER with a merge commit."
+          fi
