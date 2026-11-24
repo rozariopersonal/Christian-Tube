@@ -5,14 +5,16 @@ import { UserSyncService } from './user-sync.service';
 import { AppConfig } from '../config/app-config';
 import { ScreenClass } from '../layout/screen-class.service';
 
-export type ReaderFontLanguageCode = 'en' | 'ta' | 'hi' | 'te' | 'ml' | 'kn';
+export type ReaderFontLanguageCode = string;
 export type ReaderFontSource = 'builtin' | 'ondemand' | 'system';
+export type ReaderFontCategory = 'serif' | 'sans' | 'display' | 'handwriting' | 'mono';
 
 export interface ReaderFontLanguageMeta {
   code: ReaderFontLanguageCode;
   label: string;
   nativeLabel: string;
   sampleText: string;
+  aliases?: readonly string[];
 }
 
 export const READER_FONT_LANGUAGES: readonly ReaderFontLanguageMeta[] = [
@@ -56,13 +58,18 @@ export const READER_FONT_LANGUAGES: readonly ReaderFontLanguageMeta[] = [
 
 export interface ReaderFontOption {
   id: string;
+  legacyIds?: readonly string[];
   label: string;
   shortLabel?: string;
   subtitle?: string;
   cssFamily: string;
   fontFamily?: string;
   releaseFile?: string;
+  releaseFiles?: Readonly<Record<string, string>>;
   language?: ReaderFontLanguageCode;
+  category?: ReaderFontCategory;
+  sampleText?: string;
+  license?: string;
   source?: ReaderFontSource;
 }
 
@@ -91,8 +98,9 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
     subtitle: 'Editorial Book Serif',
     cssFamily: "'Literata', 'Lora', Georgia, serif",
     fontFamily: 'Literata',
-    releaseFile: 'Lora-Regular.ttf',
+    releaseFile: 'Literata-Regular.ttf',
     language: 'en',
+    category: 'serif',
     source: 'ondemand',
   },
   {
@@ -104,6 +112,7 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
     fontFamily: 'Merriweather',
     releaseFile: 'Merriweather-Regular.ttf',
     language: 'en',
+    category: 'serif',
     source: 'ondemand',
   },
   {
@@ -111,10 +120,11 @@ export const READER_FONTS: readonly ReaderFontOption[] = [
     label: 'Noto Sans Tamil',
     shortLabel: 'Noto Tamil',
     subtitle: 'Classic Tamil Literature',
-    cssFamily: "'Noto Serif Tamil', 'Noto Sans Tamil', 'Inter', sans-serif",
-    fontFamily: 'Noto Serif Tamil',
-    releaseFile: 'Noto_Serif_Tamil-Regular.ttf',
+    cssFamily: "'Noto Sans Tamil', 'Noto Serif Tamil', 'Inter', sans-serif",
+    fontFamily: 'Noto Sans Tamil',
+    releaseFile: 'Noto_Sans_Tamil-Regular.ttf',
     language: 'ta',
+    category: 'sans',
     source: 'ondemand',
   },
   {
@@ -691,11 +701,17 @@ export class ReaderAppearanceService {
     this.readDownloadedFontIds(),
   );
   readonly scanningSystemFonts = signal<boolean>(false);
+  readonly remoteLanguages = signal<readonly ReaderFontLanguageMeta[]>(READER_FONT_LANGUAGES);
+  readonly remoteFonts = signal<readonly ReaderFontOption[]>([]);
 
-  readonly allFonts = computed<readonly ReaderFontOption[]>(() => [
-    ...READER_FONTS,
-    ...this.systemFonts(),
-  ]);
+  readonly allFonts = computed<readonly ReaderFontOption[]>(() => {
+    const remote = this.remoteFonts();
+    if (remote.length === 0) {
+      return [...READER_FONTS, ...this.systemFonts()];
+    }
+    const builtins = READER_FONTS.filter((f) => f.source === 'builtin');
+    return [...builtins, ...remote, ...this.systemFonts()];
+  });
 
   readonly fontId = signal<string>(this.readStr(KEY_FONT_ID, 'system'));
   readonly fontSize = signal<number>(this.readNum(KEY_FONT_SIZE, 17, 13, 28));
@@ -726,7 +742,7 @@ export class ReaderAppearanceService {
     const downloadedIds = this.downloadedFontIds();
     const loadedFamilies = this.releases.loadedFontFamilies();
 
-    return READER_FONT_LANGUAGES.map((langMeta) => {
+    return this.remoteLanguages().map((langMeta) => {
       const fonts = all.filter((f) => (f.language ?? 'en') === langMeta.code);
       let onDemandCount = 0;
       let downloadedCount = 0;
@@ -755,38 +771,97 @@ export class ReaderAppearanceService {
   });
 
   constructor() {
-    const initialFont = this.allFonts().find((f) => f.id === this.fontId());
-    if (initialFont?.releaseFile) {
+    void this.loadRemoteFontCatalog();
+    const initialFont = this.findFontOption(this.fontId());
+    if (initialFont?.releaseFile || initialFont?.releaseFiles) {
       void this.downloadFont(initialFont.id);
     }
     for (const id of this.downloadedFontIds()) {
-      const f = READER_FONTS.find((opt) => opt.id === id);
-      if (f?.releaseFile) {
-        void this.releases.loadFont(this.resolveFontFamilyName(f), f.releaseFile);
+      const f = this.findFontOption(id);
+      if (f?.releaseFiles || f?.releaseFile) {
+        void this.releases.loadFont(
+          this.resolveFontFamilyName(f),
+          f.releaseFiles ?? f.releaseFile!,
+        );
       }
     }
   }
 
+  private async loadRemoteFontCatalog(): Promise<void> {
+    try {
+      const raw = await this.releases.getFontCatalog<{
+        languages?: ReaderFontLanguageMeta[];
+        fonts?: Array<{
+          id: string;
+          legacyIds?: string[];
+          family: string;
+          label: string;
+          shortLabel?: string;
+          subtitle?: string;
+          language?: string;
+          category?: ReaderFontCategory;
+          license?: string;
+          sampleText?: string;
+          files?: Record<string, string>;
+          cssFallback?: string;
+        }>;
+      }>();
+      if (!raw?.fonts?.length) return;
+      if (raw.languages?.length) {
+        this.remoteLanguages.set(raw.languages);
+      }
+      const mapped: ReaderFontOption[] = raw.fonts.map((entry) => ({
+        id: entry.id,
+        legacyIds: entry.legacyIds,
+        label: entry.label,
+        shortLabel: entry.shortLabel || entry.label,
+        subtitle: entry.subtitle,
+        cssFamily: `'${entry.family}', ${entry.cssFallback || 'sans-serif'}`,
+        fontFamily: entry.family,
+        releaseFile: entry.files?.['regular'],
+        releaseFiles: entry.files,
+        language: entry.language || 'en',
+        category: entry.category,
+        sampleText: entry.sampleText,
+        license: entry.license,
+        source: 'ondemand',
+      }));
+      this.remoteFonts.set(mapped);
+      const active = this.findFontOption(this.fontId());
+      if (active?.releaseFiles || active?.releaseFile) {
+        void this.downloadFont(active.id);
+      }
+    } catch {
+      // Keep built-in READER_FONTS fallback silently on network/test failure
+    }
+  }
+
+  private findFontOption(idOrLegacy: string): ReaderFontOption | undefined {
+    const all = this.allFonts();
+    return (
+      all.find((f) => f.id === idOrLegacy) ??
+      all.find((f) => f.legacyIds?.includes(idOrLegacy) || f.fontFamily === idOrLegacy)
+    );
+  }
+
   activeFont(): ReaderFontOption {
-    return this.allFonts().find((f) => f.id === this.fontId()) ?? READER_FONTS[0];
+    return this.findFontOption(this.fontId()) ?? READER_FONTS[0];
   }
 
   setFont(id: string): void {
-    const opt = this.allFonts().find((f) => f.id === id) ?? READER_FONTS[0];
+    const opt = this.findFontOption(id) ?? READER_FONTS[0];
     this.fontId.set(opt.id);
     this.writeStr(KEY_FONT_ID, opt.id);
-    if (opt.releaseFile) {
+    if (opt.releaseFiles || opt.releaseFile) {
       void this.downloadFont(opt.id);
     }
   }
 
   isFontDownloaded(fontOrId: ReaderFontOption | string): boolean {
     const opt =
-      typeof fontOrId === 'string'
-        ? this.allFonts().find((f) => f.id === fontOrId)
-        : fontOrId;
+      typeof fontOrId === 'string' ? this.findFontOption(fontOrId) : fontOrId;
     if (!opt) return false;
-    if (!opt.releaseFile || opt.source === 'builtin' || opt.source === 'system') {
+    if ((!opt.releaseFile && !opt.releaseFiles) || opt.source === 'builtin' || opt.source === 'system') {
       return true;
     }
     const family = this.resolveFontFamilyName(opt);
@@ -798,19 +873,18 @@ export class ReaderAppearanceService {
 
   isFontDownloading(fontOrId: ReaderFontOption | string): boolean {
     const opt =
-      typeof fontOrId === 'string'
-        ? this.allFonts().find((f) => f.id === fontOrId)
-        : fontOrId;
-    if (!opt?.releaseFile) return false;
+      typeof fontOrId === 'string' ? this.findFontOption(fontOrId) : fontOrId;
+    if (!opt?.releaseFile && !opt?.releaseFiles) return false;
     const family = this.resolveFontFamilyName(opt);
     return this.releases.loadingFontFamilies().has(family);
   }
 
   async downloadFont(fontId: string): Promise<boolean> {
-    const opt = this.allFonts().find((f) => f.id === fontId);
-    if (!opt?.releaseFile) return true;
+    const opt = this.findFontOption(fontId);
+    const files = opt?.releaseFiles ?? opt?.releaseFile;
+    if (!opt || !files) return true;
     const family = this.resolveFontFamilyName(opt);
-    const ok = await this.releases.loadFont(family, opt.releaseFile);
+    const ok = await this.releases.loadFont(family, files);
     if (ok) {
       const next = new Set(this.downloadedFontIds());
       next.add(opt.id);
@@ -821,18 +895,18 @@ export class ReaderAppearanceService {
   }
 
   async downloadLanguageFonts(lang: ReaderFontLanguageCode): Promise<void> {
-    const targets = READER_FONTS.filter(
-      (f) => (f.language ?? 'en') === lang && !!f.releaseFile,
+    const targets = this.allFonts().filter(
+      (f) => (f.language ?? 'en') === lang && !!(f.releaseFiles || f.releaseFile),
     );
     await Promise.all(targets.map((f) => this.downloadFont(f.id)));
   }
 
   isLanguageDownloading(lang: ReaderFontLanguageCode): boolean {
     const loading = this.releases.loadingFontFamilies();
-    return READER_FONTS.some(
+    return this.allFonts().some(
       (f) =>
         (f.language ?? 'en') === lang &&
-        !!f.releaseFile &&
+        !!(f.releaseFiles || f.releaseFile) &&
         loading.has(this.resolveFontFamilyName(f)),
     );
   }
