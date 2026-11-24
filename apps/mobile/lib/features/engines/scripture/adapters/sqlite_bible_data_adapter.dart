@@ -181,6 +181,18 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
     return result;
   }
 
+  Future<bool> _isVersionFullyInstalled(String versionId) async {
+    if (_db == null || !_db!.isOpen) return false;
+    final rows = await _db!.query(
+      'installed_versions',
+      columns: ['id'],
+      where: 'LOWER(id) = ?',
+      whereArgs: [versionId.toLowerCase()],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   @override
   Future<bool> hasVerses(String versionId) async {
     if (OnlineBibleService.isOnlineVersion(versionId)) return true;
@@ -220,7 +232,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         }
         return localRows;
       }
-      if (await hasVerses(versionId) && !OnlineBibleService.isOnlineVersion(versionId)) {
+      if (!OnlineBibleService.isOnlineVersion(versionId) &&
+          await _isVersionFullyInstalled(versionId)) {
         return const [];
       }
     }
@@ -361,7 +374,8 @@ class SqliteBibleDataAdapter implements BibleDataAdapter {
         _liveCountsCache[cacheKey] = counts;
         return counts;
       }
-      if (await hasVerses(versionId) && !OnlineBibleService.isOnlineVersion(versionId)) {
+      if (!OnlineBibleService.isOnlineVersion(versionId) &&
+          await _isVersionFullyInstalled(versionId)) {
         return const [];
       }
     }

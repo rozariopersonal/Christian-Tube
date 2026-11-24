@@ -239,7 +239,7 @@ class _BibleScreenState extends State<BibleScreen> {
           _scrollToVerse(target.verse, highlight: target.highlight);
         }
       });
-    } else if (!_initialPositioned) {
+    } else if (!_initialPositioned && !s.chapterEmpty) {
       _initialPositioned = true;
       final idx = s.index;
       if (idx != null && idx.totalVerses > 0) {
@@ -251,11 +251,13 @@ class _BibleScreenState extends State<BibleScreen> {
         if (row > 0) {
           _isProgrammaticScrolling = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
+            if (mounted && _itemScrollController.isAttached) {
               _itemScrollController.jumpTo(index: row, alignment: 0);
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) _isProgrammaticScrolling = false;
               });
+            } else if (mounted) {
+              _isProgrammaticScrolling = false;
             }
           });
         }

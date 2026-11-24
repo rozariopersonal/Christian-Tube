@@ -525,4 +525,32 @@ void main() {
     expect(find.text('9-11'), findsOneWidget);
     expect(find.byType(Container), findsWidgets);
   });
+
+  testWidgets(
+      'empty chapter state shows Retry for online version (NASB) instead of Re-download Tamil Bible',
+      (tester) async {
+    final controller = BibleController(
+      initialVersionId: 'NASB',
+      initialBook: 'John',
+      initialChapter: 21,
+      initialVerse: null,
+      saveProgress: false,
+    );
+    addTearDown(controller.dispose);
+    await tester.runAsync(() async {
+      await controller.init();
+    });
+
+    await tester.pumpWidget(wrapWithApp(BibleScreen(controller: controller)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No verses found for John 21.'), findsOneWidget);
+    expect(
+      find.text(
+          'Could not load this online translation. Please check your internet connection and try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry NASB'), findsOneWidget);
+    expect(find.text('Re-download Tamil Bible'), findsNothing);
+  });
 }

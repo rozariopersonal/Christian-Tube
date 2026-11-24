@@ -743,7 +743,7 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
                             ),
                           ),
                         ],
-                        if (isInstalled) ...[
+                        if (isInstalled && !meta.isOnlineOnly) ...[
                           const SizedBox(width: 6),
                           Icon(
                             Icons.offline_pin_rounded,

@@ -35,7 +35,7 @@ class BibleDownloadManager extends ChangeNotifier {
       name: 'New American Standard Bible (1995)',
       language: 'English',
       languageCode: 'en',
-      sizeDisplay: '1.4 MB',
+      sizeDisplay: 'Online',
       description: 'Highly accurate and literal modern English translation.',
       license: 'The Lockman Foundation License',
       licenseUrl: 'https://www.lockman.org',
@@ -49,7 +49,7 @@ class BibleDownloadManager extends ChangeNotifier {
       name: 'New Living Translation',
       language: 'English',
       languageCode: 'en',
-      sizeDisplay: '1.4 MB',
+      sizeDisplay: 'Online',
       description:
           'Clear, contemporary English translation rendered faithfully from ancient texts.',
       license: 'Tyndale House Publishers License',
@@ -64,7 +64,7 @@ class BibleDownloadManager extends ChangeNotifier {
       name: 'The Message',
       language: 'English',
       languageCode: 'en',
-      sizeDisplay: '1.3 MB',
+      sizeDisplay: 'Online',
       description:
           'Vibrant, contemporary idiom translation by Eugene H. Peterson.',
       license: 'NavPress / Tyndale License',
