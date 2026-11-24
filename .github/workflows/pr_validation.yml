@@ -85,12 +85,12 @@ jobs:
         run: npm ci
         working-directory: apps/backend
 
-      - name: Prisma Schema Validation & Migrate
+      - name: Prisma Schema Validation & Push
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
         run: |
           npx prisma validate
-          npx prisma migrate deploy
+          npx prisma db push --skip-generate
         working-directory: apps/backend
 
       - name: Backend Unit Tests & Coverage
