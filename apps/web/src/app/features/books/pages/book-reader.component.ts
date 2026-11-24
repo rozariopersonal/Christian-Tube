@@ -176,11 +176,13 @@ interface ImageSpread {
     </ng-template>
 
     <ng-template #topbarRight>
-      <app-reader-auto-fullscreen-toggle />
-      <app-reader-columns-toggle
-        [maxColumns]="isImageBook() ? 2 : 3"
-        [allowContinuous]="!isImageBook()"
-      />
+      @if (screen.screenClass() === 'expanded') {
+        <app-reader-auto-fullscreen-toggle />
+        <app-reader-columns-toggle
+          [maxColumns]="isImageBook() ? 2 : 3"
+          [allowContinuous]="!isImageBook()"
+        />
+      }
       @if (!isImageBook()) {
         <app-reader-typography-toggle />
       }

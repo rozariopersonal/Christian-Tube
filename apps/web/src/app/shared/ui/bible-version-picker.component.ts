@@ -235,6 +235,7 @@ export interface BibleVersionSelectionEvent {
         height: 34px;
         max-width: 100%;
         min-width: 0;
+        overflow: hidden;
         padding: 0 11px;
         border-radius: var(--radius-pill);
         background-color: var(--surface-variant);
