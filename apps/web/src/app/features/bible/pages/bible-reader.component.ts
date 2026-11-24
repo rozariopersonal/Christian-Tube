@@ -48,7 +48,6 @@ import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.co
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
-import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import {
   InlineToolbarAnchor,
@@ -79,7 +78,6 @@ interface AppendedBibleChapter {
     ReaderSpreadFooterComponent,
     BibleVersionPickerComponent,
     BibleBookChapterSheetComponent,
-    BibleSidebarComponent,
     TextSelectionPopoverComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
@@ -103,28 +101,12 @@ interface AppendedBibleChapter {
       (touchstart)="readerFullscreen.noteActivity('bible')"
     >
       <ng-template #topbarCenter>
-        @if (!isDesktop()) {
-          <div class="tb-bible-center">
-            @if (bible.books().length > 0) {
-              <button
-                type="button"
-                class="icon-btn nav-drawer-btn"
-                [class.active-icon]="showNavigatorDrawer()"
-                title="Toggle Bible navigator"
-                aria-label="Toggle Bible navigator"
-                [attr.aria-expanded]="showNavigatorDrawer()"
-                (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
-              >
-                <span class="material-symbols-rounded">toc</span>
-              </button>
-            }
-
-            <app-bible-version-picker
-              contextKey="bible"
-              (selectionChanged)="onVersionPickerChanged($event)"
-            />
-          </div>
-        }
+        <div class="tb-bible-center">
+          <app-bible-version-picker
+            contextKey="bible"
+            (selectionChanged)="onVersionPickerChanged($event)"
+          />
+        </div>
       </ng-template>
 
       <ng-template #topbarRight>
@@ -171,16 +153,22 @@ interface AppendedBibleChapter {
             </button>
             @if (menuOpen()) {
               <div class="overflow-menu" (click)="menuOpen.set(false)">
-                @if (!isDesktop()) {
-                  <button
-                    type="button"
-                    class="menu-item"
-                    (click)="submitTopbarSearch()"
-                  >
-                    <span class="material-symbols-rounded">search</span>
-                    Search Bible
-                  </button>
-                }
+                <button
+                  type="button"
+                  class="menu-item"
+                  (click)="openBookPicker('books')"
+                >
+                  <span class="material-symbols-rounded">menu_book</span>
+                  Books &amp; Chapters
+                </button>
+                <button
+                  type="button"
+                  class="menu-item"
+                  (click)="submitTopbarSearch()"
+                >
+                  <span class="material-symbols-rounded">search</span>
+                  Search Bible
+                </button>
                 <button
                   type="button"
                   class="menu-item"
@@ -207,20 +195,6 @@ interface AppendedBibleChapter {
         <header class="bible-bar">
           <div class="bar-inner">
             <div class="bar-left">
-              @if (!isDesktop() && bible.books().length > 0) {
-                <button
-                  type="button"
-                  class="icon-btn nav-drawer-btn"
-                  [class.active-icon]="showNavigatorDrawer()"
-                  title="Toggle Bible navigator"
-                  aria-label="Toggle Bible navigator"
-                  [attr.aria-expanded]="showNavigatorDrawer()"
-                  (click)="showNavigatorDrawer.set(!showNavigatorDrawer())"
-                >
-                  <span class="material-symbols-rounded">toc</span>
-                </button>
-              }
-
               <app-bible-version-picker
                 contextKey="bible"
                 (selectionChanged)="onVersionPickerChanged($event)"
@@ -357,53 +331,7 @@ interface AppendedBibleChapter {
         </button>
       }
 
-      <div class="bible-layout" [class.has-sidebar]="isDesktop() && !immersive() && bible.books().length > 0">
-        @if (isDesktop() && !immersive() && bible.books().length > 0) {
-          <app-bible-sidebar
-            [books]="bible.books()"
-            [currentBookNumber]="displayBookNumber()"
-            [currentChapter]="displayChapter()"
-            [versionLabel]="state.activeVersionInfo().label"
-            (selectChapter)="jumpFromSearch($event)"
-            (versionChanged)="onVersionPickerChanged($event)"
-          />
-        }
-
-        @if (!isDesktop() && showNavigatorDrawer() && !immersive() && bible.books().length > 0) {
-          <div
-            class="nav-drawer-backdrop"
-            (click)="showNavigatorDrawer.set(false)"
-          >
-            <div
-              class="nav-drawer-panel"
-              role="dialog"
-              aria-label="Bible navigator"
-              (click)="$event.stopPropagation()"
-            >
-              <div class="nav-drawer-top">
-                <span class="nav-drawer-title">Bible Navigator</span>
-                <button
-                  type="button"
-                  class="icon-btn"
-                  aria-label="Close Bible navigator"
-                  (click)="showNavigatorDrawer.set(false)"
-                >
-                  <span class="material-symbols-rounded">close</span>
-                </button>
-              </div>
-              <app-bible-sidebar
-                [books]="bible.books()"
-                [currentBookNumber]="displayBookNumber()"
-                [currentChapter]="displayChapter()"
-                [versionLabel]="state.activeVersionInfo().label"
-                [inDrawer]="true"
-                (selectChapter)="selectFromNavigator($event)"
-                (versionChanged)="onVersionPickerChanged($event)"
-              />
-            </div>
-          </div>
-        }
-
+      <div class="bible-layout">
         <div class="reader-body">
         @if (bible.loading()) {
           <p class="status-msg">
@@ -688,7 +616,7 @@ interface AppendedBibleChapter {
         </div>
       </div>
 
-      @if (!immersive() && !spreadMode()) {
+      @if (screen.isCompact() && !immersive() && !spreadMode()) {
         <nav class="bible-bottom-pill" aria-label="Bible chapter navigation">
           <button
             type="button"
@@ -1711,7 +1639,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
   );
 
   readonly showBookPicker = signal<boolean>(false);
-  readonly showNavigatorDrawer = signal<boolean>(false);
   readonly bookPickerTab = signal<BiblePickerTab>('books');
   readonly showSearch = signal<boolean>(false);
   readonly showAppearance = signal<boolean>(false);
@@ -1919,7 +1846,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     if (event.key === 'Escape') {
       this.state.clearSelection();
       this.showBookPicker.set(false);
-      this.showNavigatorDrawer.set(false);
       this.showSearch.set(false);
       this.showAppearance.set(false);
       this.showCrossRefs.set(false);
@@ -1938,7 +1864,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
     }
     if (
       this.showBookPicker() ||
-      this.showNavigatorDrawer() ||
       this.showSearch() ||
       this.showAppearance() ||
       this.showCrossRefs() ||
@@ -2008,7 +1933,7 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       if (!this.viewInitialized()) return;
       if (this.screen.isMediumOrExpanded() && !this.immersive()) {
         this.headerSlot.setTemplates(
-          this.isDesktop() ? null : (this.topbarCenterRef ?? null),
+          this.topbarCenterRef ?? null,
           this.topbarRightRef ?? null,
         );
       } else {
@@ -2501,11 +2426,6 @@ export class BibleReaderComponent implements OnInit, AfterViewInit {
       chapter: target.chapter,
       verse: target.verse,
     });
-  }
-
-  selectFromNavigator(target: { bookNumber: number; chapter: number }): void {
-    this.showNavigatorDrawer.set(false);
-    void this.jumpFromSearch(target);
   }
 
   async jumpFromSearch(target: {
