@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile/shared/services/reader_fonts_service.dart';
 
 class BackgroundPreset {
   final String id;
@@ -61,6 +62,8 @@ class ScriptureFontOption {
   final String subtitle;
   final String sampleGlyph;
   final String? languageCode;
+  final String? category;
+  final String? sampleText;
 
   const ScriptureFontOption({
     required this.id,
@@ -68,6 +71,8 @@ class ScriptureFontOption {
     required this.subtitle,
     this.sampleGlyph = 'Aa',
     this.languageCode,
+    this.category,
+    this.sampleText,
   });
 }
 
@@ -137,6 +142,26 @@ class ScriptureThemeCatalog {
   ];
 
   static List<ScriptureFontOption> getFontsForLanguage(String? languageCode) {
+    final remoteCatalog = ReaderFontsService.instance.catalog;
+    if (remoteCatalog != null && !remoteCatalog.isEmpty) {
+      final norm = remoteCatalog.normalizeLanguage(languageCode);
+      final entries = (languageCode == 'all')
+          ? remoteCatalog.fonts
+          : remoteCatalog.fontsForLanguage(norm);
+      if (entries.isNotEmpty) {
+        return entries
+            .map((e) => ScriptureFontOption(
+                  id: e.id,
+                  name: e.label,
+                  subtitle: e.subtitle,
+                  sampleGlyph: e.sampleGlyph,
+                  languageCode: e.language,
+                  category: e.category,
+                  sampleText: e.sampleText,
+                ))
+            .toList();
+      }
+    }
     switch (normalizeLanguageCode(languageCode)) {
       case 'tam':
         return const [
@@ -394,6 +419,10 @@ class ScriptureThemeCatalog {
   /// in widget-free unit tests). The returned name resolves at paint time
   /// because the same family is registered app-wide via the theme text theme.
   static String? resolveFontFamily(String fontFamily, String? languageCode) {
+    final remoteEntry = ReaderFontsService.instance.catalog?.findByIdOrLegacy(fontFamily);
+    if (remoteEntry != null) {
+      return remoteEntry.family;
+    }
     switch (normalizeLanguageCode(languageCode)) {
       case 'tam':
         switch (fontFamily) {

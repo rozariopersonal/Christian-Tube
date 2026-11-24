@@ -151,6 +151,10 @@ export class ReleaseDataService {
     }
   }
 
+  getFontCatalog<T>(): Promise<T> {
+    return this.getJson<T>('fonts/catalog.json', true);
+  }
+
   isFontLoaded(family: string): boolean {
     return this.loadedFontFamilies().has(family);
   }
@@ -159,7 +163,10 @@ export class ReleaseDataService {
     return this.loadingFontFamilies().has(family);
   }
 
-  async loadFont(family: string, fileName: string): Promise<boolean> {
+  async loadFont(
+    family: string,
+    fileNameOrFiles: string | Readonly<Record<string, string>>,
+  ): Promise<boolean> {
     if (this.loadedFonts.has(family)) return true;
     if (typeof FontFace === 'undefined' || typeof document === 'undefined' || !document.fonts) {
       return false;
@@ -170,20 +177,26 @@ export class ReleaseDataService {
     this.loadingFonts.add(family);
     this.loadingFontFamilies.set(new Set(this.loadingFonts));
 
+    const filesMap: Readonly<Record<string, string>> =
+      typeof fileNameOrFiles === 'string'
+        ? { regular: fileNameOrFiles }
+        : fileNameOrFiles;
+
     const task = (async (): Promise<boolean> => {
-      for (const url of this.urlsFor(`fonts/${fileName}`)) {
-        try {
-          const font = new FontFace(family, `url("${url}")`);
-          const loaded = await font.load();
-          document.fonts.add(loaded);
-          this.loadedFonts.add(family);
-          this.loadedFontFamilies.set(new Set(this.loadedFonts));
-          return true;
-        } catch {
-          // try next mirror
-        }
+      let loadedAny = false;
+      for (const [weightKey, fileName] of Object.entries(filesMap)) {
+        const descriptors: FontFaceDescriptors = {
+          weight: weightKey.toLowerCase().includes('bold') ? '700' : '400',
+          style: weightKey.toLowerCase().includes('italic') ? 'italic' : 'normal',
+        };
+        const ok = await this.loadSingleFontFace(family, fileName, descriptors);
+        if (ok) loadedAny = true;
       }
-      return false;
+      if (loadedAny) {
+        this.loadedFonts.add(family);
+        this.loadedFontFamilies.set(new Set(this.loadedFonts));
+      }
+      return loadedAny;
     })().finally(() => {
       this.inFlightFonts.delete(family);
       this.loadingFonts.delete(family);
@@ -192,6 +205,61 @@ export class ReleaseDataService {
 
     this.inFlightFonts.set(family, task);
     return task;
+  }
+
+  private async loadSingleFontFace(
+    family: string,
+    fileName: string,
+    descriptors: FontFaceDescriptors,
+  ): Promise<boolean> {
+    const cacheKey = `https://reader-fonts.local/${encodeURIComponent(fileName)}`;
+    const cache =
+      typeof caches !== 'undefined'
+        ? await caches.open('reader-fonts-v1').catch(() => null)
+        : null;
+
+    if (cache) {
+      try {
+        const cachedResp = await cache.match(cacheKey);
+        if (cachedResp) {
+          const buf = await cachedResp.arrayBuffer();
+          const font = new FontFace(family, buf, descriptors);
+          const loaded = await font.load();
+          document.fonts.add(loaded);
+          return true;
+        }
+      } catch {
+        // fall through to network
+      }
+    }
+
+    for (const url of this.urlsFor(`fonts/${fileName}`)) {
+      try {
+        if (typeof fetch !== 'undefined') {
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const buf = await resp.arrayBuffer();
+            if (cache) {
+              void cache
+                .put(cacheKey, new Response(buf.slice(0)))
+                .catch(() => null);
+            }
+            const font = new FontFace(family, buf, descriptors);
+            const loaded = await font.load();
+            document.fonts.add(loaded);
+            return true;
+          }
+        } else {
+          const font = new FontFace(family, `url("${url}")`, descriptors);
+          const loaded = await font.load();
+          document.fonts.add(loaded);
+          return true;
+        }
+      } catch {
+        // try next mirror
+      }
+    }
+    return false;
   }
 
   clearCache(): void {

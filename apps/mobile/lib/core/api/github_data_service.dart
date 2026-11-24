@@ -338,6 +338,14 @@ static List<String> wftwManifestUrls() =>
 
   // ── Reader fonts ──────────────────────────────────────────────────────────
 
+  /// Unified cross-platform font catalog (`fonts/catalog.json`).
+  static List<String> fontCatalogUrls() =>
+      ReleaseAssets.urlsFor('fonts/catalog.json');
+
+  /// On-demand reader font file for an exact filename (e.g. `Literata-Regular.ttf`).
+  static List<String> readerFontFileUrls(String fileName) =>
+      ReleaseAssets.urlsFor('fonts/$fileName');
+
   /// On-demand reader font TTF for [familyName] (the resolved Google Fonts
   /// family, e.g. `Playfair Display`). Files are hosted in the releases repo,
   /// never bundled with the app.

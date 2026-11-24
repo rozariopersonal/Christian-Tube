@@ -86,6 +86,19 @@ import {
                 }
               </div>
 
+              <div class="style-filter-row" role="tablist" aria-label="Filter fonts by style">
+                @for (cat of categoryChips; track cat.id) {
+                  <button
+                    type="button"
+                    class="style-chip"
+                    [class.active]="selectedCategory() === cat.id"
+                    (click)="selectedCategory.set(cat.id)"
+                  >
+                    {{ cat.label }}
+                  </button>
+                }
+              </div>
+
               <div class="font-groups-scroll">
                 @for (grp of visibleFontGroups(); track grp.code) {
                   <div class="font-group-section">
@@ -131,6 +144,7 @@ import {
                           @if (f.subtitle) {
                             <span class="font-subtitle">{{ f.subtitle }}</span>
                           }
+                          <span class="font-sample">{{ f.sampleText || grp.sampleText }}</span>
                         </div>
                         <div class="font-item-meta">
                           @if (appearance.isFontDownloading(f)) {
@@ -783,6 +797,42 @@ import {
         width: 100%;
         accent-color: var(--accent);
       }
+
+      .font-sample {
+        display: block;
+        margin-top: 3px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: var(--on-surface-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .style-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 4px 10px 6px;
+        border-bottom: 1px solid var(--surface-border);
+      }
+
+      .style-chip {
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--surface-border);
+        background: var(--surface);
+        color: var(--on-surface-muted);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .style-chip.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
     `,
   ],
 })
@@ -794,11 +844,27 @@ export class ReaderTypographyToggleComponent {
   readonly fonts = READER_FONTS;
   readonly fontGroups = this.appearance.fontsByLanguage;
   readonly selectedLang = signal<'all' | ReaderFontLanguageCode>('all');
+  readonly selectedCategory = signal<'all' | 'serif' | 'sans' | 'display' | 'handwriting'>('all');
+  readonly categoryChips = [
+    { id: 'all', label: 'All Styles' },
+    { id: 'serif', label: 'Serif' },
+    { id: 'sans', label: 'Sans' },
+    { id: 'display', label: 'Display' },
+    { id: 'handwriting', label: 'Script' },
+  ] as const;
+
   readonly visibleFontGroups = computed<readonly ReaderFontGroup[]>(() => {
     const lang = this.selectedLang();
+    const cat = this.selectedCategory();
     const groups = this.fontGroups();
-    if (lang === 'all') return groups;
-    return groups.filter((g) => g.code === lang);
+    const byLang = lang === 'all' ? groups : groups.filter((g) => g.code === lang);
+    if (cat === 'all') return byLang;
+    return byLang
+      .map((g) => ({
+        ...g,
+        fonts: g.fonts.filter((f) => !f.category || f.category === cat),
+      }))
+      .filter((g) => g.fonts.length > 0);
   });
 
   readonly linePresets = LINE_HEIGHT_PRESETS;
