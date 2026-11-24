@@ -13,24 +13,28 @@ appId: org.rozario.christiantube.mobile
 # 2. Main Feed Verification
 - assertVisible:
     text: "All"
+- takeScreenshot: "01_main_feed"
 
 # 3. Test Navigation Shell: Words (Micro-feed / Scripture) Tab
 - tapOn:
     id: "tab_Words"
 - assertVisible:
     text: ".*"
+- takeScreenshot: "02_words_tab"
 
 # 4. Test Navigation Shell: Audio Library Tab
 - tapOn:
     id: "tab_Audio"
 - assertVisible:
     text: "Audio Library"
+- takeScreenshot: "03_audio_tab"
 
 # 5. Test Navigation Shell: Bible Tab
 - tapOn:
     id: "tab_Bible"
 - assertVisible:
     text: ".*"
+- takeScreenshot: "04_bible_tab"
 
 # 6. Test Settings & In-App Update Engine
 - tapOn:
@@ -46,6 +50,7 @@ appId: org.rozario.christiantube.mobile
 - tapOn: ".*Check for Updates.*"
 - assertVisible:
     text: ".*Checking for new releases.*"
+- takeScreenshot: "05_settings_update_check"
 
 # 7. Return to Feed
 - pressKey: Back
@@ -53,3 +58,4 @@ appId: org.rozario.christiantube.mobile
     id: "tab_Videos"
 - assertVisible:
     text: "ChristianApp"
+- takeScreenshot: "06_return_to_feed"

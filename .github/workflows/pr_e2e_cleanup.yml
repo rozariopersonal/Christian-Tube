@@ -1,0 +1,33 @@
+name: PR E2E Pages Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup_pages:
+    name: 'Remove Closed PR E2E Preview from gh-pages'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove PR folder from gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git ls-remote --exit-code --heads https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git gh-pages-tmp
+            cd gh-pages-tmp
+            TARGET="pr-${{ github.event.pull_request.number }}"
+            if [ -d "$TARGET" ]; then
+              git rm -rf "$TARGET"
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git commit -m "chore(e2e): remove preview for closed PR #${{ github.event.pull_request.number }}"
+              git push origin gh-pages
+            fi
+          fi

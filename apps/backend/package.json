@@ -13,7 +13,8 @@
     "start:prod": "node dist/main.js || node dist/src/main.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "test": "jest"
+    "test": "jest",
+    "test:int": "jest --config jest-int.config.json --runInBand"
   },
   "jest": {
     "moduleFileExtensions": [
@@ -23,6 +24,9 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
+    "testPathIgnorePatterns": ["\\.int\\.spec\\.ts$"],
+    "coverageDirectory": "../coverage",
+    "coverageReporters": ["lcov", "text-summary"],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
