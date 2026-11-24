@@ -7,16 +7,13 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  BibleVersionPickerComponent,
-  BibleVersionSelectionEvent,
-} from '../../../shared/ui/bible-version-picker.component';
+import { BibleVersionSelectionEvent } from '../../../shared/ui/bible-version-picker.component';
 import { BibleBook } from '../models/bible.model';
 
 @Component({
   selector: 'app-bible-sidebar',
   standalone: true,
-  imports: [FormsModule, BibleVersionPickerComponent],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -54,10 +51,7 @@ import { BibleBook } from '../models/bible.model';
       >
         <div class="sidebar-header">
           <div class="sidebar-ver-row">
-            <app-bible-version-picker
-              contextKey="bible"
-              (selectionChanged)="versionChanged.emit($event)"
-            />
+            <span class="sidebar-title">Bible Navigator</span>
             @if (!inDrawer()) {
               <button
                 type="button"
@@ -186,14 +180,20 @@ import { BibleBook } from '../models/bible.model';
         border-radius: var(--radius-sm);
         display: grid;
         place-items: center;
-        color: var(--on-surface-muted);
+        color: var(--reader-muted, var(--on-surface-muted));
         flex-shrink: 0;
       }
 
       .rail-toggle-btn:hover,
       .pin-btn:hover {
         background-color: var(--surface-variant);
-        color: var(--on-surface);
+        color: var(--reader-fg, var(--on-surface));
+      }
+
+      .sidebar-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--reader-fg, var(--on-surface));
       }
 
       .pin-btn.active {
