@@ -48,6 +48,7 @@ import { BibleCompareSheetComponent } from '../components/bible-compare-sheet.co
 import { BibleCrossRefsSheetComponent } from '../components/bible-cross-refs-sheet.component';
 import { BibleNoteSheetComponent } from '../components/bible-note-sheet.component';
 import { BibleSearchSheetComponent } from '../components/bible-search-sheet.component';
+import { BibleSidebarComponent } from '../components/bible-sidebar.component';
 import { BibleStudySheetComponent } from '../components/bible-study-sheet.component';
 import {
   InlineToolbarAnchor,
@@ -78,6 +79,7 @@ interface AppendedBibleChapter {
     ReaderSpreadFooterComponent,
     BibleVersionPickerComponent,
     BibleBookChapterSheetComponent,
+    BibleSidebarComponent,
     TextSelectionPopoverComponent,
     BibleAppearanceSheetComponent,
     BibleBookmarksSheetComponent,
@@ -331,7 +333,21 @@ interface AppendedBibleChapter {
         </button>
       }
 
-      <div class="bible-layout">
+      <div
+        class="bible-layout"
+        [class.has-sidebar]="screen.isMediumOrExpanded() && !immersive() && bible.books().length > 0"
+      >
+        @if (screen.isMediumOrExpanded() && !immersive() && bible.books().length > 0) {
+          <app-bible-sidebar
+            [books]="bible.books()"
+            [currentBookNumber]="displayBookNumber()"
+            [currentChapter]="displayChapter()"
+            [versionLabel]="state.activeVersionInfo().label"
+            (selectChapter)="jumpFromSearch($event)"
+            (versionChanged)="onVersionPickerChanged($event)"
+          />
+        }
+
         <div class="reader-body">
         @if (bible.loading()) {
           <p class="status-msg">
