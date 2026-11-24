@@ -12,6 +12,7 @@ import {
   classifySystemFontLanguage,
 } from './reader-appearance.service';
 import { ReleaseDataService } from '../api/release-data.service';
+import { ThemeService } from '../theme/theme.service';
 
 describe('ReaderAppearanceService', () => {
   let service: ReaderAppearanceService;
@@ -175,6 +176,36 @@ describe('ReaderAppearanceService', () => {
     expect(classifySystemFontLanguage('Kartika')).toBe('ml');
     expect(classifySystemFontLanguage('Tunga')).toBe('kn');
     expect(classifySystemFontLanguage('Georgia')).toBe('en');
+  });
+
+  it('maintains separate light and dark mode paper themes and swatches', () => {
+    const theme = TestBed.inject(ThemeService);
+    theme.setThemeMode('light', false);
+    service.setPaperTheme('sepia');
+    expect(service.paperTheme()).toBe('sepia');
+    expect(service.paperThemes().find((p) => p.id === 'sepia')?.label).toBe('Sepia');
+
+    theme.setThemeMode('dark', false);
+    expect(service.paperTheme()).toBe('auto');
+    expect(service.paperThemes().find((p) => p.id === 'sepia')?.label).toBe('Warm');
+
+    service.setPaperTheme('night');
+    expect(service.paperTheme()).toBe('night');
+    expect(localStorage.getItem('reader_paper_theme_dark')).toBe('night');
+    expect(localStorage.getItem('reader_paper_theme_light')).toBe('sepia');
+
+    theme.setThemeMode('light', false);
+    expect(service.paperTheme()).toBe('sepia');
+  });
+
+  it('categorizes sans, serif, display, and script fonts accurately', () => {
+    const byId = (id: string) => READER_FONTS.find((f) => f.id === id)!;
+    expect(service.fontCategory(byId('system'))).toBe('sans');
+    expect(service.fontCategory(byId('outfit'))).toBe('sans');
+    expect(service.fontCategory(byId('literata'))).toBe('serif');
+    expect(service.fontCategory(byId('lora'))).toBe('serif');
+    expect(service.fontCategory(byId('playfair'))).toBe('display');
+    expect(service.fontCategory(byId('great-vibes'))).toBe('handwriting');
   });
 });
 

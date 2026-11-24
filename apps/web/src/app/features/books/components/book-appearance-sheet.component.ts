@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   inject,
   output,
   signal,
@@ -10,137 +9,56 @@ import { FormsModule } from '@angular/forms';
 import {
   LETTER_SPACING_PRESETS,
   LINE_HEIGHT_PRESETS,
-  READER_FONTS,
-  READER_PAPER_THEMES,
   ReaderAppearanceService,
-  ReaderFontGroup,
-  ReaderFontLanguageCode,
 } from '../../../core/services/reader-appearance.service';
 import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
+import { ReaderFontPickerComponent } from '../../../shared/ui/reader-font-picker.component';
 
 @Component({
   selector: 'app-book-appearance-sheet',
   standalone: true,
-  imports: [FormsModule, ModalSheetComponent, ReaderColumnsToggleComponent],
+  imports: [
+    FormsModule,
+    ModalSheetComponent,
+    ReaderColumnsToggleComponent,
+    ReaderFontPickerComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal-sheet title="Display & Layout" (closed)="closed.emit()">
-      <div class="appearance-section">
-        <label class="label">Paper Theme</label>
-        <div class="paper-grid">
-          @for (p of paperThemes; track p.id) {
-            <button
-              type="button"
-              class="paper-swatch"
-              [class.active]="appearance.paperTheme() === p.id"
-              [style.background]="p.swatchBg"
-              [style.color]="p.swatchFg"
-              (click)="appearance.setPaperTheme(p.id)"
-            >
-              <span class="swatch-aa">Aa</span>
-              <span class="swatch-label">{{ p.label }}</span>
-            </button>
-          }
-        </div>
-      </div>
-
-      <div class="appearance-section">
-        <div class="section-head">
-          <label class="label">Font Family (Grouped by Language)</label>
-          @if (appearance.canQueryLocalFonts()) {
-            <button
-              type="button"
-              class="sys-scan-btn"
-              [disabled]="appearance.scanningSystemFonts()"
-              (click)="appearance.scanLocalSystemFonts()"
-            >
-              <span class="material-symbols-rounded">computer</span>
-              <span>{{ appearance.scanningSystemFonts() ? 'Scanning...' : 'Load System Fonts' }}</span>
-            </button>
-          }
+      @if (browsingFonts()) {
+        <app-reader-font-picker
+          [browsing]="true"
+          (browsingChange)="browsingFonts.set($event)"
+        />
+      } @else {
+        <div class="appearance-section">
+          <label class="label">Paper Theme</label>
+          <div class="paper-grid">
+            @for (p of appearance.paperThemes(); track p.id) {
+              <button
+                type="button"
+                class="paper-swatch"
+                [class.active]="appearance.paperTheme() === p.id"
+                [style.background]="p.swatchBg"
+                [style.color]="p.swatchFg"
+                (click)="appearance.setPaperTheme(p.id)"
+              >
+                <span class="swatch-aa">Aa</span>
+                <span class="swatch-label">{{ p.label }}</span>
+              </button>
+            }
+          </div>
         </div>
 
-        <div class="chip-wrap">
-          <button
-            type="button"
-            class="pill-chip"
-            [class.active]="selectedLang() === 'all'"
-            (click)="selectedLang.set('all')"
-          >
-            All Languages
-          </button>
-          @for (grp of fontGroups(); track grp.code) {
-            <button
-              type="button"
-              class="pill-chip"
-              [class.active]="selectedLang() === grp.code"
-              (click)="selectedLang.set(grp.code)"
-            >
-              {{ grp.code === 'en' ? 'English' : grp.nativeLabel + ' (' + grp.label + ')' }}
-            </button>
-          }
+        <div class="appearance-section">
+          <app-reader-font-picker
+            [browsing]="false"
+            (browsingChange)="browsingFonts.set($event)"
+          />
         </div>
-
-        <div class="font-groups-box">
-          @for (grp of visibleFontGroups(); track grp.code) {
-            <div class="font-group-block">
-              <div class="font-group-head">
-                <span class="font-group-label">
-                  {{ grp.label }}
-                  @if (grp.nativeLabel !== grp.label) {
-                    <span class="font-group-native">· {{ grp.nativeLabel }}</span>
-                  }
-                </span>
-                @if (grp.downloadedCount < grp.onDemandCount) {
-                  <button
-                    type="button"
-                    class="dl-all-btn"
-                    [disabled]="appearance.isLanguageDownloading(grp.code)"
-                    (click)="appearance.downloadLanguageFonts(grp.code)"
-                  >
-                    <span class="material-symbols-rounded">download</span>
-                    <span>
-                      {{
-                        appearance.isLanguageDownloading(grp.code)
-                          ? 'Downloading...'
-                          : 'Download All (' + (grp.onDemandCount - grp.downloadedCount) + ')'
-                      }}
-                    </span>
-                  </button>
-                }
-              </div>
-
-              <div class="chip-wrap">
-                @for (f of grp.fonts; track f.id) {
-                  <button
-                    type="button"
-                    class="pill-chip font-chip"
-                    [class.active]="appearance.fontId() === f.id"
-                    [style.font-family]="f.cssFamily"
-                    (click)="appearance.setFont(f.id)"
-                  >
-                    <span>{{ f.label }}</span>
-                    @if (appearance.isFontDownloading(f)) {
-                      <span class="material-symbols-rounded chip-dl-icon" title="Downloading...">
-                        downloading
-                      </span>
-                    } @else if (!appearance.isFontDownloaded(f)) {
-                      <span
-                        class="material-symbols-rounded chip-dl-icon"
-                        title="Downloaded on demand"
-                      >
-                        cloud_download
-                      </span>
-                    }
-                  </button>
-                }
-              </div>
-            </div>
-          }
-        </div>
-      </div>
 
       <div class="appearance-section">
         <label class="label">Font Size: {{ appearance.fontSize() }}px</label>
@@ -309,6 +227,7 @@ import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-
           }
         </div>
       </div>
+      }
     </app-modal-sheet>
   `,
   styles: [
@@ -477,16 +396,7 @@ export class BookAppearanceSheetComponent {
     { value: 60, label: '1m' },
     { value: 120, label: '2m' },
   ] as const;
-  readonly fonts = READER_FONTS;
-  readonly fontGroups = this.appearance.fontsByLanguage;
-  readonly selectedLang = signal<'all' | ReaderFontLanguageCode>('all');
-  readonly visibleFontGroups = computed<readonly ReaderFontGroup[]>(() => {
-    const lang = this.selectedLang();
-    const groups = this.fontGroups();
-    if (lang === 'all') return groups;
-    return groups.filter((g) => g.code === lang);
-  });
-  readonly paperThemes = READER_PAPER_THEMES;
+  readonly browsingFonts = signal(false);
   readonly linePresets = LINE_HEIGHT_PRESETS;
   readonly letterPresets = LETTER_SPACING_PRESETS;
   readonly Math = Math;

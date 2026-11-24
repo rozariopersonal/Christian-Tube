@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { UserSyncService } from './user-sync.service';
 import { AppConfig } from '../config/app-config';
 import { ScreenClass } from '../layout/screen-class.service';
+import { ThemeService } from '../theme/theme.service';
 
 export type ReaderFontLanguageCode = string;
 export type ReaderFontSource = 'builtin' | 'ondemand' | 'system';
@@ -649,12 +650,21 @@ export interface PaperThemeOption {
   swatchFg: string;
 }
 
-export const READER_PAPER_THEMES: readonly PaperThemeOption[] = [
+export const READER_PAPER_THEMES_LIGHT: readonly PaperThemeOption[] = [
   { id: 'auto', label: 'App Theme', swatchBg: 'var(--bg)', swatchFg: 'var(--on-surface)' },
   { id: 'paper', label: 'Paper', swatchBg: '#FAF8F5', swatchFg: '#1F2937' },
   { id: 'sepia', label: 'Sepia', swatchBg: '#F4ECD8', swatchFg: '#433422' },
   { id: 'night', label: 'Night', swatchBg: '#121620', swatchFg: '#E2E8F0' },
 ];
+
+export const READER_PAPER_THEMES_DARK: readonly PaperThemeOption[] = [
+  { id: 'auto', label: 'App Theme', swatchBg: 'var(--bg)', swatchFg: 'var(--on-surface)' },
+  { id: 'paper', label: 'Slate', swatchBg: '#181B22', swatchFg: '#E5E7EB' },
+  { id: 'sepia', label: 'Warm', swatchBg: '#1F1A14', swatchFg: '#E6D8C3' },
+  { id: 'night', label: 'Midnight', swatchBg: '#080B10', swatchFg: '#E2E8F0' },
+];
+
+export const READER_PAPER_THEMES = READER_PAPER_THEMES_LIGHT;
 
 export interface SpacingPreset {
   id: string;
@@ -680,6 +690,8 @@ const KEY_LINE_HEIGHT = 'reader_line_height';
 const KEY_LETTER_SPACING = 'reader_letter_spacing';
 const KEY_PRIMARY_BIBLE = 'primary_bible_version';
 const KEY_PAPER_THEME = 'reader_paper_theme';
+const KEY_PAPER_THEME_LIGHT = 'reader_paper_theme_light';
+const KEY_PAPER_THEME_DARK = 'reader_paper_theme_dark';
 const KEY_BIBLE_LAYOUT = 'bible_reading_layout';
 const KEY_BOOK_ALIGN = 'book_text_align';
 const KEY_BOOK_MARGIN = 'book_margin_size';
@@ -693,6 +705,7 @@ export class ReaderAppearanceService {
   private readonly releases = inject(ReleaseDataService);
   private readonly auth = inject(AuthService);
   private readonly userSync = inject(UserSyncService);
+  private readonly theme = inject(ThemeService);
 
   readonly systemFonts = signal<readonly ReaderFontOption[]>(
     this.loadInitialSystemFonts(),
@@ -722,8 +735,17 @@ export class ReaderAppearanceService {
   readonly primaryBibleVersion = signal<string>(
     this.readStr(KEY_PRIMARY_BIBLE, AppConfig.defaultBibleVersion),
   );
-  readonly paperTheme = signal<ReaderPaperTheme>(
-    this.readPaperTheme(),
+  readonly paperThemeLight = signal<ReaderPaperTheme>(
+    this.readPaperThemeForMode(false),
+  );
+  readonly paperThemeDark = signal<ReaderPaperTheme>(
+    this.readPaperThemeForMode(true),
+  );
+  readonly paperTheme = computed<ReaderPaperTheme>(() =>
+    this.theme.isDark() ? this.paperThemeDark() : this.paperThemeLight(),
+  );
+  readonly paperThemes = computed<readonly PaperThemeOption[]>(() =>
+    this.theme.isDark() ? READER_PAPER_THEMES_DARK : READER_PAPER_THEMES_LIGHT,
   );
   readonly bibleLayout = signal<BibleReadingLayout>(
     this.readStr(KEY_BIBLE_LAYOUT, 'verses') === 'paragraph' ? 'paragraph' : 'verses',
@@ -1041,8 +1063,59 @@ export class ReaderAppearanceService {
   }
 
   setPaperTheme(theme: ReaderPaperTheme): void {
-    this.paperTheme.set(theme);
-    this.writeStr(KEY_PAPER_THEME, theme);
+    if (this.theme.isDark()) {
+      this.paperThemeDark.set(theme);
+      this.writeStr(KEY_PAPER_THEME_DARK, theme);
+    } else {
+      this.paperThemeLight.set(theme);
+      this.writeStr(KEY_PAPER_THEME_LIGHT, theme);
+    }
+  }
+
+  fontCategory(font: ReaderFontOption): ReaderFontCategory {
+    if (font.category) return font.category;
+    const text = `${font.label} ${font.subtitle ?? ''}`.toLowerCase();
+    const css = font.cssFamily.toLowerCase();
+    if (text.includes('mono') || text.includes('code') || css.includes('monospace')) {
+      return 'mono';
+    }
+    if (
+      text.includes('script') ||
+      text.includes('calligraph') ||
+      text.includes('devotional') ||
+      text.includes('handwrit') ||
+      css.includes('cursive')
+    ) {
+      return 'handwriting';
+    }
+    if (
+      text.includes('display') ||
+      text.includes('roman') ||
+      text.includes('monumental') ||
+      text.includes('rounded') ||
+      text.includes('dramatic')
+    ) {
+      return 'display';
+    }
+    if (text.includes('sans')) return 'sans';
+    if (
+      text.includes('serif') ||
+      text.includes('literature') ||
+      text.includes('editorial') ||
+      text.includes('garamond') ||
+      text.includes('lora')
+    ) {
+      return 'serif';
+    }
+    return css.includes('sans-serif') ? 'sans' : css.includes('serif') ? 'serif' : 'sans';
+  }
+
+  fontSampleText(font: ReaderFontOption): string {
+    if (font.sampleText) return font.sampleText;
+    const langCode = font.language ?? 'en';
+    const meta = this.remoteLanguages().find((l) => l.code === langCode)
+      ?? READER_FONT_LANGUAGES.find((l) => l.code === langCode);
+    return meta?.sampleText ?? 'In the beginning was the Word';
   }
 
   setBibleLayout(layout: BibleReadingLayout): void {
@@ -1217,9 +1290,16 @@ export class ReaderAppearanceService {
     return 'medium';
   }
 
-  private readPaperTheme(): ReaderPaperTheme {
-    const val = this.readStr(KEY_PAPER_THEME, 'auto');
-    if (val === 'paper' || val === 'sepia' || val === 'night') return val;
+  private readPaperThemeForMode(dark: boolean): ReaderPaperTheme {
+    const key = dark ? KEY_PAPER_THEME_DARK : KEY_PAPER_THEME_LIGHT;
+    const val = this.readStr(key, '');
+    if (val === 'auto' || val === 'paper' || val === 'sepia' || val === 'night') {
+      return val;
+    }
+    // Migrate legacy single-mode key only into its matching brightness mode
+    const legacy = this.readStr(KEY_PAPER_THEME, 'auto');
+    if (dark && legacy === 'night') return 'night';
+    if (!dark && (legacy === 'paper' || legacy === 'sepia')) return legacy;
     return 'auto';
   }
 
