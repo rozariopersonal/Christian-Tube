@@ -46,7 +46,7 @@ export interface BibleSearchHit {
           />
         </div>
         <app-bible-version-picker
-          contextKey="bible"
+          contextKey="bible-search"
           [maxSelections]="1"
           [alignRight]="true"
           (selectionChanged)="onVersionChange($event.primary)"

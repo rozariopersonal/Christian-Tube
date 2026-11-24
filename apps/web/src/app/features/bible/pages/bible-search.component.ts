@@ -84,14 +84,14 @@ type SearchScope = 'book' | 'ot' | 'nt' | 'all';
             {{ s.id === 'book' ? bible.currentBook().name : s.label }}
           </button>
         }
-        <button
-          type="button"
-          class="pill-chip version-switch-chip"
-          (click)="showVersionPicker.set(true)"
-          aria-label="Switch Bible Version"
-        >
-          {{ versionLabel(bible.version()) }} ▾
-        </button>
+        @if (screen.isCompact()) {
+          <app-bible-version-picker
+            contextKey="bible-search"
+            [maxSelections]="1"
+            [alignRight]="true"
+            (selectionChanged)="onVersionChange($event.primary)"
+          />
+        }
       </div>
 
       @if (directRef(); as ref) {

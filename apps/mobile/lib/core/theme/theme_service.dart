@@ -185,13 +185,14 @@ class ThemeService extends ChangeNotifier {
   ThemeData get darkTheme {
     final primaryColor = _colorTheme.color;
     final bgColor = _isAmoled ? Colors.black : const Color(0xFF0F172A);
-    final cardColor = _isAmoled ? const Color(0xFF121212) : const Color(0xFF1E293B);
+    final cardColor = _isAmoled ? const Color(0xFF0A0A0A) : const Color(0xFF1E293B);
 
     final AppTokens tokens = AppTokens.dark.copyWith(
       background: bgColor,
       surface: cardColor,
-      surfaceVariant: cardColor,
-      surfaceElevated: _isAmoled ? const Color(0xFF1E293B) : const Color(0xFF283548),
+      surfaceVariant: _isAmoled ? const Color(0xFF141414) : const Color(0xFF1E293B),
+      surfaceElevated: _isAmoled ? const Color(0xFF1C1C1C) : const Color(0xFF283548),
+      surfaceBorder: _isAmoled ? const Color(0x24FFFFFF) : null,
       accent: primaryColor,
     );
 
@@ -219,9 +220,9 @@ class ThemeService extends ChangeNotifier {
         backgroundColor: bgColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
+        iconTheme: IconThemeData(color: tokens.onSurface),
+        titleTextStyle: TextStyle(
+          color: tokens.onSurface,
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
@@ -229,7 +230,7 @@ class ThemeService extends ChangeNotifier {
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: bgColor,
         selectedItemColor: primaryColor,
-        unselectedItemColor: Colors.white60,
+        unselectedItemColor: tokens.onSurfaceMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),

@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AppConfig } from '../../../core/config/app-config';
+import { AccountAvatarMenuComponent } from '../../../core/auth/account-avatar-menu.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { InfiniteScrollTriggerDirective } from '../../../shared/ui/infinite-scroll-trigger.directive';
@@ -15,7 +16,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
 @Component({
   selector: 'app-video-feed',
   standalone: true,
-  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective, VideoWatchedOverlaysComponent],
+  imports: [RouterLink, VideoCardComponent, InfiniteScrollTriggerDirective, VideoWatchedOverlaysComponent, AccountAvatarMenuComponent],
   template: `
     <div class="feed-page">
       <header class="feed-header">
@@ -32,17 +33,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
               <a class="icon-btn" routerLink="/channels" aria-label="Channels" title="Channels">
                 <span class="material-symbols-rounded">subscriptions</span>
               </a>
-              <a class="icon-btn" routerLink="/settings" aria-label="Account" title="Account & Settings">
-                @if (auth.currentUser()?.photoUrl) {
-                  <img
-                    class="user-avatar"
-                    [src]="auth.currentUser()!.photoUrl"
-                    [alt]="auth.currentUser()!.displayName"
-                  />
-                } @else {
-                  <span class="material-symbols-rounded">account_circle</span>
-                }
-              </a>
+              <app-account-avatar-menu />
             </div>
           </div>
         }
@@ -85,15 +76,6 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
             (click)="selectStatus('in_progress')"
           >
             In Progress
-          </button>
-
-          <button
-            type="button"
-            class="pill-chip"
-            [class.active]="filterMode() === 'liked'"
-            (click)="selectStatus('liked')"
-          >
-            Liked
           </button>
 
           @if (channels.subscribedChannels().length > 0) {
@@ -380,6 +362,7 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
       }
 
       .shelf-thumb-wrap {
+        position: relative;
         aspect-ratio: 9 / 16;
         border-radius: var(--radius-md);
         overflow: hidden;

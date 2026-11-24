@@ -46,7 +46,6 @@ describe('VideoFeedComponent', () => {
       'Watched',
       'Unwatched',
       'In Progress',
-      'Liked',
     ]);
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({

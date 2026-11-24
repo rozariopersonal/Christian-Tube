@@ -249,7 +249,7 @@ interface AppendedBibleChapter {
         </div>
       </ng-template>
 
-      @if (!immersive() && !isDesktop()) {
+      @if (!immersive() && screen.isCompact()) {
         <header class="bible-bar">
           <div class="bar-inner">
             <div class="bar-left">
@@ -1183,6 +1183,7 @@ interface AppendedBibleChapter {
         right: 0;
         min-width: 190px;
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-md);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
@@ -1215,6 +1216,7 @@ interface AppendedBibleChapter {
         height: 40px;
         border-radius: var(--radius-pill);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         display: grid;
         place-items: center;

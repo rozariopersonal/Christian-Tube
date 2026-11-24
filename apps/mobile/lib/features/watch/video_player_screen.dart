@@ -846,7 +846,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 720) {
+        if (ScreenClass.ofWidth(constraints.maxWidth) != ScreenClass.compact) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

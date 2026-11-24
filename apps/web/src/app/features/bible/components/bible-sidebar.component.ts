@@ -396,7 +396,7 @@ import { BibleBook } from '../models/bible.model';
       .sidebar-ch-btn.active {
         background-color: var(--accent);
         border-color: var(--accent);
-        color: #fff;
+        color: var(--on-accent);
       }
     `,
   ],

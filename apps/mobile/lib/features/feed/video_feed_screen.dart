@@ -138,6 +138,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             elevation: 0,
             titleSpacing: 16,
             title: Row(
@@ -308,12 +309,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       ),
                     ),
 
-                    // Status Filter Pills (Watched, Unwatched, In Progress, Liked)
+                    // Status Filter Pills (Watched, Unwatched, In Progress)
                     for (final entry in const [
                       (_filterWatched, 'Watched'),
                       (_filterUnwatched, 'Unwatched'),
                       (_filterInProgress, 'In Progress'),
-                      (_filterLiked, 'Liked'),
                     ])
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
