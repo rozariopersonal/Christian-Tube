@@ -90,6 +90,7 @@ jobs:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
         run: |
           npx prisma validate
+          echo "CREATE EXTENSION IF NOT EXISTS vector;" | npx prisma db execute --stdin
           npx prisma db push --skip-generate
         working-directory: apps/backend
 
