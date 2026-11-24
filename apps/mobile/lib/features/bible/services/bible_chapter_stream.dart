@@ -105,9 +105,29 @@ class BibleChapterStream {
   bool contains(int bookNumber, int chapter) =>
       _chapters.containsKey(bibleChapterId(bookNumber, chapter));
 
+  /// True when [bookNumber]/[chapter] resolved to an empty verse list.
+  bool isChapterEmpty(int bookNumber, int chapter) {
+    final cached = _chapters[bibleChapterId(bookNumber, chapter)];
+    return cached != null && cached.isEmpty;
+  }
+
   /// Whether the chapter previously failed to resolve this session.
   bool hasFailed(int bookNumber, int chapter) =>
       _failed.contains(bibleChapterId(bookNumber, chapter));
+
+  /// Drops any cached/failed state for [bookNumber]/[chapter] so it can be
+  /// re-fetched on the next [ensureChapter] call.
+  void invalidateChapter(int bookNumber, int chapter) {
+    final id = bibleChapterId(bookNumber, chapter);
+    _chapters.remove(id);
+    _failed.remove(id);
+  }
+
+  /// Clears cached/failed state for [bookNumber]/[chapter] and re-fetches it.
+  Future<List<BibleVerse>> retryChapter(int bookNumber, int chapter) {
+    invalidateChapter(bookNumber, chapter);
+    return ensureChapter(bookNumber, chapter);
+  }
 
   /// Returns the buffered rows for [bookNumber]/[chapter], loading them (and
   /// deduplicating concurrent requests) when not already present.

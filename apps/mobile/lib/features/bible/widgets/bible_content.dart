@@ -6,6 +6,7 @@ import '../../../core/layout/content_width.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/book_name_service.dart';
+import '../../engines/scripture/services/online_bible_service.dart';
 import '../models/bible_verse.dart';
 import '../services/bible_chapter_stream.dart';
 import '../widgets/verse_item.dart';
@@ -474,7 +475,10 @@ class _ChapterEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dm = BibleDownloadManager();
-    if (dm.isDownloading(BibleDownloadManager.defaultVersionId)) {
+    final versionId =
+        controller.selectedVersion?.shortname ?? BibleDownloadManager.defaultVersionId;
+    final isOnline = OnlineBibleService.isOnlineVersion(versionId);
+    if (!isOnline && dm.isDownloading(versionId)) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -499,6 +503,14 @@ class _ChapterEmptyState extends StatelessWidget {
     final chapterLabel = bookLabel.isNotEmpty
         ? '$bookLabel ${controller.currentChapter}'
         : controller.displayChapterTitle(controller.currentChapter);
+    final detailMessage = isOnline
+        ? 'Could not load this online translation. Please check your internet connection and try again.'
+        : 'The offline copy of this translation may be incomplete.';
+    final buttonLabel = isOnline
+        ? 'Retry $versionId'
+        : (versionId == BibleDownloadManager.defaultVersionId
+            ? 'Re-download Tamil Bible'
+            : 'Re-download $versionId');
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -515,15 +527,15 @@ class _ChapterEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'The offline copy of this translation may be incomplete.',
+              detailMessage,
               textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: onRedownloadDefault,
+              onPressed: isOnline ? controller.retryCurrentChapter : onRedownloadDefault,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Re-download Tamil Bible'),
+              label: Text(buttonLabel),
             ),
           ],
         ),

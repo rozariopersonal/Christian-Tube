@@ -6,6 +6,7 @@ import '../../engines/scripture/services/bible_download_manager.dart';
 import '../../engines/scripture/services/bible_recent_versions_service.dart';
 import '../../engines/scripture/services/book_name_service.dart';
 import '../../engines/scripture/services/local_bible_service.dart';
+import '../../engines/scripture/services/online_bible_service.dart';
 import '../models/bible_book.dart';
 import '../models/bible_settings.dart';
 import '../models/bible_verse.dart';
@@ -725,7 +726,9 @@ class BibleController extends ChangeNotifier {
     final bn = bookNumber(book);
     List<BibleVerse> rows = const [];
     try {
-      rows = await stream.ensureChapter(bn, chapter);
+      rows = stream.isChapterEmpty(bn, chapter)
+          ? await stream.retryChapter(bn, chapter)
+          : await stream.ensureChapter(bn, chapter);
     } catch (e) {
       debugPrint('BibleController _ensureChapterLoaded error: $e');
     }
@@ -1359,8 +1362,38 @@ class BibleController extends ChangeNotifier {
     });
   }
 
-  Future<void> redownloadDefault() async {
+  /// Retries loading the currently selected chapter (used when an online or
+  /// streamed chapter failed to load).
+  Future<void> retryCurrentChapter() async {
+    if (_disposed) return;
     _update((s) => s.copyWith(isLoading: true, chapterEmpty: false));
-    await BibleDownloadManager().forceRedownloadDefault();
+    final bn = bookNumber(_currentBook);
+    if (bn > 0) {
+      _stream?.invalidateChapter(bn, _currentChapter);
+    }
+    await _ensureChapterLoaded(_currentBook, _currentChapter, epoch: _loadEpoch);
+  }
+
+  /// Recovers the active translation: retries the chapter for online-only
+  /// versions, or wipes and re-downloads the offline copy for downloadable ones.
+  Future<void> redownloadDefault() async {
+    final activeId =
+        _state.selectedVersion?.shortname ?? BibleDownloadManager.defaultVersionId;
+    if (OnlineBibleService.isOnlineVersion(activeId)) {
+      await retryCurrentChapter();
+      return;
+    }
+    _update((s) => s.copyWith(isLoading: true, chapterEmpty: false));
+    if (activeId == BibleDownloadManager.defaultVersionId) {
+      await BibleDownloadManager().forceRedownloadDefault();
+    } else {
+      await BibleDownloadManager().removeVersion(activeId);
+      await BibleDownloadManager().downloadVersion(
+        BibleDownloadManager.getMeta(activeId),
+      );
+      if (!_disposed) {
+        await _loadChapter();
+      }
+    }
   }
 }

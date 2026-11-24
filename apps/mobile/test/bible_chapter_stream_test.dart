@@ -227,4 +227,27 @@ void main() {
     final counts = await service.loadForVersion('NOT_INSTALLED');
     expect(counts.isLoaded, isFalse);
   });
+
+  test('BibleChapterStream.retryChapter clears empty cache and reloads verses',
+      () async {
+    final stream = BibleChapterStream('WEB');
+    final initial = await stream.ensureChapter(43, 21);
+    expect(initial, isEmpty);
+    expect(stream.isChapterEmpty(43, 21), isTrue);
+
+    await insertJohn('WEB', [
+      for (var v = 1; v <= 3; v++)
+        {
+          'bookNumber': 43,
+          'bookName': 'John',
+          'chapter': 21,
+          'verse': v,
+          'text': 'John 21:$v text',
+        },
+    ]);
+
+    final retried = await stream.retryChapter(43, 21);
+    expect(retried, hasLength(3));
+    expect(stream.isChapterEmpty(43, 21), isFalse);
+  });
 }
