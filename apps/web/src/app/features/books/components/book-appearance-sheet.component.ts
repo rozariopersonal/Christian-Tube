@@ -16,12 +16,14 @@ import {
   ReaderFontGroup,
   ReaderFontLanguageCode,
 } from '../../../core/services/reader-appearance.service';
+import { ReaderFullscreenService } from '../../../core/services/reader-fullscreen.service';
 import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
+import { ReaderColumnsToggleComponent } from '../../../shared/ui/reader-columns-toggle.component';
 
 @Component({
   selector: 'app-book-appearance-sheet',
   standalone: true,
-  imports: [FormsModule, ModalSheetComponent],
+  imports: [FormsModule, ModalSheetComponent, ReaderColumnsToggleComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal-sheet title="Display & Layout" (closed)="closed.emit()">
@@ -284,6 +286,29 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
           }
         </div>
       </div>
+
+      <div class="appearance-section">
+        <label class="label">Columns &amp; Page Layout</label>
+        <div class="chip-wrap">
+          <app-reader-columns-toggle />
+        </div>
+      </div>
+
+      <div class="appearance-section">
+        <label class="label">Auto-Fullscreen (Idle)</label>
+        <div class="chip-wrap">
+          @for (opt of autoFullscreenOptions; track opt.value) {
+            <button
+              type="button"
+              class="pill-chip"
+              [class.active]="fullscreen.autoFullscreenSeconds() === opt.value"
+              (click)="fullscreen.setAutoFullscreenSeconds(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </div>
     </app-modal-sheet>
   `,
   styles: [
@@ -445,6 +470,13 @@ import { ModalSheetComponent } from '../../../shared/ui/modal-sheet.component';
 })
 export class BookAppearanceSheetComponent {
   readonly appearance = inject(ReaderAppearanceService);
+  readonly fullscreen = inject(ReaderFullscreenService);
+  readonly autoFullscreenOptions = [
+    { value: 0, label: 'Off' },
+    { value: 30, label: '30s' },
+    { value: 60, label: '1m' },
+    { value: 120, label: '2m' },
+  ] as const;
   readonly fonts = READER_FONTS;
   readonly fontGroups = this.appearance.fontsByLanguage;
   readonly selectedLang = signal<'all' | ReaderFontLanguageCode>('all');

@@ -51,8 +51,6 @@ import { ArticlesService } from '../services/articles.service';
   selector: 'app-article-reader',
   standalone: true,
   imports: [
-    ReaderColumnsToggleComponent,
-    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
     ReaderAutoFullscreenToggleComponent,
@@ -70,22 +68,28 @@ import { ArticlesService } from '../services/articles.service';
     </ng-template>
 
     <ng-template #topbarRight>
-      @if (screen.width() >= 1280) {
-        <app-reader-columns-toggle />
-      }
-      <app-reader-typography-toggle />
-      @if (screen.width() >= 1280) {
-        <app-reader-auto-fullscreen-toggle />
-      }
-      <div class="tb-actions-pill">
+      <div class="tb-font-stepper" aria-label="Font size">
         <button
           type="button"
-          class="tb-action-btn"
-          title="Share article link"
-          (click)="shareArticle()"
+          class="tb-font-btn"
+          aria-label="Decrease font size"
+          title="Decrease font size"
+          (click)="appearance.stepFontSize(-1)"
         >
-          <span class="material-symbols-rounded">share</span>
+          −
         </button>
+        <span class="tb-font-val">{{ appearance.fontSize() }}</span>
+        <button
+          type="button"
+          class="tb-font-btn"
+          aria-label="Increase font size"
+          title="Increase font size"
+          (click)="appearance.stepFontSize(1)"
+        >
+          +
+        </button>
+      </div>
+      <div class="tb-actions-pill">
         <button
           type="button"
           class="tb-action-btn"
@@ -95,15 +99,37 @@ import { ArticlesService } from '../services/articles.service';
         >
           <span class="material-symbols-rounded">palette</span>
         </button>
-        <button
-          type="button"
-          class="tb-action-btn"
-          title="Focus mode (F)"
-          aria-label="Focus mode"
-          (click)="immersive.set(true)"
-        >
-          <span class="material-symbols-rounded">fullscreen</span>
-        </button>
+        <div class="tb-menu-wrap">
+          <button
+            type="button"
+            class="tb-action-btn"
+            aria-label="More article options"
+            title="Share & Focus Mode"
+            (click)="menuOpen.set(!menuOpen())"
+          >
+            <span class="material-symbols-rounded">more_vert</span>
+          </button>
+          @if (menuOpen()) {
+            <div class="tb-overflow-menu" (click)="menuOpen.set(false)">
+              <button
+                type="button"
+                class="tb-menu-item"
+                (click)="shareArticle()"
+              >
+                <span class="material-symbols-rounded">share</span>
+                Share Article
+              </button>
+              <button
+                type="button"
+                class="tb-menu-item"
+                (click)="immersive.set(true)"
+              >
+                <span class="material-symbols-rounded">fullscreen</span>
+                Focus Mode
+              </button>
+            </div>
+          }
+        </div>
       </div>
     </ng-template>
 
@@ -361,6 +387,81 @@ import { ArticlesService } from '../services/articles.service';
         overflow: hidden;
         text-overflow: ellipsis;
         min-width: 0;
+      }
+
+      .tb-font-stepper {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 2px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .tb-font-btn {
+        width: 26px;
+        height: 28px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .tb-font-btn:hover {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .tb-font-val {
+        min-width: 22px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+      }
+
+      .tb-menu-wrap {
+        position: relative;
+      }
+
+      .tb-overflow-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        min-width: 170px;
+        padding: 6px;
+        border-radius: var(--radius-md);
+        background-color: var(--surface);
+        border: 1px solid var(--surface-border);
+        box-shadow: 0 10px 28px color-mix(in srgb, var(--scrim) 24%, transparent);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 60;
+      }
+
+      .tb-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        color: var(--on-surface);
+        font-size: 13px;
+        font-weight: 500;
+        text-align: left;
+      }
+
+      .tb-menu-item:hover {
+        background-color: var(--surface-variant);
+      }
+
+      .tb-menu-item .material-symbols-rounded {
+        font-size: 18px;
+        color: var(--on-surface-muted);
       }
 
       .tb-actions-pill {
@@ -700,6 +801,7 @@ export class ArticleReaderComponent implements OnInit, AfterViewInit {
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
   readonly showAppearance = signal<boolean>(false);
+  readonly menuOpen = signal<boolean>(false);
   readonly immersive = signal<boolean>(false);
   readonly activeScriptureRef = signal<ParsedScriptureRef | null>(null);
   readonly lookupWord = signal<string | null>(null);
