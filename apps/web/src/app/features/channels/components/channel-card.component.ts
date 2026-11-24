@@ -236,6 +236,41 @@ import { Channel } from '../models/channel.model';
         font-size: 11px;
         font-weight: 700;
       }
+
+      @media (max-width: 599px) {
+        .channel-card {
+          border-radius: var(--radius-md);
+        }
+
+        .banner-stack,
+        .desc {
+          display: none;
+        }
+
+        .body {
+          padding: 10px 12px;
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .title-row {
+          margin-top: 0;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .avatar-link {
+          width: 44px;
+          height: 44px;
+        }
+
+        .footer-row {
+          margin-top: 0;
+          flex-shrink: 0;
+        }
+      }
     `,
   ],
 })

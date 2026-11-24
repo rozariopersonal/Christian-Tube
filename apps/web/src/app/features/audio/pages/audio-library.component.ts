@@ -121,10 +121,11 @@ import { AudioPlayerService } from '../services/audio-player.service';
                     <span class="material-symbols-rounded">headphones</span>
                   </div>
                 }
-              </div>
-              <div class="series-meta">
-                <h3 class="series-title">{{ s.title }}</h3>
-                <p class="series-sub">{{ s.speaker }} · {{ s.trackCount }} tracks</p>
+                <div class="series-scrim"></div>
+                <div class="series-meta">
+                  <h3 class="series-title">{{ s.title }}</h3>
+                  <p class="series-sub">{{ s.trackCount }} tracks</p>
+                </div>
               </div>
             </a>
           }
@@ -266,11 +267,34 @@ import { AudioPlayerService } from '../services/audio-player.service';
       }
 
       .cover-wrap {
+        position: relative;
         aspect-ratio: 1 / 1;
-        border-radius: var(--radius-md);
+        border-radius: 14px;
         overflow: hidden;
         background-color: var(--surface-variant);
         border: 1px solid var(--surface-border);
+      }
+
+      .series-scrim {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          to bottom,
+          transparent 40%,
+          color-mix(in srgb, var(--scrim) 82%, transparent) 100%
+        );
+        pointer-events: none;
+      }
+
+      .series-meta {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        pointer-events: none;
       }
 
       .cover {
@@ -288,13 +312,20 @@ import { AudioPlayerService } from '../services/audio-player.service';
 
       .series-title {
         margin: 0;
-        font-size: 14px;
-        font-weight: 600;
-        line-height: 1.3;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--on-scrim);
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+      }
+
+      .series-sub {
+        margin: 0;
+        font-size: 11px;
+        color: var(--on-scrim-muted);
       }
 
       .series-sub {

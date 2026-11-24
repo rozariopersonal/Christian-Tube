@@ -97,6 +97,8 @@ import { UserSyncService } from '../../../core/services/user-sync.service';
               </button>
             }
           }
+
+          <a class="pill-chip" routerLink="/channels">+ Explore Channels</a>
         </div>
       </header>
 
