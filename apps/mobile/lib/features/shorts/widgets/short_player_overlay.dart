@@ -15,8 +15,12 @@ class ShortPlayerOverlay extends StatelessWidget {
   
   final Short short;
   final LocalShortItem? localItem;
-  
+
+  final bool showLikeBurst;
+  final VoidCallback? onDoubleTapLike;
   final VoidCallback onShare;
+  final VoidCallback? onNote;
+  final bool hasNote;
   
   final bool isScrubbing;
   final double currentPosition;
@@ -40,7 +44,11 @@ class ShortPlayerOverlay extends StatelessWidget {
     required this.areControlsVisible,
     required this.short,
     this.localItem,
+    this.showLikeBurst = false,
+    this.onDoubleTapLike,
     required this.onShare,
+    this.onNote,
+    this.hasNote = false,
     required this.isScrubbing,
     required this.currentPosition,
     required this.totalDuration,
@@ -58,12 +66,13 @@ class ShortPlayerOverlay extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 2. Full-Screen Tap Arena (Dynamic HUD Auto-Hide & Play/Pause & Double-Tap Bless)
+        // 2. Full-Screen Tap Arena (Dynamic HUD Auto-Hide, Play/Pause, Double-Tap Heart)
         if (!isNonPlayableLocalShort)
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onScreenTap,
+              onDoubleTap: onDoubleTapLike,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -83,6 +92,29 @@ class ShortPlayerOverlay extends StatelessWidget {
                           playPauseOverlayPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
                           size: 64,
                           color: context.tokens.onScrim.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                  // Double-Tap Heart Burst Feedback Overlay
+                  if (showLikeBurst)
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0.6, end: 1.1),
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutBack,
+                      builder: (context, scale, child) => Transform.scale(
+                        scale: scale,
+                        child: child,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: context.tokens.scrim.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.favorite_rounded,
+                          size: 72,
+                          color: context.accent,
                         ),
                       ),
                     ),
@@ -123,11 +155,11 @@ class ShortPlayerOverlay extends StatelessWidget {
           ),
         ),
 
-        // 3. Floating Right Action Bar (Save, Sound, Share)
+        // 3. Floating Right Action Bar (Like, Share)
         // Moved after ShortBottomDetails in the Stack to guarantee it sits on top (z-index)
         Positioned(
           right: 14,
-          bottom: 220, // Increased from 92 to ensure it sits above the bottom details panel
+          bottom: MediaQuery.sizeOf(context).height < 520 ? 140 : 220,
           child: IgnorePointer(
             ignoring: !areControlsVisible,
             child: AnimatedOpacity(
@@ -136,6 +168,9 @@ class ShortPlayerOverlay extends StatelessWidget {
               child: ShortActionBar(
                 short: short,
                 onShare: onShare,
+                onNote: onNote,
+                hasNote: hasNote,
+                enableLike: localItem == null,
               ),
             ),
           ),

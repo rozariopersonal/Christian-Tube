@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/theme/theme_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/models/user_preference.dart';
 import 'package:mobile/core/services/user_preference_service.dart';
@@ -33,6 +34,7 @@ void main() {
         'bibleVersionIds': ['TAOBVSI', 'NASB'],
         'themeMode': 'dark',
         'accentColor': 'emerald',
+        'defaultPage': 'feed',
         'dailyReminderEnabled': true,
         'dailyReminderTime': '06:30',
         'lockScreenWordFeedEnabled': true,
@@ -74,6 +76,18 @@ void main() {
       expect(updated.accentColor, equals(original.accentColor));
     });
 
+    test('configured empty Shorts selection survives restore', () {
+      final pref = UserPreference.fromJson({
+        'videoChannelIds': ['video'],
+        'shortsChannelIds': <String>[],
+        'fieldTimestamps': {'videoChannelIds': 1, 'shortsChannelIds': 1},
+      });
+      final restored = UserPreference.fromJson(pref.toJson());
+      expect(restored.videoFeedChannels({'video', 'shorts'}), {'video'});
+      expect(restored.shortsFeedChannels({'video', 'shorts'}), isEmpty);
+      expect(const UserPreference().shortsFeedChannels({'legacy'}), {'legacy'});
+    });
+
     test('equality and hashCode work as expected', () {
       const p1 = UserPreference(
         languages: ['en'],
@@ -100,6 +114,14 @@ void main() {
   group('UserPreferenceService', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+    });
+
+    test('canonical accent survives a new theme service', () async {
+      final theme = ThemeService();
+      await theme.setColorTheme(AppColorTheme.teal);
+      final restored = ThemeService();
+      await Future<void>.delayed(Duration.zero);
+      expect(restored.colorTheme, AppColorTheme.teal);
     });
 
     test('initializes and saves preferences locally', () async {

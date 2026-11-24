@@ -30,6 +30,10 @@ on:
         description: 'Mark as Pre-release / Beta'
         type: boolean
         default: false
+      release_centum_academy:
+        description: 'Build & Release CentumAcademy (optional, manual only)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -42,6 +46,8 @@ jobs:
     name: 'Gate 1: Code & Unit Quality Gate'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.set_matrix.outputs.matrix }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -75,6 +81,46 @@ jobs:
         run: |
           cd apps/mobile
           flutter test
+
+      - name: Determine Release Matrix
+        id: set_matrix
+        run: |
+          INCLUDE_CENTUM="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.release_centum_academy }}" = "true" ]; then
+            INCLUDE_CENTUM="true"
+          fi
+
+          MATRIX=$(jq -cn --arg include_centum "$INCLUDE_CENTUM" '
+            {
+              include: (
+                [
+                  {
+                    instance: "christian_tube",
+                    appName: "ChristianApp",
+                    apkName: "christian-app.apk",
+                    betaApkName: "christian-app-beta.apk",
+                    releaseRepo: "rozariopersonal/Christian-Tube-Releases"
+                  }
+                ] + (
+                  if $include_centum == "true" then
+                    [
+                      {
+                        instance: "centum_academy",
+                        appName: "CentumAcademy",
+                        apkName: "centum-academy.apk",
+                        betaApkName: "centum-academy-beta.apk",
+                        releaseRepo: "rozariopersonal/Centum-Academy-Releases"
+                      }
+                    ]
+                  else
+                    []
+                  end
+                )
+              )
+            }
+          ')
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Release matrix: $MATRIX"
 
   # ============================================================================
   # AUTO-TAG (MAIN OR DEVELOP BRANCH)
@@ -117,18 +163,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - instance: christian_tube
-            appName: ChristianApp
-            apkName: christian-app.apk
-            betaApkName: christian-app-beta.apk
-            releaseRepo: rozariopersonal/Christian-Tube-Releases
-          - instance: centum_academy
-            appName: CentumAcademy
-            apkName: centum-academy.apk
-            betaApkName: centum-academy-beta.apk
-            releaseRepo: rozariopersonal/Centum-Academy-Releases
+      matrix: ${{ fromJSON(needs.code_quality_gate.outputs.matrix) }}
 
     steps:
       - name: Checkout Code
@@ -403,4 +438,29 @@ jobs:
           if [ $SUCCESS -ne 1 ]; then
             echo "::error::Failed to publish ${{ env.TAG }} to ${{ matrix.releaseRepo }} after 5 attempts."
             exit 1
+          fi
+
+          # Maintain a rolling beta-latest tag so browser direct-download URLs never 404 on pre-releases
+          if [ "${{ env.RELEASE_CHANNEL }}" = "beta" ]; then
+            echo "Updating rolling beta-latest release in ${{ matrix.releaseRepo }}..."
+            if gh release view "beta-latest" --repo "${{ matrix.releaseRepo }}" > /dev/null 2>&1; then
+              gh release upload "beta-latest" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --clobber \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png
+              gh release edit "beta-latest" \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} Latest (${{ env.TAG }})" \
+                --notes-file release_body.md \
+                --prerelease
+            else
+              gh release create "beta-latest" \
+                ./${{ env.TARGET_APK_NAME }} \
+                ./download-qrcode.png \
+                --repo "${{ matrix.releaseRepo }}" \
+                --title "${{ env.TARGET_APP_NAME }} Latest (${{ env.TAG }})" \
+                --notes-file release_body.md \
+                --prerelease
+            fi
           fi

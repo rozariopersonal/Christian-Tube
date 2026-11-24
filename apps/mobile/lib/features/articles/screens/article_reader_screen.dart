@@ -1,8 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:mobile/shared/ui/reader_selection_line.dart';
+import 'package:mobile/core/layout/adaptivity.dart';
 import 'package:mobile/core/layout/content_width.dart';
 import 'package:mobile/core/link/deep_link_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/core/services/reader_fullscreen_service.dart';
 import 'package:mobile/features/books/models/book_highlight.dart';
 import 'package:mobile/features/books/services/book_service.dart';
 import 'package:mobile/features/books/services/scripture_ref_parser.dart';
@@ -15,6 +19,8 @@ import 'package:mobile/shared/services/reader_appearance.dart';
 import 'package:mobile/shared/services/reader_fonts_service.dart';
 import 'package:mobile/shared/ui/double_tap_dictionary_area.dart';
 import 'package:mobile/shared/ui/widgets/reader_appearance_action_button.dart';
+import 'package:mobile/shared/ui/reader_fullscreen_button.dart';
+import 'package:mobile/shared/ui/reader_appearance_sheet.dart';
 import 'package:share_plus/share_plus.dart';
 import '../controllers/article_reader_controller.dart';
 import '../models/wftw_index_entry.dart';
@@ -39,18 +45,25 @@ class ArticleReaderScreen extends StatefulWidget {
 }
 
 class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
+  static const String _readerId = 'article';
+  final ReaderFullscreenService _fullscreen = ReaderFullscreenService.instance;
   late final ArticleReaderController _controller;
   final ScrollController _scrollController = ScrollController();
   final List<GestureRecognizer> _recognizers = [];
+  final Map<int, SelectedContentRange> _selectedRanges = {};
+  List<BookHighlight> _articleHighlights = const [];
+  String get _articleScope => 'article_${widget.articleId}_${widget.lang}';
 
   @override
   void initState() {
     super.initState();
+    _fullscreen.attach(_readerId);
     _controller = ArticleReaderController(
       widget.articleId,
       lang: widget.lang,
       syncService: widget.syncService,
     );
+    _loadArticleHighlights();
     _controller.appearance.addListener(_onAppearanceChanged);
     ReaderFontsService.instance.addListener(_onFontsChanged);
 
@@ -63,6 +76,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
   @override
   void dispose() {
+    _fullscreen.detach(_readerId);
     _controller.appearance.removeListener(_onAppearanceChanged);
     ReaderFontsService.instance.removeListener(_onFontsChanged);
     _disposeRecognizers();
@@ -88,30 +102,73 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _saveArticleHighlight(String text, int colorIndex) async {
-    final clean = text.trim();
-    if (clean.isEmpty) return;
-    final scopeId = 'article_${widget.articleId}_${widget.lang}';
-    final highlight = BookHighlight(
-      id: '${scopeId}_${DateTime.now().millisecondsSinceEpoch}',
-      bookId: scopeId,
-      chapterIndex: 1,
-      pageNumber: 1,
-      startChar: 0,
-      endChar: clean.length,
-      text: clean,
-      color: colorIndex,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    await BookService.instance.saveHighlight(highlight);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Highlight saved'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+  void _shareArticle() {
+    final article = _controller.state.article;
+    if (article == null) return;
+    final link = DeepLinkService.article(widget.articleId, lang: widget.lang);
+    final buffer = StringBuffer()
+      ..writeln(article.title)
+      ..writeln('By ${article.author} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${article.date}\n');
+    for (final line in article.lines.take(12)) {
+      buffer.writeln(line.text);
     }
+    buffer.writeln('${AppLocalizations.maybeOf(context)?.readOnApp ?? 'Read on App'}: $link');
+    Share.share(buffer.toString(), subject: article.title);
+  }
+
+  Future<void> _loadArticleHighlights() async {
+    try {
+      final highlights = await BookService.instance.getHighlightsForBook(_articleScope);
+      if (mounted) setState(() => _articleHighlights = highlights);
+    } catch (_) {
+      // The reader remains usable if annotation storage is unavailable.
+    }
+  }
+
+  Future<void> _saveArticleHighlight(String text, int colorIndex) async {
+    final article = _controller.state.article;
+    if (article == null) return;
+    final ranges = Map<int, SelectedContentRange>.of(_selectedRanges);
+    var saved = 0;
+    for (final entry in ranges.entries) {
+      if (entry.key < 0 || entry.key >= article.lines.length) continue;
+      final line = article.lines[entry.key].text;
+      final start = entry.value.startOffset.clamp(0, line.length);
+      final end = entry.value.endOffset.clamp(start, line.length);
+      if (start == end) continue;
+      final highlight = BookHighlight(
+        id: 'article_range_${widget.articleId}_${widget.lang}_${entry.key}_${DateTime.now().microsecondsSinceEpoch}',
+        bookId: _articleScope,
+        chapterIndex: 1,
+        pageNumber: entry.key + 1,
+        startChar: start,
+        endChar: end,
+        text: line.substring(start, end),
+        color: colorIndex,
+        createdAt: DateTime.now().toIso8601String(),
+      );
+      await BookService.instance.saveHighlight(highlight);
+      saved++;
+    }
+    if (saved == 0) return;
+    await _loadArticleHighlights();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Highlight saved'), duration: Duration(seconds: 1),
+      ));
+    }
+  }
+
+  Future<void> _clearArticleHighlights(String text, int page) async {
+    final ranges = Map<int, SelectedContentRange>.of(_selectedRanges);
+    for (final h in _articleHighlights) {
+      if (!h.id.startsWith('article_range_')) continue;
+      final range = ranges[h.pageNumber - 1];
+      if (range != null && h.startChar < range.endOffset && h.endChar > range.startOffset) {
+        await BookService.instance.deleteHighlight(h.id);
+      }
+    }
+    await _loadArticleHighlights();
   }
 
   /// Disposes every recognizer created so far. Called before each build pass
@@ -149,13 +206,15 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     String? fontFamily,
     ReaderAppearance appearance,
     AppTokens tokens,
-  ) {
+    int lineIndex, {
+    bool isHeading = false,
+  }) {
     final baseStyle = TextStyle(
       color: textColor,
-      fontSize: appearance.fontSize,
-      height: appearance.lineHeight,
+      fontSize: isHeading ? appearance.fontSize * 1.25 : appearance.fontSize,
+      height: isHeading ? 1.3 : appearance.lineHeight,
       fontFamily: fontFamily,
-      fontWeight: appearance.fontWeight,
+      fontWeight: isHeading ? FontWeight.bold : appearance.fontWeight,
       fontStyle: appearance.fontStyle,
       decoration: appearance.textDecoration,
     );
@@ -163,24 +222,44 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final textTokens = ScriptureRefParser.tokenize(text);
     final spans = <InlineSpan>[];
 
+    var offset = 0;
+    final highlights = _articleHighlights.where((h) =>
+        h.id.startsWith('article_range_') && h.pageNumber == lineIndex + 1);
     for (final token in textTokens) {
-      if (token.isReference && token.ref != null) {
+      final tokenStart = offset;
+      final tokenEnd = tokenStart + token.text.length;
+      final boundaries = <int>{tokenStart, tokenEnd};
+      for (final h in highlights) {
+        if (h.startChar < tokenEnd && h.endChar > tokenStart) {
+          boundaries.add(h.startChar.clamp(tokenStart, tokenEnd));
+          boundaries.add(h.endChar.clamp(tokenStart, tokenEnd));
+        }
+      }
+      final cuts = boundaries.toList()..sort();
+      for (var i = 0; i + 1 < cuts.length; i++) {
+        final start = cuts[i], end = cuts[i + 1];
+        BookHighlight? highlight;
+        for (final h in highlights) {
+          if (h.startChar <= start && h.endChar >= end) highlight = h;
+        }
+        final isReference = token.isReference && token.ref != null;
+        var style = isReference
+            ? baseStyle.copyWith(
+                color: tokens.accent, fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                decorationColor: tokens.accent.withValues(alpha: 0.6))
+            : baseStyle;
+        if (highlight != null) {
+          style = style.copyWith(backgroundColor:
+              ReaderAppearance.highlightColorByIndex(highlight.color).withValues(alpha: 0.38));
+        }
         spans.add(TextSpan(
-          text: token.text,
-          style: baseStyle.copyWith(
-            color: tokens.accent,
-            fontWeight: FontWeight.bold,
-            decoration: TextDecoration.underline,
-            decorationColor: tokens.accent.withValues(alpha: 0.6),
-          ),
-          recognizer: _makeRecognizer(token.ref, token.text),
-        ));
-      } else {
-        spans.add(TextSpan(
-          text: token.text,
-          style: baseStyle,
+          text: token.text.substring(start - tokenStart, end - tokenStart),
+          style: style,
+          recognizer: isReference ? _makeRecognizer(token.ref, token.text) : null,
         ));
       }
+      offset = tokenEnd;
     }
 
     return spans;
@@ -191,7 +270,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final tokens = context.tokens;
 
     return ListenableBuilder(
-      listenable: Listenable.merge([_controller, _controller.appearance]),
+      listenable: Listenable.merge([_controller, _controller.appearance, _fullscreen]),
       builder: (context, _) {
         _disposeRecognizers();
         final l10n = AppLocalizations.maybeOf(context);
@@ -204,9 +283,19 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
 
         final title = state.article?.title ?? widget.initialTitle ?? l10n?.appTitle ?? 'Article';
 
-        return Scaffold(
+        final isFullscreen = _fullscreen.isFullscreenFor(_readerId);
+        return PopScope(
+          canPop: !isFullscreen,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && _fullscreen.isFullscreenFor(_readerId)) {
+              _fullscreen.exit(_readerId);
+            }
+          },
+          child: Listener(
+            onPointerDown: (_) => _fullscreen.noteActivity(_readerId),
+            child: Scaffold(
           backgroundColor: appearance.background(tokens),
-          appBar: AppBar(
+          appBar: isFullscreen ? null : AppBar(
             backgroundColor: appearance.surface(tokens),
             elevation: 0,
             title: Text(
@@ -220,37 +309,59 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
               ),
             ),
             automaticallyImplyLeading: false,
-            actions: [
+            actions: needsCollapsedActions(MediaQuery.sizeOf(context).width)
+                ? [
+                    PopupMenuButton<String>(
+                      tooltip: 'Reader options',
+                      color: appearance.surface(tokens),
+                      onSelected: (value) {
+                        if (value == 'appearance') {
+                          showReaderAppearanceSheet(context, appearance);
+                        } else if (value == 'fullscreen') {
+                          _fullscreen.toggle(_readerId);
+                        } else if (value == 'share') {
+                          _shareArticle();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(value: 'appearance', child: Text('Reading appearance')),
+                        const PopupMenuItem(value: 'fullscreen', child: Text('Fullscreen reading')),
+                        if (state.article != null)
+                          const PopupMenuItem(value: 'share', child: Text('Share article')),
+                      ],
+                    ),
+                  ]
+                : [
               // Standardized Aa typography appearance button
               ReaderAppearanceActionButton(appearance: appearance),
+              IconButton(
+                tooltip: 'Enter fullscreen reading',
+                icon: Icon(Icons.fullscreen_rounded,
+                    color: appearance.textColor(tokens)),
+                onPressed: () => _fullscreen.toggle(_readerId),
+              ),
 
               // Share button
               if (state.article != null)
                 IconButton(
                   icon: Icon(Icons.share_rounded, color: appearance.textColor(tokens)),
                   tooltip: l10n?.share ?? 'Share',
-                  onPressed: () {
-                    final article = state.article!;
-                    final link = DeepLinkService.article(
-                      widget.articleId,
-                      lang: widget.lang,
-                    );
-                    final buffer = StringBuffer();
-                    buffer.writeln(article.title);
-                    buffer.writeln('By ${article.author} • ${article.date}\n');
-                    for (final l in article.lines.take(12)) {
-                      buffer.writeln(l.text);
-                    }
-                    buffer.writeln('${l10n?.readOnApp ?? 'Read on App'}: $link');
-                    Share.share(
-                      buffer.toString(),
-                      subject: article.title,
-                    );
-                  },
+                  onPressed: _shareArticle,
                 ),
             ],
           ),
-          body: _buildBody(state, tokens, fontFamily, appearance, l10n),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildBody(state, tokens, fontFamily, appearance, l10n),
+              if (isFullscreen)
+                ReaderFullscreenButton(
+                  onExit: () => _fullscreen.exit(_readerId),
+                ),
+            ],
+          ),
+            ),
+          ),
         );
       },
     );
@@ -329,11 +440,13 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
             fontStyle: appearance.fontStyle,
           ),
           child: DoubleTapDictionaryArea(
-            contextMenuBuilder: (context, selectableRegionState) {
+            contextMenuBuilder: (context, selectableRegionState, selectedText) {
               return buildReaderSelectionToolbar(
                 context,
                 selectableRegionState,
                 1,
+                selectedText: selectedText,
+                onClearHighlight: _clearArticleHighlights,
                 onHighlight: (text, _) => _saveArticleHighlight(text, 0),
                 onHighlightWithColor: (text, _, colorIndex) =>
                     _saveArticleHighlight(text, colorIndex),
@@ -386,34 +499,29 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
                     const SizedBox(height: 20),
 
                     // Paragraphs & Headings
-                    ...article.lines.map((line) {
-                      if (line.isHeading) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 24, bottom: 12),
-                          child: Text(
-                            line.text,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: appearance.fontSize * 1.25,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                              fontFamily: fontFamily,
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text.rich(
-                          TextSpan(
-                            children: _buildSpans(
-                              line.text,
-                              textColor,
-                              fontFamily,
-                              appearance,
-                              tokens,
-                            ),
+                    ...article.lines.asMap().entries.map((entry) {
+                      final line = entry.value;
+                      final lineIndex = entry.key;
+                      return ReaderSelectionLine(
+                        key: ValueKey('article-line-$lineIndex'),
+                        onSelection: (range) {
+                          if (range == null || range.startOffset == range.endOffset) {
+                            _selectedRanges.remove(lineIndex);
+                          } else {
+                            _selectedRanges[lineIndex] = range;
+                          }
+                        },
+                        child: Padding(
+                          padding: line.isHeading
+                              ? const EdgeInsets.only(top: 24, bottom: 12)
+                              : const EdgeInsets.only(bottom: 16),
+                          child: Text.rich(
+                            TextSpan(children: _buildSpans(line.text, textColor,
+                                fontFamily, appearance, tokens, lineIndex, isHeading: line.isHeading)),
+                            style: line.isHeading ? TextStyle(
+                              color: textColor, fontSize: appearance.fontSize * 1.25,
+                              fontWeight: FontWeight.bold, height: 1.3, fontFamily: fontFamily,
+                            ) : null,
                           ),
                         ),
                       );

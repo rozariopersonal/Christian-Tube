@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/layout/adaptivity.dart';
@@ -11,9 +12,13 @@ import '../../core/layout/content_width.dart';
 import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
+import '../../core/services/user_sync_service.dart';
 import '../../core/models/video.dart';
 import '../../core/utils/formatters.dart';
+import '../../shared/annotations/user_item.dart';
+import '../../shared/services/note_service.dart';
 import '../../shared/ui/channel_avatar.dart';
+import '../../shared/ui/media_note_helper.dart';
 import '../../shared/ui/recommendation_video_card.dart';
 import '../../shared/ui/video_options_bottom_sheet.dart';
 import '../channels/channel_service.dart';
@@ -23,6 +28,7 @@ import '../../core/config/app_config.dart';
 import 'widgets/youtube_playlist_widget.dart';
 import 'players/universal_video_player.dart';
 import 'widgets/shorts_trimmer_sheet.dart';
+import 'widgets/video_action_bar.dart';
 import '../../core/models/short.dart';
 import '../audio/controllers/audio_player_controller.dart';
 import '../audio/models/audio_track.dart';
@@ -52,22 +58,32 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  static const _autoplayPreferenceKey = 'ct_video_autoplay_v1';
+  static const _recommendationsPageSize = 20;
   final ApiClient _apiClient = ApiClient();
   final ChannelService _channelService = ChannelService();
 
   late String _activeVideoId;
   Video? _video;
   List<Video> _relatedVideos = [];
+  final ScrollController _watchScrollController = ScrollController();
+  bool _isLoadingRelated = false;
+  bool _hasMoreRelated = true;
+  int _relatedGeneration = 0;
+  int _videoDetailsGeneration = 0;
+  int? _autoplayCountdown;
+  Timer? _autoplayCountdownTimer;
+  DateTime? _relatedCursorPublishedBefore;
+  String? _relatedCursorBeforeId;
   List<Video> _playlist = [];
   int _playlistIndex = 0;
   bool _isDescriptionExpanded = false;
-  bool _isLiked = false;
-  bool _isDisliked = false;
-  
+  bool _hasNote = false;
   AudioTrack? _matchedAudioTrack;
 
   double _currentPositionSeconds = 0.0;
   double? _restoredStartSeconds;
+  double? _activeStartSeconds;
   Timer? _positionSaveTimer;
 
   /// Persistent GlobalKey to ensure the underlying platform player (WebView / iframe)
@@ -92,8 +108,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     AudioPlayerController.instance.pause();
     _activeVideoId = widget.videoId;
     _video = widget.initialVideo;
+    _activeStartSeconds = widget.startSeconds;
     _playlist = widget.playlist != null ? List.from(widget.playlist!) : [];
     _playlistIndex = widget.initialPlaylistIndex;
+    _watchScrollController.addListener(_onWatchScroll);
 
     if (_video != null) {
       UserService().addToHistory(_video!);
@@ -101,7 +119,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     if (widget.startSeconds == null) {
       UserService().getVideoPosition(_activeVideoId).then((saved) {
-        if (mounted && saved > 5) {
+        if (!mounted) return;
+        final dur = UserService.parseDurationSeconds(_video?.duration);
+        final wasWatched =
+            UserService().isWatched(_activeVideoId, durationSeconds: dur);
+        if (wasWatched) {
+          // Re-watching a watched video resets progress to 0 so the user sees
+          // active progress until reaching the last 10 seconds again.
+          UserService().saveVideoPosition(_activeVideoId, 0, durationSeconds: dur);
+        } else if (saved > 5) {
           setState(() {
             _restoredStartSeconds = saved;
           });
@@ -111,9 +137,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     _channelService.loadSubscriptions();
     _channelService.fetchChannels();
+    _loadAutoplayPreference();
+    if (_video != null) _loadRelatedVideos(reset: true);
     _loadVideoDetails();
-    _loadRelatedVideos();
     _checkAudioTrack();
+    _loadNoteStatus();
+  }
+
+  Future<void> _loadNoteStatus() async {
+    try {
+      final note = await NoteService.instance
+          .getNoteForTarget(UserItem.featureVideo, _activeVideoId);
+      if (mounted) {
+        setState(() => _hasNote = note != null && !note.isEmpty);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openNoteEditor() async {
+    final hasNote = await showMediaNoteEditor(
+      context,
+      feature: UserItem.featureVideo,
+      targetId: _activeVideoId,
+      title: _video?.title,
+      contextText: _video?.channelTitle,
+    );
+    if (mounted && hasNote != null) {
+      setState(() => _hasNote = hasNote);
+    }
+  }
+
+  Future<void> _loadAutoplayPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() => _isAutoplay = prefs.getBool(_autoplayPreferenceKey) ?? true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _setAutoplay(bool enabled) async {
+    setState(() => _isAutoplay = enabled);
+    if (!enabled) _cancelAutoplayCountdown();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_autoplayPreferenceKey, enabled);
+    } catch (_) {}
   }
 
   Future<void> _checkAudioTrack() async {
@@ -136,6 +205,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _playNextNow() {
+    _cancelAutoplayCountdown();
+    final isCurrentPlaylistVideo = _playlistIndex >= 0 &&
+        _playlistIndex < _playlist.length &&
+        _playlist[_playlistIndex].id == _activeVideoId;
+    if (isCurrentPlaylistVideo && _playlistIndex < _playlist.length - 1) {
+      _playNextInPlaylist();
+      return;
+    }
+    if (isCurrentPlaylistVideo && _loopMode == PlaylistLoopMode.all) {
+      _selectVideoFromPlaylist(0);
+      return;
+    }
+    if (_relatedVideos.isNotEmpty) {
+      _navigateToVideo(_relatedVideos.first);
+    } else if (_hasMoreRelated) {
+      _loadMoreRelatedVideos(_relatedGeneration).then((_) {
+        if (mounted && _relatedVideos.isNotEmpty) {
+          _navigateToVideo(_relatedVideos.first);
+        }
+      });
+    }
+  }
+
   void _playPreviousInPlaylist() {
     if (_playlist.isNotEmpty && _playlistIndex > 0) {
       _selectVideoFromPlaylist(_playlistIndex - 1);
@@ -144,16 +237,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _selectVideoFromPlaylist(int index) {
     if (index < 0 || index >= _playlist.length) return;
+    _cancelAutoplayCountdown();
+    _saveAndResetPosition();
     final nextVid = _playlist[index];
     setState(() {
       _playlistIndex = index;
       _activeVideoId = nextVid.id;
       _video = nextVid;
+      _activeStartSeconds = null;
+      _restoredStartSeconds = null;
     });
+    _loadRelatedVideos(reset: true);
     UserService().addToHistory(nextVid);
     _loadVideoDetails();
-    _loadRelatedVideos();
     _checkAudioTrack();
+    _loadNoteStatus();
   }
 
   void _toggleShuffle() {
@@ -170,39 +268,72 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _loadVideoDetails() async {
+    final generation = ++_videoDetailsGeneration;
+    final requestedVideoId = _activeVideoId;
+    final shouldLoadRecommendations = _video == null;
     try {
       dynamic response;
       try {
-        response = await _apiClient.dio.get('/api/videos/$_activeVideoId');
+        response = await _apiClient.dio.get('/api/videos/$requestedVideoId');
       } catch (_) {
-        response = await _apiClient.dio.get('/videos/$_activeVideoId');
+        response = await _apiClient.dio.get('/videos/$requestedVideoId');
       }
 
       if (response.statusCode == 200 && response.data != null) {
         final loaded = Video.fromJson(response.data as Map<String, dynamic>);
-        if (mounted) {
+        if (mounted && generation == _videoDetailsGeneration) {
           setState(() {
             _video = loaded;
           });
         }
+        if (generation != _videoDetailsGeneration) return;
         UserService().addToHistory(loaded);
+        if (shouldLoadRecommendations) {
+          await _loadRelatedVideos(reset: true);
+        }
       }
     } catch (e) {
       debugPrint('Error loading video details: $e');
+      if (generation == _videoDetailsGeneration &&
+          shouldLoadRecommendations &&
+          _video != null) {
+        await _loadRelatedVideos(reset: true);
+      }
     }
   }
 
-  Future<void> _loadRelatedVideos() async {
+  Future<void> _loadRelatedVideos({bool reset = false}) async {
+    final current = _video;
+    if (current == null || current.channelId.isEmpty) return;
+    if (reset) {
+      _relatedGeneration++;
+      _isLoadingRelated = false;
+      _relatedVideos = [];
+      _hasMoreRelated = true;
+      _relatedCursorPublishedBefore = current.publishedAt;
+      _relatedCursorBeforeId = current.id;
+      if (_watchScrollController.hasClients) {
+        _watchScrollController.jumpTo(0);
+      }
+    }
+    await _loadMoreRelatedVideos(_relatedGeneration);
+  }
+
+  Future<void> _loadMoreRelatedVideos(int generation) async {
+    final current = _video;
+    if (_isLoadingRelated || !_hasMoreRelated || current == null) return;
+    _isLoadingRelated = true;
+    if (mounted) setState(() {});
     try {
       final queryParams = <String, dynamic>{
         'type': 'VIDEO',
-        'limit': 20,
+        'sort': 'latest',
+        'channelId': current.channelId,
+        'limit': _recommendationsPageSize,
+        if (_relatedCursorPublishedBefore != null)
+          'publishedBefore': _relatedCursorPublishedBefore!.toIso8601String(),
+        if (_relatedCursorBeforeId != null) 'beforeId': _relatedCursorBeforeId,
       };
-      if (_video?.category != null &&
-          _video!.category != 'All' &&
-          _video!.category!.isNotEmpty) {
-        queryParams['category'] = _video!.category;
-      }
 
       dynamic response;
       try {
@@ -217,21 +348,97 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         final dynamic raw = response.data;
         final List<dynamic> list =
             raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        if (mounted) {
+        if (mounted && generation == _relatedGeneration) {
+          final page = list
+              .whereType<Map<String, dynamic>>()
+              .where((json) => !Short.isShort(json))
+              .map((json) => Video.fromJson(json))
+              .where((video) => video.id != current.id && video.type != 'SHORT')
+              .toList();
+          final knownIds = _relatedVideos.map((video) => video.id).toSet();
+          final uniquePage = page.where((video) => knownIds.add(video.id)).toList();
           setState(() {
-            _relatedVideos = list
-                .whereType<Map<String, dynamic>>()
-                .where((json) => !Short.isShort(json))
-                .map((v) => Video.fromJson(v))
-                .where((v) => v.id != _activeVideoId && v.type != 'SHORT')
-                .take(15)
-                .toList();
+            _relatedVideos = [..._relatedVideos, ...uniquePage];
+            _hasMoreRelated = list.length == _recommendationsPageSize;
+            if (page.isNotEmpty) {
+              final last = page.last;
+              _relatedCursorPublishedBefore = last.publishedAt;
+              _relatedCursorBeforeId = last.id;
+            }
           });
         }
       }
     } catch (e) {
       debugPrint('Error loading related videos: $e');
+    } finally {
+      if (generation == _relatedGeneration) {
+        _isLoadingRelated = false;
+        if (mounted) setState(() {});
+      }
     }
+  }
+
+  void _onWatchScroll() {
+    if (!_watchScrollController.hasClients || _isLoadingRelated || !_hasMoreRelated) return;
+    if (_watchScrollController.position.extentAfter < 500) {
+      _loadMoreRelatedVideos(_relatedGeneration);
+    }
+  }
+
+  Future<void> _onPlaybackEnded() async {
+    if (!mounted || !_isAutoplay) return;
+    final isCurrentPlaylistVideo = _playlistIndex >= 0 &&
+        _playlistIndex < _playlist.length &&
+        _playlist[_playlistIndex].id == _activeVideoId;
+    if (isCurrentPlaylistVideo && _playlistIndex < _playlist.length - 1) {
+      _startAutoplayCountdown(_playNextInPlaylist);
+      return;
+    }
+    if (isCurrentPlaylistVideo && _loopMode == PlaylistLoopMode.all) {
+      _startAutoplayCountdown(() => _selectVideoFromPlaylist(0));
+      return;
+    }
+    if (_relatedVideos.isEmpty && _hasMoreRelated) {
+      await _loadMoreRelatedVideos(_relatedGeneration);
+    }
+    if (_relatedVideos.isNotEmpty) {
+      _startAutoplayCountdown(() => _navigateToVideo(_relatedVideos.first));
+    }
+  }
+
+  void _startAutoplayCountdown(VoidCallback playNext) {
+    _cancelAutoplayCountdown();
+    setState(() => _autoplayCountdown = 5);
+    _autoplayCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_isAutoplay) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _autoplayCountdown ?? 0;
+      if (remaining <= 1) {
+        timer.cancel();
+        setState(() => _autoplayCountdown = null);
+        playNext();
+      } else {
+        setState(() => _autoplayCountdown = remaining - 1);
+      }
+    });
+  }
+
+  void _cancelAutoplayCountdown() {
+    _autoplayCountdownTimer?.cancel();
+    _autoplayCountdownTimer = null;
+    if (_autoplayCountdown != null && mounted) {
+      setState(() => _autoplayCountdown = null);
+    }
+  }
+
+  void _saveAndResetPosition() {
+    _positionSaveTimer?.cancel();
+    if (_currentPositionSeconds > 0) {
+      UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+    }
+    _currentPositionSeconds = 0;
   }
 
   void _shareVideo() {
@@ -273,20 +480,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _navigateToVideo(Video video) {
+    _cancelAutoplayCountdown();
+    _saveAndResetPosition();
+    final playlistIndex = _playlist.indexWhere((item) => item.id == video.id);
     setState(() {
+      if (playlistIndex >= 0) {
+        _playlistIndex = playlistIndex;
+      } else {
+        _playlist = [];
+        _playlistIndex = 0;
+      }
       _activeVideoId = video.id;
       _video = video;
+      _activeStartSeconds = null;
+      _restoredStartSeconds = null;
     });
+    _loadRelatedVideos(reset: true);
     _loadVideoDetails();
-    _loadRelatedVideos();
   }
 
 
   @override
   void dispose() {
     _positionSaveTimer?.cancel();
+    _autoplayCountdownTimer?.cancel();
+    _watchScrollController
+      ..removeListener(_onWatchScroll)
+      ..dispose();
     if (_currentPositionSeconds > 0) {
-      UserService().saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+      final dur = UserService.parseDurationSeconds(_video?.duration);
+      UserService().saveVideoPosition(
+        _activeVideoId,
+        _currentPositionSeconds,
+        durationSeconds: dur > 0 ? dur : null,
+      );
     }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -320,7 +547,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return buildPlatformVideoPlayer(
       videoId: _activeVideoId,
-      startSeconds: widget.startSeconds ?? _restoredStartSeconds,
+      startSeconds: _activeStartSeconds ?? _restoredStartSeconds,
       isFullScreen: isFullscreen,
       onToggleFullScreen: () {
         if (_isFullScreen || isPhoneLandscape) {
@@ -348,11 +575,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _positionSaveTimer?.cancel();
         _positionSaveTimer = Timer(const Duration(seconds: 4), () {
           if (_currentPositionSeconds > 0) {
-            UserService()
-                .saveVideoPosition(_activeVideoId, _currentPositionSeconds);
+            final dur = UserService.parseDurationSeconds(_video?.duration);
+            UserService().saveVideoPosition(
+              _activeVideoId,
+              _currentPositionSeconds,
+              durationSeconds: dur > 0 ? dur : null,
+            );
           }
         });
       },
+      onEnded: _onPlaybackEnded,
       builder: (context, player) {
         final tokens = context.tokens;
         // KeyedSubtree guarantees that Flutter will NEVER tear down the native
@@ -361,6 +593,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           key: _playerSubtreeKey,
           child: player,
         );
+        final playerSurface = _buildPlayerSurface(context, persistentPlayer);
 
         if (isFullscreen) {
           return PopScope(
@@ -386,7 +619,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             },
             child: Scaffold(
               backgroundColor: tokens.scrim,
-              body: SizedBox.expand(child: persistentPlayer),
+              body: SizedBox.expand(child: playerSurface),
             ),
           );
         }
@@ -397,9 +630,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             top: false,
             bottom: true,
             child: SingleChildScrollView(
+              controller: _watchScrollController,
               child: screenClass.isCompact
-                  ? _buildCompactLayout(context, persistentPlayer)
-                  : _buildExpandedLayout(context, persistentPlayer),
+                  ? _buildCompactLayout(context, playerSurface)
+                  : _buildExpandedLayout(context, playerSurface),
             ),
           ),
         );
@@ -425,7 +659,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             child: Text(
               AppConfig.appName.isNotEmpty
                   ? AppConfig.appName
-                  : 'ChristianTube',
+                  : 'ChristianApp',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -491,7 +725,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Video Player (fills width)
         AspectRatio(
           aspectRatio: 16 / 9,
           child: Container(
@@ -500,8 +733,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Title & Views
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: _buildTitle(context, fontSize: 16),
@@ -512,38 +743,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           child: _buildViewsAndDate(context),
         ),
         const SizedBox(height: 12),
-
-        // Channel Header Row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: _buildChannelInfo(context),
         ),
         const SizedBox(height: 12),
-
-        // Horizontally Scrollable Action Pills
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: _buildActionButtons(context),
         ),
         const SizedBox(height: 12),
-
-        // Expandable Description Box
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: _buildDescriptionCard(context),
         ),
         const SizedBox(height: 14),
-
-        // Playlist Queue Widget (if active)
         if (_playlist.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: _buildPlaylistWidget(context),
           ),
-
-        // Up Next Recommendations
-        ..._relatedChildren(context),
+        _buildRelatedHeader(context),
+        ..._relatedCards(context),
         const SizedBox(height: 32),
       ],
     );
@@ -564,12 +786,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Primary Column (Left) ────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Video Player (16:9 Aspect Ratio with rounded corners, capped at 1280)
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1280),
@@ -586,24 +806,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
-                  // Video Title (Large bold typography)
                   _buildTitle(context, fontSize: 20),
                   const SizedBox(height: 8),
-
-                  // Channel & Action Bar (Desktop Row or responsive wrap)
+                  _buildViewsAndDate(context),
+                  const SizedBox(height: 8),
                   _buildDesktopChannelAndActionsRow(context),
                   const SizedBox(height: 16),
-
-                  // Expandable Description Box
                   _buildDescriptionCard(context),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
             SizedBox(width: outerPadding),
-
-            // ── Secondary Column (Right Sidebar) ─────────────────────────────
             SizedBox(
               width: sidebarWidth,
               child: Column(
@@ -613,7 +827,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     _buildPlaylistWidget(context),
                     const SizedBox(height: 16),
                   ],
-                  ..._relatedChildren(context),
+                  _buildRelatedHeader(context),
+                  ..._relatedCards(context),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -637,7 +852,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             children: [
               Expanded(child: channelWidget),
               const SizedBox(width: 16),
-              actionsWidget,
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: actionsWidget,
+                  ),
+                ),
+              ),
             ],
           );
         }
@@ -806,121 +1029,54 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  // ── Action Buttons (Like, Dislike, Clip, Share, Save, YouTube) ─────────────
+  // ── Action Buttons (Like, Clip, Share, Save, YouTube) ──────────────────────
   Widget _buildActionButtons(BuildContext context) {
-    final tokens = context.tokens;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_matchedAudioTrack != null) ...[
-          _buildActionPill(
-            icon: Icons.headphones,
-            label: 'Listen to Audio',
-            onTap: () {
-              final pos = _currentPositionSeconds.toInt();
-              pausePlatformMainVideo();
-              AudioPlayerController.instance.playTrack(
-                _matchedAudioTrack!,
-                resumePositionSec: pos,
+    return AnimatedBuilder(
+      animation: UserSyncService.instance,
+      builder: (context, _) {
+        final targetId = _video?.id ?? _activeVideoId;
+        final likeItemType = _video?.type == 'SHORT'
+            ? UserSyncService.likedShortType
+            : UserSyncService.likedVideoType;
+        final isLiked = targetId.isNotEmpty &&
+            UserSyncService.instance.isLiked(likeItemType, targetId);
+        return VideoActionBar(
+          isLiked: isLiked,
+          onToggleLike: () {
+            if (targetId.isEmpty) return;
+            if (UserSyncService.instance.activeUserId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sign in to save liked videos'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
               );
-              FullAudioPlayerSheet.show(context);
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-
-        // Like / Dislike Segmented Pill
-        Container(
-          decoration: BoxDecoration(
-            color: tokens.surfaceVariant,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                borderRadius:
-                    const BorderRadius.horizontal(left: Radius.circular(20)),
-                onTap: () {
-                  setState(() {
-                    _isLiked = !_isLiked;
-                    if (_isLiked) _isDisliked = false;
-                  });
+              return;
+            }
+            UserSyncService.instance.setLiked(
+              itemType: likeItemType,
+              itemId: targetId,
+              liked: !isLiked,
+            );
+          },
+          matchedAudioTrack: _matchedAudioTrack,
+          onListenAudio: _matchedAudioTrack == null
+              ? null
+              : () {
+                  final pos = _currentPositionSeconds.toInt();
+                  pausePlatformMainVideo();
+                  AudioPlayerController.instance.playTrack(
+                    _matchedAudioTrack!,
+                    resumePositionSec: pos,
+                  );
+                  FullAudioPlayerSheet.show(context);
                 },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                        size: 16,
-                        color: _isLiked
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        _isLiked ? '1' : 'Like',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 18,
-                color: tokens.surfaceBorder,
-              ),
-              InkWell(
-                borderRadius:
-                    const BorderRadius.horizontal(right: Radius.circular(20)),
-                onTap: () {
-                  setState(() {
-                    _isDisliked = !_isDisliked;
-                    if (_isDisliked) _isLiked = false;
-                  });
-                },
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  child: Icon(
-                    _isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
-                    size: 16,
-                    color: _isDisliked
-                        ? Theme.of(context).colorScheme.error
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Clip Short
-        _buildActionPill(
-          icon: Icons.content_cut,
-          label: 'Clip',
-          onTap: _openShortsTrimmer,
-        ),
-        const SizedBox(width: 8),
-
-        // Share
-        _buildActionPill(
-          icon: Icons.share_outlined,
-          label: 'Share',
-          onTap: _shareVideo,
-        ),
-        const SizedBox(width: 8),
-
-        // Save
-        _buildActionPill(
-          icon: Icons.bookmark_add_outlined,
-          label: 'Save',
-          onTap: () {
+          onClip: _openShortsTrimmer,
+          onNote: _openNoteEditor,
+          hasNote: _hasNote,
+          onShare: _shareVideo,
+          onSave: () {
             if (_video != null) {
               VideoOptionsBottomSheet.show(
                 context,
@@ -928,16 +1084,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               );
             }
           },
-        ),
-        const SizedBox(width: 8),
-
-        // YouTube
-        _buildActionPill(
-          icon: Icons.open_in_new,
-          label: 'YouTube',
-          onTap: _openInYouTubeApp,
-        ),
-      ],
+          onOpenYouTube: _openInYouTubeApp,
+        );
+      },
     );
   }
 
@@ -1029,64 +1178,135 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       isShuffle: _isShuffle,
       onToggleShuffle: _toggleShuffle,
       isAutoplay: _isAutoplay,
-      onToggleAutoplay: (val) => setState(() => _isAutoplay = val),
+      onToggleAutoplay: _setAutoplay,
     );
   }
 
-  // ── Up Next / Related Videos List ──────────────────────────────────────────
-  List<Widget> _relatedChildren(BuildContext context) {
+  Widget _buildRelatedHeader(BuildContext context) {
     final tokens = context.tokens;
-    return [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Text(
-          'Up Next',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: tokens.onSurface,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Up Next',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: tokens.onSurface,
+              ),
+            ),
           ),
-        ),
+          if (_playlist.isEmpty) ...[
+            const Text('Autoplay', style: TextStyle(fontSize: 12)),
+            Switch(
+              value: _isAutoplay,
+              onChanged: _setAutoplay,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
+        ],
       ),
-      const SizedBox(height: 4),
-      if (_relatedVideos.isEmpty)
+    );
+  }
+
+  List<Widget> _relatedCards(BuildContext context) {
+    if (_relatedVideos.isEmpty && _isLoadingRelated) {
+      return const [
+        Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ];
+    }
+    if (_relatedVideos.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: Text('No more videos from this channel.')),
+        ),
+      ];
+    }
+    return [
+      ..._relatedVideos.map((video) => RecommendationVideoCard(
+            video: video,
+            onTap: () => _navigateToVideo(video),
+          )),
+      if (_isLoadingRelated)
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Center(child: Text('Loading recommendations...')),
-        )
-      else
-        ..._relatedVideos.map((rv) => RecommendationVideoCard(
-              video: rv,
-              onTap: () => _navigateToVideo(rv),
-            )),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      if (!_hasMoreRelated)
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text(
+              'You’re all caught up',
+              style: TextStyle(color: context.tokens.onSurfaceMuted),
+            ),
+          ),
+        ),
     ];
   }
 
-  Widget _buildActionPill({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: context.tokens.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
+  Widget _buildPlayerSurface(BuildContext context, Widget player) {
+    final tokens = context.tokens;
+    if (_autoplayCountdown == null) return player;
+    final nextVideo = _playlist.isNotEmpty && _playlistIndex < _playlist.length - 1
+        ? _playlist[_playlistIndex + 1]
+        : (_relatedVideos.isNotEmpty ? _relatedVideos.first : null);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        player,
+        ColoredBox(
+          color: tokens.scrim.withValues(alpha: 0.82),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Up next in $_autoplayCountdown seconds',
+                    style: TextStyle(color: tokens.onScrimMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (nextVideo != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      nextVideo.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: tokens.onScrim,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _cancelAutoplayCountdown,
+                        child: Text('Cancel', style: TextStyle(color: tokens.onScrim)),
+                      ),
+                      FilledButton(
+                        onPressed: _playNextNow,
+                        child: const Text('Play now'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16),
-            const SizedBox(width: 6),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

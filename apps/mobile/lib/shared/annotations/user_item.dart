@@ -19,6 +19,8 @@ class UserItem {
   static const String featureBible = 'bible';
   static const String featureBook = 'book';
   static const String featureArticle = 'article';
+  static const String featureVideo = 'video';
+  static const String featureShort = 'short';
 
   final String userId;
   final String id;

@@ -39,16 +39,9 @@ class _ShortsGridScreenState extends State<ShortsGridScreen> {
             .map((v) => Short.fromJson(v))
             .toList();
 
-        final shortsOnly = allVideos.where((s) {
-          if (s.durationSeconds > 0) return s.durationSeconds <= 60;
-          final durSec = Short.parseDurationInSeconds(s.duration);
-          if (durSec > 0) return durSec <= 60;
-          final isShortUrl = s.videoUrl.toLowerCase().contains('/shorts/');
-          final isShortTitle = s.title.toLowerCase().contains('#short');
-          final isShortDesc =
-              (s.description ?? '').toLowerCase().contains('#short');
-          return isShortUrl || isShortTitle || isShortDesc || s.type == 'SHORT';
-        }).toList();
+        final shortsOnly = allVideos
+            .where((s) => s.type?.toUpperCase() == 'SHORT')
+            .toList();
 
         setState(() {
           _shorts = shortsOnly;

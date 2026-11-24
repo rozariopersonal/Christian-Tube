@@ -30,6 +30,7 @@ class AppConfig {
   static String? googleClientId;
   static bool isBeta = false;
   static String channel = 'prod';
+  static bool feedbackEnabled = true;
 
   static Color primaryColor = const Color(0xFF2563EB);
   static Color accentColor = const Color(0xFFF59E0B);
@@ -85,6 +86,7 @@ class AppConfig {
       googleClientId = json['googleClientId'];
       isBeta = json['isBeta'] == true;
       channel = json['channel'] ?? (isBeta ? 'beta' : 'prod');
+      feedbackEnabled = json['feedbackEnabled'] ?? feedbackEnabled;
 
       if (json['microFeed'] != null && json['microFeed'] is Map) {
         final mf = json['microFeed'] as Map<String, dynamic>;

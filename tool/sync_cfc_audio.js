@@ -72,7 +72,7 @@ db.exec(`
 
 function fetch(url, retries = 3) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'ChristianTubeCrawler/1.0' }, timeout: 15000 }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'ChristianAppCrawler/1.0' }, timeout: 15000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         let loc = res.headers.location;

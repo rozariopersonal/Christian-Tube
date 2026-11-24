@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
 import '../../../core/theme/app_tokens.dart';
 import 'voice_feedback_sheet.dart';
@@ -21,7 +22,8 @@ class _FloatingFeedbackButtonState extends State<FloatingFeedbackButton> {
         BottomBarVisibilityService.instance,
       ]),
       builder: (context, _) {
-        if (VoiceFeedbackSheet.isSheetOpen.value ||
+        if (!AppConfig.feedbackEnabled ||
+            VoiceFeedbackSheet.isSheetOpen.value ||
             BottomBarVisibilityService.instance.isShortPlaying ||
             BottomBarVisibilityService.instance.isExplicitlyHidden) {
           return const SizedBox.shrink();

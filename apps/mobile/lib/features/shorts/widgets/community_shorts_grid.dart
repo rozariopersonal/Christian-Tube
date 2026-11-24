@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/models/channel.dart';
 import '../../../core/models/short.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/ui/channel_avatar.dart';
+import '../../../shared/ui/video_thumbnail_overlays.dart';
 
 class CommunityShortsGrid extends StatelessWidget {
   final List<Short> allShorts;
@@ -12,8 +14,13 @@ class CommunityShortsGrid extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final bool isLoadingMore;
   final Function(int index) onShortTap;
-  final String currentFilter;
-  final Function(String filterKey) onFilterSelected;
+  final List<Channel> filterChannels;
+  final Set<String> selectedChannelIds;
+  final VoidCallback onChannelFilterTap;
+  final bool likedOnly;
+  final ValueChanged<bool> onLikedOnlyChanged;
+  final String watchStatusFilter;
+  final ValueChanged<String>? onWatchStatusChanged;
 
   const CommunityShortsGrid({
     super.key,
@@ -23,8 +30,13 @@ class CommunityShortsGrid extends StatelessWidget {
     required this.onRefresh,
     required this.isLoadingMore,
     required this.onShortTap,
-    required this.currentFilter,
-    required this.onFilterSelected,
+    required this.filterChannels,
+    required this.selectedChannelIds,
+    required this.onChannelFilterTap,
+    required this.likedOnly,
+    required this.onLikedOnlyChanged,
+    this.watchStatusFilter = 'all',
+    this.onWatchStatusChanged,
   });
 
   @override
@@ -47,7 +59,7 @@ class CommunityShortsGrid extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${allShorts.length} Shorts',
+                        '${filteredShorts.length} Shorts',
                         style: TextStyle(
                           color: context.tokens.onSurfaceMuted,
                           fontSize: 14,
@@ -69,69 +81,120 @@ class CommunityShortsGrid extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // Quick Filter Chips Row
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        CommunityFilterChip(
-                          label: 'All Shorts',
-                          filterKey: 'all',
-                          icon: Icons.auto_awesome,
-                          currentFilter: currentFilter,
-                          onSelected: onFilterSelected,
+                  Wrap(
+                    spacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilterChip(
+                        label: const Text('Liked'),
+                        avatar: Icon(
+                          likedOnly
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 17,
                         ),
-                        const SizedBox(width: 8),
-                        CommunityFilterChip(
-                          label: '🔥 Popular',
-                          filterKey: 'popular',
-                          icon: Icons.local_fire_department_rounded,
-                          currentFilter: currentFilter,
-                          onSelected: onFilterSelected,
+                        selected: likedOnly,
+                        onSelected: onLikedOnlyChanged,
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: onChannelFilterTap,
+                        icon: const Icon(Icons.tune),
+                        label: Text(
+                          selectedChannelIds.isEmpty
+                              ? 'Channels'
+                              : 'Channels · ${selectedChannelIds.length}',
                         ),
-                        const SizedBox(width: 8),
-                        CommunityFilterChip(
-                          label: '✨ Recent',
-                          filterKey: 'recent',
-                          icon: Icons.schedule_rounded,
-                          currentFilter: currentFilter,
-                          onSelected: onFilterSelected,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: context.tokens.onSurface,
+                          side: BorderSide(color: context.tokens.surfaceBorder),
+                          backgroundColor: context.tokens.surface,
+                        ),
+                      ),
+                      if (onWatchStatusChanged != null) ...[
+                        FilterChip(
+                          label: const Text('Watched'),
+                          selected: watchStatusFilter == 'watched',
+                          onSelected: (_) => onWatchStatusChanged!('watched'),
+                        ),
+                        FilterChip(
+                          label: const Text('Unwatched'),
+                          selected: watchStatusFilter == 'unwatched',
+                          onSelected: (_) => onWatchStatusChanged!('unwatched'),
+                        ),
+                        FilterChip(
+                          label: const Text('In Progress'),
+                          selected: watchStatusFilter == 'in_progress',
+                          onSelected: (_) =>
+                              onWatchStatusChanged!('in_progress'),
                         ),
                       ],
-                    ),
+                      for (final channel in filterChannels
+                          .where((channel) =>
+                              selectedChannelIds.contains(channel.id))
+                          .take(3))
+                        ChannelAvatar(
+                          avatarUrl: channel.avatarUrl,
+                          channelTitle: channel.name,
+                          radius: 12,
+                        ),
+                      if (selectedChannelIds.length > 3)
+                        Text(
+                          '+${selectedChannelIds.length - 3}',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: context.tokens.onSurfaceMuted,
+                              ),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverConstrainedCrossAxis(
-              maxExtent: 1080,
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 150,
-                  childAspectRatio: 9 / 16,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+          if (filteredShorts.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+                child: Center(
+                  child: Text(
+                    'No Shorts from the selected channels.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: context.tokens.onSurfaceMuted,
+                        ),
+                  ),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final short = filteredShorts[index];
-                    return CommunityGridCard(
-                      short: short,
-                      onTap: () {
-                        final realIndex =
-                            allShorts.indexWhere((s) => s.id == short.id);
-                        onShortTap(realIndex != -1 ? realIndex : index);
-                      },
-                    );
-                  },
-                  childCount: filteredShorts.length,
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverConstrainedCrossAxis(
+                maxExtent: 1080,
+                sliver: SliverGrid(
+                  gridDelegate:
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 150,
+                    childAspectRatio: 9 / 16,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final short = filteredShorts[index];
+                      return CommunityGridCard(
+                        short: short,
+                        onTap: () {
+                          final realIndex =
+                              allShorts.indexWhere((s) => s.id == short.id);
+                          onShortTap(realIndex != -1 ? realIndex : index);
+                        },
+                      );
+                    },
+                    childCount: filteredShorts.length,
+                  ),
                 ),
               ),
             ),
-          ),
           if (isLoadingMore)
             SliverToBoxAdapter(
               child: Padding(
@@ -143,67 +206,6 @@ class CommunityShortsGrid extends StatelessWidget {
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
-      ),
-    );
-  }
-}
-
-class CommunityFilterChip extends StatelessWidget {
-  final String label;
-  final String filterKey;
-  final IconData icon;
-  final String currentFilter;
-  final Function(String filterKey) onSelected;
-
-  const CommunityFilterChip({
-    super.key,
-    required this.label,
-    required this.filterKey,
-    required this.icon,
-    required this.currentFilter,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = currentFilter == filterKey;
-    final onAccent = context.accent.computeLuminance() > 0.45
-        ? context.tokens.scrim
-        : context.tokens.onSurface;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onSelected(filterKey);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? context.accent : context.tokens.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? context.accent : context.tokens.surfaceBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 13,
-              color: isSelected ? onAccent : context.tokens.onSurfaceMuted,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? onAccent : context.tokens.onSurface,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -334,6 +336,18 @@ class CommunityGridCard extends StatelessWidget {
                   ),
                 ),
               ),
+
+            // 4.5 Watched Badge & 5dp Progress Bar
+            Positioned.fill(
+              child: VideoWatchedOverlays(
+                videoId: short.id,
+                duration: short.duration,
+                durationSeconds: durSec > 0 ? durSec : null,
+                compact: true,
+                badgeTopOffset: 34,
+                badgeLeftOffset: 8,
+              ),
+            ),
 
             // 5. Play Icon in Center
             Center(

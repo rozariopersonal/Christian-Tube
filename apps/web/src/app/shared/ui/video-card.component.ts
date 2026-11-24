@@ -6,11 +6,12 @@ import {
   formatViewCount,
 } from '../../features/videos/models/video.model';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { VideoWatchedOverlaysComponent } from './video-watched-overlays.component';
 
 @Component({
   selector: 'app-video-card',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, VideoWatchedOverlaysComponent],
   template: `
     <article class="video-card" (mouseleave)="menuOpen.set(false)">
       <a class="thumb-wrap" [routerLink]="['/watch', video().id]">
@@ -35,11 +36,7 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
           <span class="badge duration-badge">{{ video().duration }}</span>
         }
 
-        @if (progressPct() > 0) {
-          <div class="progress-track" aria-hidden="true">
-            <div class="progress-fill" [style.width.%]="progressPct()"></div>
-          </div>
-        }
+        <app-video-watched-overlays [videoId]="video().id" />
       </a>
 
       <div class="meta-row">
@@ -213,20 +210,6 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
 
       .badge-icon {
         font-size: 13px;
-      }
-
-      .progress-track {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 3px;
-        background-color: rgba(255, 255, 255, 0.25);
-      }
-
-      .progress-fill {
-        height: 100%;
-        background-color: var(--accent);
       }
 
       .meta-row {

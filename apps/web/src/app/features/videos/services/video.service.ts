@@ -130,6 +130,12 @@ export class VideoService {
     return this.extractList(res).map((item) => normalizeVideo(item));
   }
 
+  async fetchChannelPosition(id: string): Promise<{ newer: number; older: number }> {
+    return firstValueFrom(this.api.get<{ newer: number; older: number }>(
+      `/api/videos/${encodeURIComponent(id)}/channel-position`,
+    ));
+  }
+
   async queryVideos(params: {
     channelId?: string;
     channelIds?: string[];
@@ -139,6 +145,10 @@ export class VideoService {
     sort?: 'latest' | 'popular' | 'oldest' | 'relevance';
     limit?: number;
     offset?: number;
+    publishedBefore?: string;
+    beforeId?: string;
+    publishedAfter?: string;
+    afterId?: string;
   }): Promise<Video[]> {
     const res = await firstValueFrom(
       this.api.get<unknown>('/api/videos', {
@@ -152,6 +162,10 @@ export class VideoService {
         sort: params.sort ?? 'latest',
         limit: params.limit ?? 24,
         offset: params.offset ?? 0,
+        publishedBefore: params.publishedBefore,
+        beforeId: params.beforeId,
+        publishedAfter: params.publishedAfter,
+        afterId: params.afterId,
       }),
     );
     return this.extractList(res).map((item) => normalizeVideo(item));
