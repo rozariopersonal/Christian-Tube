@@ -119,3 +119,169 @@ describe('YoutubeService visibility & batching', () => {
     expect(res.get('v1')?.status).toBe('unavailable');
   });
 });
+
+
+function makeInitialHtml(tabTitle: string, videoIds: string[], continuationToken?: string) {
+  const contents: any[] = videoIds.map((id) => ({
+    richItemRenderer: {
+      content: {
+        videoRenderer: {
+          videoId: id,
+          title: { runs: [{ text: `Title ${id}` }] },
+          publishedTimeText: { simpleText: '10 years ago' },
+          lengthText: { simpleText: '12:34' },
+          viewCountText: { simpleText: '100 views' },
+        },
+      },
+    },
+  }));
+  if (continuationToken) {
+    contents.push({
+      continuationItemRenderer: {
+        continuationEndpoint: {
+          continuationCommand: { token: continuationToken },
+        },
+      },
+    });
+  }
+  const ytInitialData = {
+    contents: {
+      twoColumnBrowseResultsRenderer: {
+        tabs: [
+          {
+            tabRenderer: {
+              title: tabTitle,
+              content: { richGridRenderer: { contents } },
+            },
+          },
+        ],
+      },
+    },
+  };
+  return `<html><script>var ytInitialData = ${JSON.stringify(ytInitialData)};</script></html>`;
+}
+
+function makeContinuationResponse(videoIds: string[], nextToken?: string) {
+  const continuationItems: any[] = videoIds.map((id) => ({
+    richItemRenderer: {
+      content: {
+        videoRenderer: {
+          videoId: id,
+          title: { runs: [{ text: `Title ${id}` }] },
+          publishedTimeText: { simpleText: '11 years ago' },
+          lengthText: { simpleText: '10:00' },
+          viewCountText: { simpleText: '50 views' },
+        },
+      },
+    },
+  }));
+  if (nextToken) {
+    continuationItems.push({
+      continuationItemRenderer: {
+        continuationEndpoint: {
+          continuationCommand: { token: nextToken },
+        },
+      },
+    });
+  }
+  return {
+    data: {
+      onResponseReceivedActions: [{ appendContinuationItemsAction: { continuationItems } }],
+    },
+  };
+}
+
+describe('YoutubeService fault-tolerant scraping', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('retries transient 429/5xx errors and exhausts all continuation pages', async () => {
+    const service = makeYoutubeService({});
+    mockedAxios.get
+      .mockRejectedValueOnce({ response: { status: 429 }, message: 'Too Many Requests' })
+      .mockResolvedValueOnce({ data: makeInitialHtml('Videos', ['v1', 'v2'], 'tok_2') });
+
+    mockedAxios.post
+      .mockRejectedValueOnce({ response: { status: 503 }, message: 'Service Unavailable' })
+      .mockResolvedValueOnce(makeContinuationResponse(['v3', 'v4']));
+
+    const pages: string[][] = [];
+    const result = await service.scrapeChannelVideosTab('UC123', {
+      maxBatches: 10,
+      delayMs: 0,
+      retryDelayMs: 1,
+      onPage: async (videos) => {
+        pages.push(videos.map((v) => v.videoId));
+      },
+    });
+
+    expect(result.exhausted).toBe(true);
+    expect(result.stoppedEarly).toBe(false);
+    expect(result.error).toBeUndefined();
+    expect(result.batchesProcessed).toBe(2);
+    expect(pages).toEqual([
+      ['v1', 'v2'],
+      ['v3', 'v4'],
+    ]);
+  });
+
+  it('does not retry non-retryable 404 errors', async () => {
+    const service = makeYoutubeService({});
+    mockedAxios.get.mockRejectedValue({ response: { status: 404 }, message: 'Not Found' });
+
+    const result = await service.scrapeChannelVideosTab('UC404', {
+      maxBatches: 10,
+      delayMs: 0,
+      retryDelayMs: 1,
+    });
+
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+    expect(result.exhausted).toBe(false);
+    expect(result.error).toBe('Not Found');
+  });
+
+  it('stops early without error when onPage returns false', async () => {
+    const service = makeYoutubeService({});
+    mockedAxios.get.mockResolvedValueOnce({
+      data: makeInitialHtml('Videos', ['v1', 'v2'], 'tok_2'),
+    });
+
+    const result = await service.scrapeChannelVideosTab('UC123', {
+      maxBatches: 10,
+      delayMs: 0,
+      retryDelayMs: 1,
+      onPage: async () => false,
+    });
+
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+    expect(result.stoppedEarly).toBe(true);
+    expect(result.exhausted).toBe(false);
+    expect(result.error).toBeUndefined();
+    expect(result.videos.map((v) => v.videoId)).toEqual(['v1', 'v2']);
+  });
+
+  it('preserves earlier pages and marks exhausted=false when continuation fails after retries', async () => {
+    const service = makeYoutubeService({});
+    mockedAxios.get.mockResolvedValueOnce({
+      data: makeInitialHtml('Videos', ['v1', 'v2'], 'tok_2'),
+    });
+    mockedAxios.post.mockRejectedValue(new Error('ETIMEDOUT'));
+
+    const streamed: string[] = [];
+    const result = await service.scrapeChannelVideosTab('UC123', {
+      maxBatches: 10,
+      delayMs: 0,
+      retryDelayMs: 1,
+      onPage: async (videos) => {
+        streamed.push(...videos.map((v) => v.videoId));
+      },
+    });
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(3);
+    expect(result.exhausted).toBe(false);
+    expect(result.stoppedEarly).toBe(false);
+    expect(result.error).toBe('ETIMEDOUT');
+    expect(streamed).toEqual(['v1', 'v2']);
+  });
+});

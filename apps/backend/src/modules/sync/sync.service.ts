@@ -115,7 +115,7 @@ export class SyncService implements OnModuleInit {
   /**
    * Centralized sync method: Ingests videos for all active channels
    */
-  async syncAllChannels(force = false) {
+  async syncAllChannels(force = false, full = false) {
     if (!force && !this.isSyncEnabled()) {
       this.logger.log('YouTube sync is disabled (YOUTUBE_SYNC_ENABLED=false). Skipping syncAllChannels.');
       return { status: 'disabled', message: 'YouTube sync is disabled in this environment.' };
@@ -154,18 +154,22 @@ export class SyncService implements OnModuleInit {
         return { status: 'completed', count: 0 };
       }
 
-      this.logger.log(`🔄 Centralized sync started for ${channels.length} active channels...`);
+      this.logger.log(`🔄 Centralized sync started for ${channels.length} active channels (full=${full})...`);
 
+      let succeeded = 0;
+      let failed = 0;
       for (const channel of channels) {
         try {
-          await this.syncChannel(channel.id, channel.category);
+          await this.syncChannel(channel.id, channel.category, force, { full });
+          succeeded++;
         } catch (err: any) {
+          failed++;
           this.logger.error(`Error syncing channel ${channel.name} (${channel.id}): ${err.message}`);
         }
         await this.sleep(250);
       }
 
-      return { status: 'success', channelCount: channels.length };
+      return { status: 'success', channelCount: channels.length, succeeded, failed };
     } finally {
       this.isSyncing = false;
       await this.cache?.invalidate('videos', 'channels');
@@ -175,7 +179,12 @@ export class SyncService implements OnModuleInit {
   /**
    * Sync a single channel using YouTube API or Web Scraper fallback
    */
-  async syncChannel(channelId: string, defaultCategory?: string | null, force = false) {
+  async syncChannel(
+    channelId: string,
+    defaultCategory?: string | null,
+    force = false,
+    options: { full?: boolean } = {},
+  ) {
     if (!force && !this.isSyncEnabled()) {
       this.logger.log(`YouTube sync disabled; skipping syncChannel(${channelId}).`);
       return;
@@ -187,7 +196,7 @@ export class SyncService implements OnModuleInit {
       // 2. Try official YouTube Data API v3 playlist sync
       if (this.youtubeService.hasApiKey()) {
         try {
-          await this.syncViaPlaylistApi(channelId, defaultCategory);
+          await this.syncViaPlaylistApi(channelId, defaultCategory, options);
           return;
         } catch (err: any) {
           this.logger.warn(
@@ -197,7 +206,7 @@ export class SyncService implements OnModuleInit {
       }
 
       // 3. Fallback: Web Scraper & Atom RSS sync
-      await this.syncViaWebScraper(channelId, defaultCategory);
+      await this.syncViaWebScraper(channelId, defaultCategory, options);
     } finally {
       await this.cache?.invalidate('videos', 'channels');
     }
@@ -206,7 +215,11 @@ export class SyncService implements OnModuleInit {
   /**
    * Syncs videos using the YouTube Data API v3 Uploads playlist (UU...)
    */
-  private async syncViaPlaylistApi(channelId: string, defaultCategory?: string | null) {
+  private async syncViaPlaylistApi(
+    channelId: string,
+    defaultCategory?: string | null,
+    options: { full?: boolean } = {},
+  ) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
@@ -216,10 +229,11 @@ export class SyncService implements OnModuleInit {
       ? `UU${channelId.substring(2)}`
       : channelId;
 
+    const isIncremental = !options.full && channel.syncStatus === 'COMPLETED' && !channel.syncCursor;
     let pageToken: string | undefined = (channel as any).syncCursor || undefined;
     let batchesProcessed = 0;
     let totalSyncedInRun = 0;
-    const maxBatches = 200; // Ingests up to 10,000 videos continuously
+    const maxBatches = 500; // Ingests up to 25,000 videos continuously
 
     while (batchesProcessed < maxBatches) {
       batchesProcessed++;
@@ -244,6 +258,17 @@ export class SyncService implements OnModuleInit {
         .map((it: any) => it.contentDetails?.videoId || it.snippet?.resourceId?.videoId)
         .filter(Boolean);
 
+      const existingIds = isIncremental
+        ? new Set(
+            (
+              await this.prisma.video.findMany({
+                where: { id: { in: videoIds } },
+                select: { id: true },
+              })
+            ).map((v) => v.id),
+          )
+        : new Set<string>();
+
       const visibilityMap = await this.youtubeService.verifyVideosVisibility(videoIds, {
         allowShortsOAuth: true,
         expectedChannelId: channelId,
@@ -253,117 +278,121 @@ export class SyncService implements OnModuleInit {
         const videoId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
         if (!videoId) continue;
 
-        const visibility = visibilityMap.get(videoId);
-        if (!visibility) continue;
+        try {
+          const visibility = visibilityMap.get(videoId);
+          if (!visibility) continue;
 
-        if (visibility.status === 'private') {
-          await this.removeConfirmedPrivateVideo(videoId);
-          continue;
-        }
-
-        if (visibility.status !== 'eligible' || !visibility.item) {
-          continue;
-        }
-
-        const detail = visibility.item;
-        // Do not sync upcoming or active broadcasts as ordinary videos. They
-        // can be reconsidered after YouTube marks them as regular VODs.
-        if (isActiveOrUpcomingBroadcast(detail)) continue;
-
-        const snippet = detail.snippet;
-        if (!snippet) continue;
-        const contentDetails = detail.contentDetails;
-        const stats = detail.statistics;
-
-        const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
-        const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
-        const title = snippet?.title || 'Video';
-        const titleLower = title.toLowerCase();
-        const description = snippet?.description || '';
-        const descLower = description.toLowerCase();
-        const hasShortsTag = titleLower.includes('#short') || descLower.includes('#short');
-        const isSong = isSongChannel(channel.name, channel.category);
-        const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
-        const videoType = isShort ? 'SHORT' : 'VIDEO';
-        const videoCategory = isSong ? 'Songs' : (defaultCategory || channel.category || 'General');
-        const viewCount = stats?.viewCount ? parseInt(stats.viewCount, 10) : 0;
-        const thumb =
-          snippet?.thumbnails?.maxres?.url ||
-          snippet?.thumbnails?.high?.url ||
-          snippet?.thumbnails?.medium?.url ||
-          snippet?.thumbnails?.default?.url ||
-          `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-        const tags = snippet?.tags || [];
-        const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
-
-        let parsedMeta: any = null;
-        if (isShort && description) {
-          const jsonMatch = description.match(/<!--\s*CT_META:\s*(\{.*?\})\s*-->/s);
-          if (jsonMatch) {
-            try {
-              parsedMeta = JSON.parse(jsonMatch[1]);
-            } catch (_) {}
+          if (visibility.status === 'private') {
+            await this.removeConfirmedPrivateVideo(videoId);
+            continue;
           }
+
+          if (visibility.status !== 'eligible' || !visibility.item) {
+            continue;
+          }
+
+          const detail = visibility.item;
+          // Do not sync upcoming or active broadcasts as ordinary videos. They
+          // can be reconsidered after YouTube marks them as regular VODs.
+          if (isActiveOrUpcomingBroadcast(detail)) continue;
+
+          const snippet = detail.snippet;
+          if (!snippet) continue;
+          const contentDetails = detail.contentDetails;
+          const stats = detail.statistics;
+
+          const duration = this.youtubeService.parseIsoDuration(contentDetails?.duration || '');
+          const durationSeconds = this.youtubeService.parseIsoDurationSeconds(contentDetails?.duration || '');
+          const title = snippet?.title || 'Video';
+          const titleLower = title.toLowerCase();
+          const description = snippet?.description || '';
+          const descLower = description.toLowerCase();
+          const hasShortsTag = titleLower.includes('#short') || descLower.includes('#short');
+          const isSong = isSongChannel(channel.name, channel.category);
+          const isShort = isSong ? hasShortsTag : ((durationSeconds > 0 && durationSeconds <= 180) || hasShortsTag);
+          const videoType = isShort ? 'SHORT' : 'VIDEO';
+          const videoCategory = isSong ? 'Songs' : (defaultCategory || channel.category || 'General');
+          const viewCount = stats?.viewCount ? parseInt(stats.viewCount, 10) : 0;
+          const thumb =
+            snippet?.thumbnails?.maxres?.url ||
+            snippet?.thumbnails?.high?.url ||
+            snippet?.thumbnails?.medium?.url ||
+            snippet?.thumbnails?.default?.url ||
+            `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          const tags = snippet?.tags || [];
+          const publishedAt = snippet?.publishedAt ? new Date(snippet.publishedAt) : new Date();
+
+          let parsedMeta: any = null;
+          if (isShort && description) {
+            const jsonMatch = description.match(/<!--\s*CT_META:\s*(\{.*?\})\s*-->/s);
+            if (jsonMatch) {
+              try {
+                parsedMeta = JSON.parse(jsonMatch[1]);
+              } catch (_) {}
+            }
+          }
+
+          const videoMetadata = extractVideoMetadata({
+            title,
+            description,
+            channelTitle: snippet?.channelTitle || channel.name,
+            tags,
+          });
+
+          await this.prisma.video.upsert({
+            where: { id: videoId },
+            update: {
+              type: videoType,
+              title,
+              description,
+              thumbnail: thumb,
+              publishedAt,
+              channelName: snippet?.channelTitle || channel.name,
+              channelThumbnail: channel.thumbnail,
+              channelSubscriberCount: channel.subscriberCount,
+              duration,
+              viewCount,
+              tags,
+              category: videoCategory,
+              metadata: videoMetadata as any,
+              creatorName: parsedMeta?.creatorName || undefined,
+              creatorEmail: parsedMeta?.creatorEmail || undefined,
+              sourceVideoId: parsedMeta?.sourceVideoId || undefined,
+              clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : undefined,
+              clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : undefined,
+            },
+            create: {
+              id: videoId,
+              type: videoType,
+              title,
+              description,
+              thumbnail: thumb,
+              channelId,
+              channelName: snippet?.channelTitle || channel.name,
+              channelThumbnail: channel.thumbnail,
+              channelSubscriberCount: channel.subscriberCount,
+              publishedAt,
+              duration,
+              viewCount,
+              tags,
+              category: videoCategory,
+              metadata: videoMetadata as any,
+              creatorName: parsedMeta?.creatorName || null,
+              creatorEmail: parsedMeta?.creatorEmail || null,
+              sourceVideoId: parsedMeta?.sourceVideoId || null,
+              clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : null,
+              clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : null,
+              clippedAt: parsedMeta ? new Date() : null,
+            },
+          });
+          totalSyncedInRun++;
+        } catch (videoErr: any) {
+          this.logger.warn(`Skipping video ${videoId} in ${channelId}: ${videoErr.message}`);
         }
-
-        const videoMetadata = extractVideoMetadata({
-          title,
-          description,
-          channelTitle: snippet?.channelTitle || channel.name,
-          tags,
-        });
-
-        await this.prisma.video.upsert({
-          where: { id: videoId },
-          update: {
-            type: videoType,
-            title,
-            description,
-            thumbnail: thumb,
-            publishedAt,
-            channelName: snippet?.channelTitle || channel.name,
-            channelThumbnail: channel.thumbnail,
-            channelSubscriberCount: channel.subscriberCount,
-            duration,
-            viewCount,
-            tags,
-            category: videoCategory,
-            metadata: videoMetadata as any,
-            creatorName: parsedMeta?.creatorName || undefined,
-            creatorEmail: parsedMeta?.creatorEmail || undefined,
-            sourceVideoId: parsedMeta?.sourceVideoId || undefined,
-            clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : undefined,
-            clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : undefined,
-          },
-          create: {
-            id: videoId,
-            type: videoType,
-            title,
-            description,
-            thumbnail: thumb,
-            channelId,
-            channelName: snippet?.channelTitle || channel.name,
-            channelThumbnail: channel.thumbnail,
-            channelSubscriberCount: channel.subscriberCount,
-            publishedAt,
-            duration,
-            viewCount,
-            tags,
-            category: videoCategory,
-            metadata: videoMetadata as any,
-            creatorName: parsedMeta?.creatorName || null,
-            creatorEmail: parsedMeta?.creatorEmail || null,
-            sourceVideoId: parsedMeta?.sourceVideoId || null,
-            clipStartTime: parsedMeta?.startTime != null ? Number(parsedMeta.startTime) : null,
-            clipEndTime: parsedMeta?.endTime != null ? Number(parsedMeta.endTime) : null,
-            clippedAt: parsedMeta ? new Date() : null,
-          },
-        });
-        totalSyncedInRun++;
       }
 
-      // If already COMPLETED during routine checks, stop after Batch 1
-      if (channel.syncStatus === 'COMPLETED' && !channel.syncCursor && batchesProcessed === 1) {
+      // During incremental sync, stop once an entire batch already exists in DB
+      if (isIncremental && videoIds.length > 0 && videoIds.every((id) => existingIds.has(id))) {
         await this.prisma.channel.update({
           where: { id: channelId },
           data: { lastSyncedAt: new Date() },
@@ -401,29 +430,72 @@ export class SyncService implements OnModuleInit {
   }
 
   /**
-   * Syncs videos via public YouTube HTML pagination + Atom RSS feed fallback
+   * Syncs videos via public YouTube HTML pagination + Atom RSS feed fallback.
+   * Streams each fetched page directly to PostgreSQL so partial progress is preserved on failures.
    */
-  private async syncViaWebScraper(channelId: string, defaultCategory?: string | null, maxBatches = 50) {
+  private async syncViaWebScraper(
+    channelId: string,
+    defaultCategory?: string | null,
+    options: { full?: boolean; maxBatches?: number } = {},
+  ) {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
     if (!channel) return;
 
+    const isIncremental = !options.full && channel.syncStatus === 'COMPLETED' && !channel.syncCursor;
+    const maxBatches = options.maxBatches ?? 500;
     let syncedCount = 0;
 
     // 1. Initial RSS feed sync (latest 15 videos)
     const rssVideos = await this.youtubeService.scrapeRssFeed(channelId);
     for (const v of rssVideos) {
-      await this.upsertScrapedVideo(v, channel, defaultCategory);
-      syncedCount++;
+      try {
+        await this.upsertScrapedVideo(v, channel, defaultCategory);
+        syncedCount++;
+      } catch (err: any) {
+        this.logger.warn(`RSS upsert failed for ${v.videoId}: ${err.message}`);
+      }
     }
 
-    // 2. Multi-batch HTML channel /videos tab scraping
-    const scrapedVideosResult = await this.youtubeService.scrapeChannelVideosTab(channelId, maxBatches);
-    for (const v of scrapedVideosResult.videos) {
-      await this.upsertScrapedVideo(v, channel, defaultCategory);
-      syncedCount++;
-    }
+    const createPageHandler = (overrideType?: 'VIDEO' | 'SHORT') => {
+      return async (pageVideos: ExtractedVideo[]): Promise<boolean> => {
+        if (!pageVideos.length) return true;
+
+        const pageIds = pageVideos.map((v) => v.videoId).filter(Boolean);
+        const existingIds = isIncremental
+          ? new Set(
+              (
+                await this.prisma.video.findMany({
+                  where: { id: { in: pageIds } },
+                  select: { id: true },
+                })
+              ).map((v) => v.id),
+            )
+          : new Set<string>();
+
+        for (const v of pageVideos) {
+          try {
+            const payload = overrideType ? { ...v, videoType: overrideType } : v;
+            await this.upsertScrapedVideo(payload, channel, defaultCategory);
+            syncedCount++;
+          } catch (err: any) {
+            this.logger.warn(`Scraped video upsert failed for ${v.videoId}: ${err.message}`);
+          }
+        }
+
+        if (isIncremental && pageIds.length > 0 && pageIds.every((id) => existingIds.has(id))) {
+          return false;
+        }
+        return true;
+      };
+    };
+
+    // 2. Multi-batch HTML channel /videos tab scraping (persisted page-by-page)
+    const videosRes = await this.youtubeService.scrapeChannelVideosTab(channelId, {
+      maxBatches,
+      onPage: createPageHandler(),
+    });
 
     // Do not scrape the /streams tab here: without YouTube API metadata it
     // mixes upcoming/live events with completed broadcasts. Completed archives
@@ -431,22 +503,27 @@ export class SyncService implements OnModuleInit {
 
     // 4. Multi-batch HTML channel /shorts tab scraping
     const isSong = isSongChannel(channel.name, channel.category);
-    const scrapedShortsResult = await this.youtubeService.scrapeChannelShortsTab(channelId, 25);
-    for (const v of scrapedShortsResult.videos) {
-      await this.upsertScrapedVideo({ ...v, videoType: isSong ? 'VIDEO' : 'SHORT' }, channel, defaultCategory);
-      syncedCount++;
-    }
+    const shortsRes = await this.youtubeService.scrapeChannelShortsTab(channelId, {
+      maxBatches,
+      onPage: createPageHandler(isSong ? 'VIDEO' : 'SHORT'),
+    });
+
+    const allTabsComplete =
+      (videosRes.exhausted || videosRes.stoppedEarly) &&
+      (shortsRes.exhausted || shortsRes.stoppedEarly);
 
     await this.prisma.channel.update({
       where: { id: channelId },
       data: {
         lastSyncedAt: new Date(),
-        syncStatus: 'COMPLETED',
-        syncCursor: null,
+        syncStatus: allTabsComplete ? 'COMPLETED' : 'PARTIAL',
+        ...(allTabsComplete ? { syncCursor: null } : {}),
       },
     });
 
-    this.logger.log(`✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId})`);
+    this.logger.log(
+      `✅ Synced total ${syncedCount} videos and shorts via web scraper for ${channel.name} (${channelId}) [status=${allTabsComplete ? 'COMPLETED' : 'PARTIAL'}]`,
+    );
   }
 
   /**
@@ -486,8 +563,7 @@ export class SyncService implements OnModuleInit {
         title: v.title,
         thumbnail: v.thumbnail,
         duration: v.duration && v.duration !== '0:00' ? v.duration : undefined,
-        viewCount: v.viewCount > 0 ? v.viewCount : undefined,
-        publishedAt: v.publishedAt || undefined,
+        viewCount: v.viewCount && v.viewCount > 0 ? v.viewCount : undefined,
         channelName: channel.name,
         channelThumbnail: channel.thumbnail,
         channelSubscriberCount: channel.subscriberCount,
