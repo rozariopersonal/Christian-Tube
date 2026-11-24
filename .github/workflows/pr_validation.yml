@@ -19,6 +19,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   paths:
     name: 'Detect Changed Paths'
@@ -160,12 +164,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -181,12 +179,12 @@ jobs:
       - name: Flutter Static Analysis
         run: |
           cd apps/mobile
-          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
 
       - name: Flutter Unit & Widget Tests (with Coverage)
         run: |
           cd apps/mobile
-          flutter test --coverage
+          flutter test --no-pub --coverage -j $(nproc)
 
       - name: Mobile Diff Coverage (>= 80%)
         run: node scripts/check-diff-coverage.mjs --lcov apps/mobile/coverage/lcov.info --prefix apps/mobile/ --min 80 --base "origin/${{ github.base_ref }}"
