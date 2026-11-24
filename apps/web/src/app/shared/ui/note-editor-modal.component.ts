@@ -92,10 +92,10 @@ import { FormsModule } from '@angular/forms';
         width: min(100%, 540px);
         max-height: 85vh;
         overflow-y: auto;
-        background: var(--bg-surface);
-        color: var(--text-primary);
-        border: 1px solid var(--border-subtle);
-        border-radius: 16px;
+        background: var(--surface);
+        color: var(--on-surface);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-lg);
         padding: 20px;
         display: flex;
         flex-direction: column;
@@ -142,7 +142,7 @@ import { FormsModule } from '@angular/forms';
       .note-context {
         margin: 2px 0 0;
         font-size: 13px;
-        color: var(--text-secondary);
+        color: var(--on-surface-muted);
       }
 
       .private-pill {
@@ -150,9 +150,9 @@ import { FormsModule } from '@angular/forms';
         font-size: 11px;
         font-weight: 600;
         padding: 3px 8px;
-        border-radius: 999px;
-        background: var(--bg-surface-2, rgba(128, 128, 128, 0.14));
-        color: var(--text-secondary);
+        border-radius: var(--radius-pill);
+        background: var(--surface-variant);
+        color: var(--on-surface-muted);
       }
 
       .note-textarea {
@@ -161,10 +161,10 @@ import { FormsModule } from '@angular/forms';
         resize: vertical;
         min-height: 140px;
         padding: 12px;
-        border-radius: 10px;
-        border: 1px solid var(--border-subtle);
-        background: var(--bg-canvas);
-        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--surface-border);
+        background: var(--bg);
+        color: var(--on-surface);
         font: inherit;
         font-size: 14px;
         line-height: 1.5;
@@ -187,7 +187,7 @@ import { FormsModule } from '@angular/forms';
 
       .btn {
         border: none;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         padding: 8px 16px;
         font-size: 13px;
         font-weight: 600;
@@ -196,12 +196,12 @@ import { FormsModule } from '@angular/forms';
 
       .btn-ghost {
         background: transparent;
-        color: var(--text-secondary);
+        color: var(--on-surface-muted);
       }
 
       .btn-primary {
         background: var(--accent);
-        color: var(--on-accent, #ffffff);
+        color: var(--on-accent);
       }
 
       .btn-primary:disabled {
@@ -210,8 +210,8 @@ import { FormsModule } from '@angular/forms';
       }
 
       .btn-danger {
-        background: rgba(220, 38, 38, 0.12);
-        color: #ef4444;
+        background: color-mix(in srgb, var(--error) 12%, transparent);
+        color: var(--error);
       }
     `,
   ],

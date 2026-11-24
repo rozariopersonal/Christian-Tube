@@ -429,6 +429,7 @@ import { ArticlesService } from '../services/articles.service';
         height: 40px;
         border-radius: var(--radius-pill);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         display: grid;
         place-items: center;

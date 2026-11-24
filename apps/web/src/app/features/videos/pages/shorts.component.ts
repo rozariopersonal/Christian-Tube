@@ -155,15 +155,6 @@ import { normalizeVideo } from '../models/video.model';
             <button
               type="button"
               class="rail-btn"
-              [class.active]="userSync.isLiked('liked_short', current.id)"
-              title="Like Short"
-              (click)="userSync.setLiked({ itemType: 'liked_short', itemId: current.id, liked: !userSync.isLiked('liked_short', current.id) })"
-            >
-              <span class="material-symbols-rounded">thumb_up</span>
-            </button>
-            <button
-              type="button"
-              class="rail-btn"
               [class.active]="hasShortNote(current.id)"
               title="Personal Note"
               (click)="noteOpen.set(true)"
@@ -410,10 +401,15 @@ import { normalizeVideo } from '../models/video.model';
         inset: auto 0 0 0;
         padding: 28px 10px 10px;
         background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
-        color: #ffffff;
+        color: var(--on-scrim);
         display: flex;
         flex-direction: column;
         gap: 3px;
+        z-index: 1;
+      }
+
+      .short-tile app-video-watched-overlays {
+        z-index: 2;
       }
 
       .short-title {

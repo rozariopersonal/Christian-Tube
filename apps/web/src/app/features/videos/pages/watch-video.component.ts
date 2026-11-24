@@ -184,15 +184,6 @@ function ensureYouTubeIframeApi(): Promise<void> {
                     <span class="material-symbols-rounded" [class.filled]="isLiked()">favorite</span>
                     {{ isLiked() ? 'Liked' : 'Like' }}
                   </button>
-                  <button
-                    type="button"
-                    class="pill-chip"
-                    [class.active]="isLiked()"
-                    (click)="toggleLike()"
-                  >
-                    <span class="material-symbols-rounded">thumb_up</span>
-                    {{ isLiked() ? 'Liked' : 'Like' }}
-                  </button>
 
                   <button
                     type="button"

@@ -21,12 +21,6 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
           [alt]="video().title"
           loading="lazy"
         />
-        @if (isWatched()) {
-          <span class="badge watched-badge">
-            <span class="material-symbols-rounded badge-icon">check_circle</span>
-            Watched
-          </span>
-        }
         @if (video().isLive) {
           <span class="badge live-badge">
             <span class="material-symbols-rounded badge-icon">sensors</span>

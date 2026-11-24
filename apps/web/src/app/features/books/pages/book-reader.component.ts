@@ -1343,6 +1343,7 @@ interface ImageSpread {
         padding: 6px;
         border-radius: var(--radius-md);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
         display: flex;
@@ -1680,6 +1681,7 @@ interface ImageSpread {
         height: 40px;
         border-radius: var(--radius-pill);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         display: grid;
         place-items: center;

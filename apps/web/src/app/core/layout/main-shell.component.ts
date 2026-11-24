@@ -36,6 +36,7 @@ const PRIMARY_NAV: readonly NavDestination[] = [
 ];
 
 const YOU_NAV: readonly NavDestination[] = [
+  { label: 'Subscriptions', route: '/subscriptions', icon: 'subscriptions' },
   { label: 'History', route: '/history', icon: 'history' },
   { label: 'Watch Later', route: '/watch-later', icon: 'watch_later' },
 ];
@@ -45,6 +46,7 @@ const STUDY_NAV: readonly NavDestination[] = [
   { label: 'Bible', route: '/bible', icon: 'menu_book' },
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
+  { label: 'Songs', route: '/songs', icon: 'music_note' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
   { label: 'Channels', route: '/channels', icon: 'video_library' },
   { label: 'Settings', route: '/settings', icon: 'tune' },
@@ -58,13 +60,16 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
 ];
 
 const MORE_SHEET_READ: readonly NavDestination[] = [
+  { label: 'Library Hub', route: '/library', icon: 'local_library' },
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
+  { label: 'Songs', route: '/songs', icon: 'music_note' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
 ];
 
 const MORE_SHEET_LIBRARY: readonly NavDestination[] = [
   { label: 'Channels', route: '/channels', icon: 'video_library' },
+  { label: 'Subscriptions', route: '/subscriptions', icon: 'subscriptions' },
   { label: 'History', route: '/history', icon: 'history' },
   { label: 'Watch Later', route: '/watch-later', icon: 'watch_later' },
 ];
@@ -73,6 +78,7 @@ const COMPACT_SUBPAGE_PREFIXES = [
   '/watch/',
   '/books/',
   '/article/',
+  '/song/',
   '/audio/series/',
   '/channels/',
 ];
