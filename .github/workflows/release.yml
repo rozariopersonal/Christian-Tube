@@ -10,6 +10,7 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'scripts/**'
+      - '!scripts/build-web.sh'
       - '.github/workflows/release.yml'
       - 'releases/**'
       - 'package.json'
@@ -315,7 +316,7 @@ jobs:
           ls -l /dev/kvm || echo "::warning::KVM not available on this runner; emulator will use software emulation"
 
       - name: 'Gate 3: E2E Quality Gate (Android Emulator Smoke Test)'
-        continue-on-error: true
+        continue-on-error: ${{ github.ref != 'refs/heads/main' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
