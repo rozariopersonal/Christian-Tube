@@ -6,6 +6,7 @@ import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/services/online_bible_service.dart';
 import 'package:mobile/shared/ui/bible_version_picker_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _AllowAllHttpOverrides extends HttpOverrides {
   @override
@@ -213,6 +214,9 @@ void main() {
   group('BibleVersionPickerSheet Rate Limit UI', () {
     testWidgets('disables rate-limited online version and shows API limit reached',
         (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'bible_recent_versions': ['NASB', 'BSB'],
+      });
       OnlineBibleService.clearRateLimitStateForTest();
       OnlineBibleService.markRateLimitedForTest('NASB');
       addTearDown(OnlineBibleService.clearRateLimitStateForTest);
