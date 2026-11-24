@@ -134,7 +134,7 @@ void main() {
       expect(v1['verse_span'], isNotNull);
     }, timeout: const Timeout(Duration(seconds: 25)));
 
-    test('tracks rate limit state and clears cleanly', () {
+    test('tracks rate limit state and clears cleanly', () async {
       OnlineBibleService.clearRateLimitStateForTest();
       expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
 
@@ -149,6 +149,11 @@ void main() {
 
       OnlineBibleService.clearRateLimitStateForTest();
       expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
+
+      OnlineBibleService.markRateLimitedForTest('NLT');
+      final skipped = await OnlineBibleService.fetchLiveChapter('NLT', 1, 1);
+      expect(skipped, isEmpty);
+      OnlineBibleService.clearRateLimitStateForTest();
     });
   });
 
