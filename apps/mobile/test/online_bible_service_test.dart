@@ -141,6 +141,12 @@ void main() {
       OnlineBibleService.markRateLimitedForTest('MSG');
       expect(OnlineBibleService.isRateLimited('msg'), isTrue);
 
+      OnlineBibleService.markRateLimitedForTest(
+        'NASB',
+        const Duration(milliseconds: -1),
+      );
+      expect(OnlineBibleService.isRateLimited('NASB'), isFalse);
+
       OnlineBibleService.clearRateLimitStateForTest();
       expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
     });
