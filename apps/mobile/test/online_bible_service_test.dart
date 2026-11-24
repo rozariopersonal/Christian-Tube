@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/services/online_bible_service.dart';
+import 'package:mobile/shared/ui/bible_version_picker_sheet.dart';
 
 class _AllowAllHttpOverrides extends HttpOverrides {
   @override
@@ -194,5 +197,34 @@ void main() {
       expect(loaded, isNotEmpty);
       expect(loaded.any((item) => item.$1 == 43 && (item.$2 == 13 || item.$2 == 15)), isTrue);
     }, timeout: const Timeout(Duration(seconds: 25)));
+  });
+
+  group('BibleVersionPickerSheet Rate Limit UI', () {
+    testWidgets('disables rate-limited online version and shows API limit reached',
+        (tester) async {
+      OnlineBibleService.clearRateLimitStateForTest();
+      OnlineBibleService.markRateLimitedForTest('NASB');
+      addTearDown(OnlineBibleService.clearRateLimitStateForTest);
+
+      String? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.light]),
+          home: Scaffold(
+            body: BibleVersionPickerSheet(
+              activeVersionId: 'BSB',
+              installedIdsOverride: const {'BSB', 'NASB'},
+              onSelectVersion: (id) => selected = id,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('API limit reached'), findsWidgets);
+      await tester.tap(find.text('NASB').last);
+      await tester.pumpAndSettle();
+      expect(selected, isNull);
+    });
   });
 }
