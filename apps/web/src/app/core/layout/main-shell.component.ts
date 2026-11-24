@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { AccountAvatarMenuComponent } from '../auth/account-avatar-menu.component';
 import { AppConfig } from '../config/app-config';
 import { HeaderSearchService } from '../services/header-search.service';
 import { HeaderSlotService } from '../services/header-slot.service';
@@ -19,7 +20,9 @@ import { MiniPlayerComponent } from '../../features/audio/components/mini-player
 import { ChannelService } from '../../features/channels/services/channel.service';
 import { VideoMiniPlayerComponent } from '../../features/videos/components/video-mini-player.component';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { ModalSheetComponent } from '../../shared/ui/modal-sheet.component';
 import { ScreenClassService } from './screen-class.service';
+import { ReaderFullscreenService } from '../services/reader-fullscreen.service';
 
 interface NavDestination {
   label: string;
@@ -52,11 +55,26 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
   { label: 'Shorts', route: '/shorts', icon: 'smart_display' },
   { label: 'Words', route: '/words', icon: 'auto_awesome' },
   { label: 'Bible', route: '/bible', icon: 'menu_book' },
+];
+
+const MORE_SHEET_READ: readonly NavDestination[] = [
   { label: 'Books', route: '/books', icon: 'auto_stories' },
   { label: 'Articles', route: '/articles', icon: 'article' },
   { label: 'Audio', route: '/audio', icon: 'headphones' },
+];
+
+const MORE_SHEET_LIBRARY: readonly NavDestination[] = [
   { label: 'Channels', route: '/channels', icon: 'video_library' },
-  { label: 'Settings', route: '/settings', icon: 'tune' },
+  { label: 'History', route: '/history', icon: 'history' },
+  { label: 'Watch Later', route: '/watch-later', icon: 'watch_later' },
+];
+
+const COMPACT_SUBPAGE_PREFIXES = [
+  '/watch/',
+  '/books/',
+  '/article/',
+  '/audio/series/',
+  '/channels/',
 ];
 
 @Component({
@@ -70,11 +88,19 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
     FormsModule,
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
+    ModalSheetComponent,
+    AccountAvatarMenuComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="shell">
-      @if (screen.isMediumOrExpanded()) {
+    <div
+      class="shell"
+      [class.reader-fullscreen]="readerFullscreen.activeReader() !== null"
+      [style.--sidebar-width]="sidebarWidthCss()"
+      [style.--shell-top-offset]="screen.showNavigationRail() ? 'var(--topbar-height)' : '0px'"
+      [style.--shell-bottom-offset]="showBottomBar() ? 'var(--shell-bottom-height)' : '0px'"
+    >
+      @if (screen.showNavigationRail()) {
         <header class="yt-topbar">
           <div class="topbar-left">
             <button
@@ -87,7 +113,9 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
             </button>
             <a class="top-brand" routerLink="/feed" aria-label="Home">
               <img src="logo.png" alt="ChristianApp" width="28" height="28" />
-              <span class="font-display brand-name">{{ appName }}</span>
+              @if (screen.isDesktop()) {
+                <span class="font-display brand-name">{{ appName }}</span>
+              }
             </a>
           </div>
 
@@ -191,23 +219,13 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
                 {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
               </span>
             </button>
-            <a class="icon-btn" routerLink="/settings" title="Account & Settings" aria-label="Account & Settings">
-              @if (auth.currentUser()?.photoUrl) {
-                <img
-                  class="user-avatar"
-                  [src]="auth.currentUser()!.photoUrl"
-                  [alt]="auth.currentUser()!.displayName"
-                />
-              } @else {
-                <span class="material-symbols-rounded">account_circle</span>
-              }
-            </a>
+            <app-account-avatar-menu />
           </div>
         </header>
       }
 
-      <div class="shell-body" [class.has-sidebar]="screen.isMediumOrExpanded()">
-        @if (screen.isMediumOrExpanded()) {
+      <div class="shell-body" [class.has-sidebar]="screen.showNavigationRail()">
+        @if (screen.showNavigationRail()) {
           @if (isDrawerMode() && drawerOpen()) {
             <div class="drawer-backdrop" (click)="drawerOpen.set(false)"></div>
           }
@@ -215,7 +233,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
           <aside
             class="yt-sidebar"
             [class.expanded]="sidebarExpanded()"
-            [class.mini]="!sidebarExpanded() && !isDrawerMode()"
+            [class.mini]="!sidebarExpanded() && !(isDrawerMode() && drawerOpen())"
             [class.drawer-open]="isDrawerMode() && drawerOpen()"
             aria-label="Sidebar navigation"
           >
@@ -311,7 +329,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
           </aside>
         }
 
-        <main class="shell-content" [class.with-bottom-bar]="screen.isCompact()">
+        <main class="shell-content" [class.with-bottom-bar]="showBottomBar()">
           <router-outlet />
         </main>
       </div>
@@ -321,7 +339,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         <app-mini-player />
       }
 
-      @if (screen.isCompact()) {
+      @if (showBottomBar()) {
         <nav class="bottom-nav" aria-label="Primary navigation">
           @for (dest of compactNav; track dest.route) {
             <a
@@ -335,7 +353,92 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
               <span class="bottom-label">{{ dest.label }}</span>
             </a>
           }
+          <button
+            type="button"
+            class="bottom-item"
+            [class.active]="isMoreRouteActive() || moreSheetOpen()"
+            (click)="moreSheetOpen.set(true)"
+          >
+            <span class="pill-indicator">
+              <span class="material-symbols-rounded">apps</span>
+            </span>
+            <span class="bottom-label">More</span>
+          </button>
         </nav>
+      }
+
+      @if (moreSheetOpen()) {
+        <app-modal-sheet title="More" (closed)="moreSheetOpen.set(false)">
+          <div class="more-section">
+            <span class="more-heading">Read &amp; Listen</span>
+            <div class="more-grid">
+              @for (dest of moreRead; track dest.route) {
+                <a
+                  class="more-tile"
+                  [routerLink]="dest.route"
+                  routerLinkActive="active"
+                  (click)="moreSheetOpen.set(false)"
+                >
+                  <span class="material-symbols-rounded">{{ dest.icon }}</span>
+                  <span>{{ dest.label }}</span>
+                </a>
+              }
+            </div>
+          </div>
+
+          <div class="more-section">
+            <span class="more-heading">Library</span>
+            <div class="more-grid">
+              @for (dest of moreLibrary; track dest.route) {
+                <a
+                  class="more-tile"
+                  [routerLink]="dest.route"
+                  routerLinkActive="active"
+                  (click)="moreSheetOpen.set(false)"
+                >
+                  <span class="material-symbols-rounded">{{ dest.icon }}</span>
+                  <span>{{ dest.label }}</span>
+                </a>
+              }
+            </div>
+          </div>
+
+          <div class="more-section">
+            <span class="more-heading">App</span>
+            <div class="more-grid">
+              <a
+                class="more-tile"
+                routerLink="/settings"
+                routerLinkActive="active"
+                (click)="moreSheetOpen.set(false)"
+              >
+                <span class="material-symbols-rounded">tune</span>
+                <span>Settings</span>
+              </a>
+              <button
+                type="button"
+                class="more-tile"
+                (click)="theme.setThemeMode(theme.isDark() ? 'light' : 'dark')"
+              >
+                <span class="material-symbols-rounded">
+                  {{ theme.isDark() ? 'light_mode' : 'dark_mode' }}
+                </span>
+                <span>{{ theme.isDark() ? 'Light Mode' : 'Dark Mode' }}</span>
+              </button>
+              @if (auth.isAdmin()) {
+                <a
+                  class="more-tile"
+                  routerLink="/admin/users"
+                  routerLinkActive="active"
+                  (click)="moreSheetOpen.set(false)"
+                >
+                  <span class="material-symbols-rounded">admin_panel_settings</span>
+                  <span>Admin Users</span>
+                </a>
+              }
+            </div>
+          </div>
+        </app-modal-sheet>
       }
     </div>
   `,
@@ -379,6 +482,12 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         font-size: 17px;
         font-weight: 700;
         letter-spacing: -0.02em;
+      }
+
+      @media (max-width: 899px) {
+        .brand-name {
+          display: none;
+        }
       }
 
       .topbar-center {
@@ -575,7 +684,7 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         width: 72px;
       }
 
-      @media (min-width: 600px) and (max-width: 839px) {
+      @media (max-width: 839px) {
         .yt-sidebar.drawer-open {
           position: fixed;
           top: var(--topbar-height);
@@ -773,16 +882,86 @@ const COMPACT_BOTTOM_NAV: readonly NavDestination[] = [
         background-color: var(--surface);
         border-top: 1px solid var(--surface-border);
         display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(64px, 1fr);
-        overflow-x: auto;
-        scrollbar-width: none;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         align-items: center;
         z-index: 50;
       }
 
-      .bottom-nav::-webkit-scrollbar {
-        display: none;
+      .more-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .more-heading {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--on-surface-muted);
+      }
+
+      .more-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .more-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 8px;
+        border-radius: var(--radius-md);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        color: var(--on-surface);
+      }
+
+      .more-tile.active {
+        background-color: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .shell.reader-fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        --shell-top-offset: 0px;
+      }
+
+      .shell.reader-fullscreen .yt-topbar,
+      .shell.reader-fullscreen .yt-sidebar,
+      .shell.reader-fullscreen .drawer-backdrop,
+      .shell.reader-fullscreen .bottom-nav,
+      .shell.reader-fullscreen app-video-mini-player,
+      .shell.reader-fullscreen app-mini-player {
+        display: none !important;
+      }
+
+      .shell.reader-fullscreen .shell-body {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+      }
+
+      .shell.reader-fullscreen .shell-content {
+        min-height: 0;
+        height: 100%;
+      }
+
+      .shell.reader-fullscreen .shell-content.with-bottom-bar {
+        padding-bottom: 0;
       }
     `,
   ],
@@ -795,6 +974,7 @@ export class MainShellComponent implements OnInit {
   readonly headerSearch = inject(HeaderSearchService);
   readonly headerSlot = inject(HeaderSlotService);
   readonly theme = inject(ThemeService);
+  readonly readerFullscreen = inject(ReaderFullscreenService);
   private readonly router = inject(Router);
 
   readonly appName = AppConfig.appName;
@@ -802,6 +982,8 @@ export class MainShellComponent implements OnInit {
   readonly youNav = YOU_NAV;
   readonly studyNav = STUDY_NAV;
   readonly compactNav = COMPACT_BOTTOM_NAV;
+  readonly moreRead = MORE_SHEET_READ;
+  readonly moreLibrary = MORE_SHEET_LIBRARY;
   readonly miniRailNav: readonly NavDestination[] = [
     ...PRIMARY_NAV,
     { label: 'Words', route: '/words', icon: 'auto_awesome' },
@@ -815,8 +997,31 @@ export class MainShellComponent implements OnInit {
 
   readonly sidebarExpanded = signal<boolean>(false);
   readonly drawerOpen = signal<boolean>(false);
-  readonly isDrawerMode = computed(() => this.screen.screenClass() === 'medium');
+  readonly moreSheetOpen = signal<boolean>(false);
+  readonly isDrawerMode = computed(() => !this.screen.isDesktop());
   readonly currentUrl = signal<string>(this.router.url);
+
+  readonly showBottomBar = computed(() => {
+    if (!this.screen.isCompact() || this.screen.isLandscapeCompact()) return false;
+    const path = this.currentUrl().split('?')[0];
+    return !COMPACT_SUBPAGE_PREFIXES.some((prefix) => path.startsWith(prefix));
+  });
+
+  readonly isMoreRouteActive = computed(() => {
+    const path = this.currentUrl().split('?')[0];
+    return (
+      MORE_SHEET_READ.some((d) => path.startsWith(d.route)) ||
+      MORE_SHEET_LIBRARY.some((d) => path.startsWith(d.route)) ||
+      path.startsWith('/settings') ||
+      path.startsWith('/admin/')
+    );
+  });
+
+  readonly sidebarWidthCss = computed(() => {
+    if (!this.screen.showNavigationRail()) return '0px';
+    if (this.sidebarExpanded() && !this.isDrawerMode()) return '232px';
+    return '72px';
+  });
 
   readonly isAudioPage = computed(() =>
     this.currentUrl().split('?')[0].startsWith('/audio'),

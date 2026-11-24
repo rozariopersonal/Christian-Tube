@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
+import '../../features/auth/auth_service.dart';
 
 class SyncOp {
   final String opId;
@@ -70,17 +71,29 @@ class SyncOp {
 }
 
 class UserSyncService extends ChangeNotifier {
+  static const String likedVideoType = 'liked_video';
+  static const String likedShortType = 'liked_short';
   static final UserSyncService instance = UserSyncService._internal();
   factory UserSyncService() => instance;
 
   final Dio _dio;
+  final bool Function()? _canSyncOverride;
 
-  UserSyncService._internal({Dio? dio}) : _dio = dio ?? ApiClient().dio {
+  UserSyncService._internal({Dio? dio})
+      : _dio = dio ?? ApiClient().dio,
+        _canSyncOverride = null {
     _loadClockOffset();
   }
 
   @visibleForTesting
-  UserSyncService.forTesting({Dio? dio}) : _dio = dio ?? ApiClient().dio;
+  UserSyncService.forTesting({
+    Dio? dio,
+    bool Function()? canSyncCheck,
+  })  : _dio = dio ?? ApiClient().dio,
+        _canSyncOverride = canSyncCheck;
+
+  bool get _canSync =>
+      _canSyncOverride?.call() ?? (AuthService.shared?.canSync ?? true);
 
   @visibleForTesting
   void setActiveUserForTesting(String userId) {
@@ -101,11 +114,111 @@ class UserSyncService extends ChangeNotifier {
   int _retryDelayMs = 2000;
 
   Map<String, dynamic>? _remoteState;
+  int _acknowledgementVersion = 0;
+  int _operationSequence = 0;
+  Future<void> _outboxFlush = Future.value();
   Map<String, SyncOp> _pendingOps = {};
 
   Map<String, dynamic>? get remoteState => _remoteState;
   Map<String, SyncOp> get pendingOps => Map.unmodifiable(_pendingOps);
   String? get activeUserId => _activeUserId;
+  int get acknowledgementVersion => _acknowledgementVersion;
+
+  Set<String> likedIds(String itemType) {
+    final ids = <String>{
+      for (final item in likedItems(itemType))
+        if (item['id'] is String) item['id'] as String,
+    };
+    final tombstoneKey = itemType == likedVideoType
+        ? 'likedVideoTombstones'
+        : 'likedShortTombstones';
+    final tombstones = _remoteState?[tombstoneKey];
+    if (tombstones is Map) {
+      for (final id in tombstones.keys) { ids.remove(id.toString()); }
+    }
+    for (final op in _pendingOps.values) {
+      if (op.kind != 'watch_item' || op.itemType != itemType) continue;
+      if (op.isDeleted) {
+        ids.remove(op.itemId);
+      } else {
+        ids.add(op.itemId);
+      }
+    }
+    return ids;
+  }
+
+  List<Map<String, dynamic>> likedItems(String itemType) {
+    final itemsById = <String, Map<String, dynamic>>{};
+    final itemsKey = itemType == likedVideoType ? 'likedVideos' : 'likedShorts';
+    final tombstoneKey = itemType == likedVideoType
+        ? 'likedVideoTombstones'
+        : 'likedShortTombstones';
+    final rows = _remoteState?[itemsKey];
+    if (rows is List) {
+      for (final row in rows.whereType<Map>()) {
+        final video = row['video'];
+        if (video is Map && video['id'] != null) {
+          final id = video['id'].toString();
+          itemsById[id] = Map<String, dynamic>.from(video)..['id'] = id;
+        }
+      }
+    }
+    final tombstones = _remoteState?[tombstoneKey];
+    if (tombstones is Map) {
+      for (final id in tombstones.keys) {
+        itemsById.remove(id.toString());
+      }
+    }
+    for (final op in _pendingOps.values) {
+      if (op.kind != 'watch_item' || op.itemType != itemType) continue;
+      if (op.isDeleted) {
+        itemsById.remove(op.itemId);
+      } else {
+        itemsById.putIfAbsent(op.itemId, () => {'id': op.itemId});
+      }
+    }
+    return itemsById.values.toList(growable: false);
+  }
+
+  bool isLiked(String itemType, String itemId) =>
+      itemId.isNotEmpty && likedIds(itemType).contains(itemId);
+
+  Future<void> setLiked({
+    required String itemType,
+    required String itemId,
+    required bool liked,
+  }) async {
+    final state = _remoteState;
+    if (state != null) {
+      final isVideo = itemType == likedVideoType;
+      final itemsKey = isVideo ? 'likedVideos' : 'likedShorts';
+      final tombstonesKey =
+          isVideo ? 'likedVideoTombstones' : 'likedShortTombstones';
+      final rows = ((state[itemsKey] as List?) ?? const [])
+          .whereType<Map>()
+          .where((row) => (row['video'] as Map?)?['id']?.toString() != itemId)
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
+      final tombstones = Map<String, dynamic>.from(
+        (state[tombstonesKey] as Map?) ?? const {},
+      );
+      final timestamp = nowServerAligned();
+      if (liked) {
+        tombstones.remove(itemId);
+        rows.insert(0, {'video': {'id': itemId}, 'likedAt': timestamp});
+      } else {
+        tombstones[itemId] = timestamp;
+      }
+      _remoteState = {...state, itemsKey: rows, tombstonesKey: tombstones};
+      notifyListeners();
+    }
+    await enqueueWatchItem(
+      itemType: itemType,
+      itemId: itemId,
+      isDeleted: !liked,
+    );
+    unawaited(pullAndFlush(force: true));
+  }
 
   int nowServerAligned() => DateTime.now().millisecondsSinceEpoch + _clockOffsetMs;
 
@@ -163,43 +276,63 @@ class UserSyncService extends ChangeNotifier {
     }
 
     if (changed) {
-      _pendingOps = await _readPendingMap(prefs, userId);
+      _pendingOps = _readPendingMap(prefs, userId);
       _remoteState = null;
       notifyListeners();
       unawaited(pullAndFlush(force: true));
     }
   }
 
-  Future<void> enqueueSubscription(String channelId, bool isActive) async {
+  Future<void> enqueueSubscription(String channelId, bool isActive) =>
+      enqueueSubscriptions({channelId: isActive});
+
+  Future<void> enqueueSubscriptions(Map<String, bool> changes) async {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty || channelId.isEmpty) return;
-    final key = 'sub:$channelId';
-    final op = SyncOp(
-      opId: '$key:${DateTime.now().millisecondsSinceEpoch}',
-      userId: userId,
-      kind: 'subscription',
-      itemId: channelId,
-      isActive: isActive,
-      clientUpdatedAt: nowServerAligned(),
-    );
-    await _saveOp(userId, key, op);
+    if (userId == null || changes.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (_activeUserId != userId) return;
+    final pending = _readPendingMap(prefs, userId);
+    for (final entry in changes.entries) {
+      if (entry.key.isEmpty) continue;
+      final key = 'sub:${entry.key}';
+      pending[key] = SyncOp(
+        opId: '$key:${DateTime.now().microsecondsSinceEpoch}:${_operationSequence++}',
+        userId: userId,
+        kind: 'subscription',
+        itemId: entry.key,
+        isActive: entry.value,
+        clientUpdatedAt: nowServerAligned(),
+      );
+    }
+    await _writePendingMap(prefs, userId, pending);
     unawaited(flushOutbox());
   }
 
-  Future<void> enqueuePreference(String field, dynamic value) async {
+  Future<void> enqueuePreference(String field, dynamic value) =>
+      enqueuePreferences({field: value});
+
+  Future<void> enqueuePreferences(Map<String, dynamic> fields) async {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty || field.isEmpty) return;
-    final key = 'pref:$field';
-    final op = SyncOp(
-      opId: '$key:${DateTime.now().millisecondsSinceEpoch}',
-      userId: userId,
-      kind: 'preference',
-      itemId: field,
-      prefField: field,
-      prefValue: value,
-      clientUpdatedAt: nowServerAligned(),
-    );
-    await _saveOp(userId, key, op);
+    if (userId == null || fields.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (_activeUserId != userId) return;
+    final pending = _readPendingMap(prefs, userId);
+    final timestamp = nowServerAligned();
+    for (final entry in fields.entries) {
+      final field = entry.key;
+      if (field.isEmpty) continue;
+      final key = 'pref:$field';
+      pending[key] = SyncOp(
+        opId: '$key:${DateTime.now().microsecondsSinceEpoch}:${_operationSequence++}',
+        userId: userId,
+        kind: 'preference',
+        itemId: field,
+        prefField: field,
+        prefValue: entry.value,
+        clientUpdatedAt: timestamp,
+      );
+    }
+    await _writePendingMap(prefs, userId, pending);
     unawaited(flushOutbox());
   }
 
@@ -232,7 +365,7 @@ class UserSyncService extends ChangeNotifier {
 
   Future<void> pullAndFlush({bool force = false}) async {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty) return;
+    if (userId == null || userId.isEmpty || !_canSync) return;
 
     final now = DateTime.now();
     if (!force &&
@@ -247,6 +380,7 @@ class UserSyncService extends ChangeNotifier {
       try {
         await flushOutbox();
         if (_authPaused) return;
+        final version = _acknowledgementVersion;
         final res = await _dio.get('/api/user/state');
         if (res.statusCode == 200 && res.data is Map) {
           final data = Map<String, dynamic>.from(res.data as Map);
@@ -257,7 +391,7 @@ class UserSyncService extends ChangeNotifier {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt(_keyClockOffset, _clockOffsetMs);
           }
-          if (_activeUserId == userId) {
+          if (_activeUserId == userId && version == _acknowledgementVersion) {
             _remoteState = data;
             notifyListeners();
           }
@@ -277,12 +411,27 @@ class UserSyncService extends ChangeNotifier {
     return future;
   }
 
-  Future<void> flushOutbox() async {
+  Future<void> flushOutbox() {
     final userId = _activeUserId;
-    if (userId == null || userId.isEmpty || _authPaused) return;
+    if (userId == null || userId.isEmpty || _authPaused || !_canSync) {
+      return Future.value();
+    }
+    _outboxFlush = _outboxFlush.then((_) async {
+      if (_activeUserId != userId || _authPaused || !_canSync) return;
+      try {
+        await _flushOutbox(userId);
+      } catch (error) {
+        debugPrint('UserSyncService outbox warning: $error');
+        _scheduleRetry();
+      }
+    });
+    return _outboxFlush;
+  }
+
+  Future<void> _flushOutbox(String userId) async {
 
     final prefs = await SharedPreferences.getInstance();
-    final currentMap = await _readPendingMap(prefs, userId);
+    final currentMap = _readPendingMap(prefs, userId);
     if (currentMap.isEmpty) return;
 
     final watchOps = <MapEntry<String, SyncOp>>[];
@@ -297,6 +446,8 @@ class UserSyncService extends ChangeNotifier {
     }
 
     final keysToRemove = <String>{};
+    final acknowledgedSubscriptions = <SyncOp>[];
+    Map<String, dynamic>? acknowledgedPreferences;
     var shouldRetry = false;
 
     if (watchOps.isNotEmpty) {
@@ -347,6 +498,7 @@ class UserSyncService extends ChangeNotifier {
       }
     }
 
+    if (_activeUserId != userId) return;
     if (prefOps.isNotEmpty) {
       final body = <String, dynamic>{};
       final fieldTimestamps = <String, int>{};
@@ -360,7 +512,10 @@ class UserSyncService extends ChangeNotifier {
       body['fieldTimestamps'] = fieldTimestamps;
 
       try {
-        await _dio.patch('/api/user/preferences', data: body);
+        final response = await _dio.patch('/api/user/preferences', data: body);
+        if (response.data is Map) {
+          acknowledgedPreferences = Map<String, dynamic>.from(response.data as Map);
+        }
         for (final entry in prefOps) {
           keysToRemove.add(entry.key);
         }
@@ -380,6 +535,7 @@ class UserSyncService extends ChangeNotifier {
     }
 
     for (final entry in subOps) {
+      if (_activeUserId != userId) return;
       try {
         final op = entry.value;
         if (op.isActive == true) {
@@ -392,6 +548,7 @@ class UserSyncService extends ChangeNotifier {
             queryParameters: {'clientUpdatedAt': op.clientUpdatedAt},
           );
         }
+        acknowledgedSubscriptions.add(op);
         keysToRemove.add(entry.key);
       } on DioException catch (e) {
         if (e.response?.statusCode == 401) {
@@ -406,8 +563,31 @@ class UserSyncService extends ChangeNotifier {
       }
     }
 
-    if (keysToRemove.isNotEmpty) {
-      final latestMap = await _readPendingMap(prefs, userId);
+    if (_activeUserId == userId && keysToRemove.isNotEmpty) {
+      final latestMap = _readPendingMap(prefs, userId);
+      if (_activeUserId == userId &&
+          (acknowledgedSubscriptions.isNotEmpty || acknowledgedPreferences != null)) {
+        _acknowledgementVersion++;
+        final remote = _remoteState;
+        if (remote != null) {
+          final ids = (remote['subscriptions'] as List?)?.whereType<String>().toSet();
+          if (ids != null) {
+            for (final op in acknowledgedSubscriptions) {
+              if (op.isActive == true) {
+                ids.add(op.itemId);
+              } else {
+                ids.remove(op.itemId);
+              }
+            }
+          }
+          _remoteState = {
+            ...remote,
+            if (ids != null) 'subscriptions': ids.toList(),
+            if (acknowledgedPreferences != null)
+              'preferences': acknowledgedPreferences,
+          };
+        }
+      }
       for (final key in keysToRemove) {
         final sent = currentMap[key];
         final latest = latestMap[key];
@@ -430,9 +610,9 @@ class UserSyncService extends ChangeNotifier {
     final guestId = prefs.getString(_keyLastGuestId);
     if (guestId == null || guestId.isEmpty || guestId == newUserId) return;
 
-    final guestOps = await _readPendingMap(prefs, guestId);
+    final guestOps = _readPendingMap(prefs, guestId);
     if (guestOps.isNotEmpty) {
-      final targetOps = await _readPendingMap(prefs, newUserId);
+      final targetOps = _readPendingMap(prefs, newUserId);
       for (final entry in guestOps.entries) {
         targetOps.putIfAbsent(
           entry.key,
@@ -461,7 +641,8 @@ class UserSyncService extends ChangeNotifier {
 
   Future<void> _saveOp(String userId, String key, SyncOp op) async {
     final prefs = await SharedPreferences.getInstance();
-    final map = await _readPendingMap(prefs, userId);
+    if (_activeUserId != userId) return;
+    final map = _readPendingMap(prefs, userId);
     map[key] = op;
     await _writePendingMap(prefs, userId, map);
   }
@@ -479,10 +660,10 @@ class UserSyncService extends ChangeNotifier {
   bool _isPermanentClientError(int? status) =>
       status == 400 || status == 404 || status == 422;
 
-  Future<Map<String, SyncOp>> _readPendingMap(
+  Map<String, SyncOp> _readPendingMap(
     SharedPreferences prefs,
     String userId,
-  ) async {
+  ) {
     try {
       final raw = prefs.getString('$_keyPendingPrefix$userId');
       if (raw == null || raw.isEmpty) return {};
@@ -500,15 +681,16 @@ class UserSyncService extends ChangeNotifier {
     String userId,
     Map<String, SyncOp> map,
   ) async {
+    final write = prefs.setString(
+      '$_keyPendingPrefix$userId',
+      jsonEncode(map.map((k, v) => MapEntry(k, v.toJson()))),
+    );
     if (_activeUserId == userId) {
       _pendingOps = Map<String, SyncOp>.from(map);
       notifyListeners();
     }
-    try {
-      await prefs.setString(
-        '$_keyPendingPrefix$userId',
-        jsonEncode(map.map((k, v) => MapEntry(k, v.toJson()))),
-      );
-    } catch (_) {}
+    if (!await write) {
+      throw StateError('Could not save pending user changes');
+    }
   }
 }

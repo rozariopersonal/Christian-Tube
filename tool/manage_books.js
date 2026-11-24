@@ -136,7 +136,7 @@ switch (command) {
     break;
   default:
     console.log(`
-Christian Tube Books Manager
+ChristianApp Books Manager
 Commands:
   node tool/manage_books.js list
   node tool/manage_books.js add <id> "<title>" "<author>" <html_file_path>

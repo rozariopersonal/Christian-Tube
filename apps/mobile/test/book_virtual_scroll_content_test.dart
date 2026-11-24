@@ -129,7 +129,7 @@ void main() {
           makeRecognizer: noopRecognizer,
           onTriggerFetch: fetchLog == null ? (_) {} : fetchLog.add,
           buildSelectionToolbar:
-              (context, state) => const SizedBox.shrink(),
+              (context, state, text) => const SizedBox.shrink(),
         ),
       ),
     ));

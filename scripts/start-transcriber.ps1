@@ -7,7 +7,7 @@ param(
 
 <#
 .SYNOPSIS
-    Starts (and optionally auto-starts at logon) the Christian-Tube transcription
+    Starts (and optionally auto-starts at logon) the ChristianApp transcription
     + local-LLM insights Docker stack.
 
 .DESCRIPTION
@@ -29,7 +29,7 @@ param(
 $ErrorActionPreference = "Stop"
 $RootDir   = Split-Path -Parent $PSScriptRoot
 $Compose   = Join-Path $RootDir "docker-compose.transcriber.yml"
-$TaskName  = "ChristianTube-Transcriber"
+$TaskName  = "ChristianApp-Transcriber"
 
 # --- Locate docker.exe (Docker Desktop per-user install) ----------------------
 $DockerCandidates = @(
@@ -90,7 +90,7 @@ function Register-TranscriberTask {
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Restart -SkipBuild"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
-        -Description "Bring up Christian-Tube transcriber + LLM stack at logon." -Force | Out-Null
+        -Description "Bring up ChristianApp transcriber + LLM stack at logon." -Force | Out-Null
     Write-Host "Registered logon task '$TaskName'."
 }
 function Unregister-TranscriberTask {

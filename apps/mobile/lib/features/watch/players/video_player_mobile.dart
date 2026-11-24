@@ -36,6 +36,7 @@ Widget buildPlatformVideoPlayer({
   required String videoId,
   double? startSeconds,
   ValueChanged<Duration>? onPositionChanged,
+  VoidCallback? onEnded,
   bool isFullScreen = false,
   VoidCallback? onToggleFullScreen,
   required Widget Function(BuildContext context, Widget player) builder,
@@ -44,6 +45,7 @@ Widget buildPlatformVideoPlayer({
     videoId: videoId,
     startSeconds: startSeconds,
     onPositionChanged: onPositionChanged,
+    onEnded: onEnded,
     isFullScreen: isFullScreen,
     onToggleFullScreen: onToggleFullScreen,
     builder: builder,
@@ -54,6 +56,7 @@ class _MobileVideoPlayerWrapper extends StatefulWidget {
   final String videoId;
   final double? startSeconds;
   final ValueChanged<Duration>? onPositionChanged;
+  final VoidCallback? onEnded;
   final bool isFullScreen;
   final VoidCallback? onToggleFullScreen;
   final Widget Function(BuildContext context, Widget player) builder;
@@ -62,6 +65,7 @@ class _MobileVideoPlayerWrapper extends StatefulWidget {
     required this.videoId,
     this.startSeconds,
     this.onPositionChanged,
+    this.onEnded,
     this.isFullScreen = false,
     this.onToggleFullScreen,
     required this.builder,
@@ -295,6 +299,14 @@ class _MobileVideoPlayerWrapperState extends State<_MobileVideoPlayerWrapper> {
                     final sec = (args[0] as num).toDouble();
                     widget.onPositionChanged
                         ?.call(Duration(milliseconds: (sec * 1000).toInt()));
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'onStateChange',
+                callback: (args) {
+                  if (args.isNotEmpty && args[0] == 0) {
+                    widget.onEnded?.call();
                   }
                 },
               );

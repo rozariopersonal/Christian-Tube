@@ -40,7 +40,14 @@ describe('VideoFeedComponent', () => {
     fixture.detectChanges();
 
     const chips = (fixture.nativeElement as HTMLElement).querySelectorAll('.pill-chip');
-    expect(Array.from(chips).map((c) => c.textContent?.trim())).toEqual(['All']);
+    expect(Array.from(chips).map((c) => c.textContent?.trim())).toEqual([
+      'favorite Liked',
+      'All',
+      'Watched',
+      'Unwatched',
+      'In Progress',
+      'Liked',
+    ]);
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         channelId: null,
@@ -73,8 +80,11 @@ describe('VideoFeedComponent', () => {
       (fixture.nativeElement as HTMLElement).querySelectorAll('.pill-chip'),
     ).map((c) => c.textContent?.trim());
     expect(labels).not.toContain('Followed Channels');
-    expect(labels[0]).toBe('All');
-    expect(labels[1]).toContain('Grace Church');
+    expect(labels).toContain('favorite Liked');
+    expect(labels.find((label) => label === 'All')).toBe('All');
+    expect(labels.find((label) => label?.includes('Grace Church'))).toContain(
+      'Grace Church',
+    );
     expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
         channelId: null,

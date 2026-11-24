@@ -7,7 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
+import '../../../core/services/user_sync_service.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../shared/annotations/user_item.dart';
+import '../../../shared/services/note_service.dart';
+import '../../../shared/ui/media_note_helper.dart';
+import '../../profile/user_service.dart';
 import '../services/shorts_orchestrator_service.dart';
 import '../services/shorts_dialog_service.dart';
 import '../players/shorts_player.dart';
@@ -53,6 +58,11 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
   bool _showPlayPauseOverlay = false;
   bool _playPauseOverlayPlaying = true;
   Timer? _overlayTimer;
+  Set<String> _notedShortIds = {};
+  final Map<String, int> _lastSavedSecondByShort = {};
+
+  bool _showLikeBurst = false;
+  Timer? _likeBurstTimer;
 
   int get _itemCount => widget.shorts?.length ?? widget.localItems?.length ?? 0;
 
@@ -63,6 +73,45 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
     _pageController = PageController(initialPage: _currentPage);
     BottomBarVisibilityService.instance.setShortPlaying(true);
     _startAutoHideTimer();
+    _loadNotedShortIds();
+  }
+
+  Future<void> _loadNotedShortIds() async {
+    try {
+      final notes = await NoteService.instance.getNotesForFeature(UserItem.featureShort);
+      if (!mounted) return;
+      setState(() {
+        _notedShortIds = notes.where((n) => !n.isEmpty).map((n) => n.targetId).toSet();
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _openNoteEditor(Short short) async {
+    final wasPlaying = _isPlaying;
+    if (wasPlaying) {
+      setState(() => _isPlaying = false);
+    }
+    final hasNote = await showMediaNoteEditor(
+      context,
+      feature: UserItem.featureShort,
+      targetId: short.id,
+      title: short.title,
+      contextText: short.channelTitle,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (hasNote == true) {
+        _notedShortIds = {..._notedShortIds, short.id};
+      } else if (hasNote == false) {
+        _notedShortIds = {..._notedShortIds}..remove(short.id);
+      }
+      if (wasPlaying) {
+        _isPlaying = true;
+      }
+    });
+    if (wasPlaying) {
+      _startAutoHideTimer();
+    }
   }
 
   @override
@@ -70,8 +119,23 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
     _pageController.dispose();
     _autoHideTimer?.cancel();
     _overlayTimer?.cancel();
+    _likeBurstTimer?.cancel();
     // Do not setShortPlaying(false) here, let the parent do it so it doesn't flash.
     super.dispose();
+  }
+
+  void _triggerLikeBurst() {
+    _likeBurstTimer?.cancel();
+    setState(() {
+      _showLikeBurst = true;
+    });
+    _likeBurstTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _showLikeBurst = false;
+        });
+      }
+    });
   }
 
   void _startAutoHideTimer() {
@@ -170,6 +234,18 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                   _currentPosition = cur;
                   if (dur > 0) _totalDuration = dur;
                 });
+                final resolvedDur = dur > 0 ? dur.round() : short.durationSeconds;
+                if (cur >= 1 && (cur.floor() != (_lastSavedSecondByShort[short.id] ?? -1))) {
+                  _lastSavedSecondByShort[short.id] = cur.floor();
+                  if (cur.floor() % 2 == 0 ||
+                      (resolvedDur > 0 && cur >= resolvedDur - 10)) {
+                    UserService().saveVideoPosition(
+                      short.id,
+                      cur,
+                      durationSeconds: resolvedDur > 0 ? resolvedDur : null,
+                    );
+                  }
+                }
               }
             },
           )
@@ -185,6 +261,18 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                   _currentPosition = cur;
                   if (dur > 0) _totalDuration = dur;
                 });
+                final resolvedDur = dur > 0 ? dur.round() : short.durationSeconds;
+                if (cur >= 1 && (cur.floor() != (_lastSavedSecondByShort[short.id] ?? -1))) {
+                  _lastSavedSecondByShort[short.id] = cur.floor();
+                  if (cur.floor() % 2 == 0 ||
+                      (resolvedDur > 0 && cur >= resolvedDur - 10)) {
+                    UserService().saveVideoPosition(
+                      short.id,
+                      cur,
+                      durationSeconds: resolvedDur > 0 ? resolvedDur : null,
+                    );
+                  }
+                }
               }
             },
           )
@@ -204,8 +292,32 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
           areControlsVisible: _areControlsVisible,
           short: short,
           localItem: localItem,
+          showLikeBurst: isCurrentActive && _showLikeBurst,
+          onDoubleTapLike: (localItem == null && !isNonPlayableLocalShort)
+              ? () {
+                  HapticFeedback.lightImpact();
+                  if (UserSyncService.instance.activeUserId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to save liked Shorts'),
+                        duration: Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    return;
+                  }
+                  UserSyncService.instance.setLiked(
+                    itemType: UserSyncService.likedShortType,
+                    itemId: short.id,
+                    liked: true,
+                  );
+                  _triggerLikeBurst();
+                }
+              : null,
           onShare: () => ShortsDialogService.shareShort(context, short,
               localItem: localItem),
+          onNote: isNonPlayableLocalShort ? null : () => _openNoteEditor(short),
+          hasNote: _notedShortIds.contains(short.id),
           isScrubbing: _isScrubbing,
           currentPosition: _currentPosition,
           totalDuration: _totalDuration,
@@ -270,10 +382,12 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
                     itemCount: _itemCount,
                     onPageChanged: (index) {
                       HapticFeedback.lightImpact();
+                      _likeBurstTimer?.cancel();
                       setState(() {
                         _currentPage = index;
                         _isPlaying = true;
                         _areControlsVisible = true;
+                        _showLikeBurst = false;
                         _currentPosition = 0.0;
                         _totalDuration = 0.0;
                       });

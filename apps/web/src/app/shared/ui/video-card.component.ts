@@ -6,11 +6,12 @@ import {
   formatViewCount,
 } from '../../features/videos/models/video.model';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { VideoWatchedOverlaysComponent } from './video-watched-overlays.component';
 
 @Component({
   selector: 'app-video-card',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, VideoWatchedOverlaysComponent],
   template: `
     <article class="video-card" (mouseleave)="menuOpen.set(false)">
       <a class="thumb-wrap" [routerLink]="['/watch', video().id]">
@@ -20,6 +21,12 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
           [alt]="video().title"
           loading="lazy"
         />
+        @if (isWatched()) {
+          <span class="badge watched-badge">
+            <span class="material-symbols-rounded badge-icon">check_circle</span>
+            Watched
+          </span>
+        }
         @if (video().isLive) {
           <span class="badge live-badge">
             <span class="material-symbols-rounded badge-icon">sensors</span>
@@ -29,11 +36,7 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
           <span class="badge duration-badge">{{ video().duration }}</span>
         }
 
-        @if (progressPct() > 0) {
-          <div class="progress-track" aria-hidden="true">
-            <div class="progress-fill" [style.width.%]="progressPct()"></div>
-          </div>
-        }
+        <app-video-watched-overlays [videoId]="video().id" />
       </a>
 
       <div class="meta-row">
@@ -79,6 +82,17 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
             @if (timeLabel()) {
               <span>{{ timeLabel() }}</span>
             }
+            @if (isWatched()) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="watched-status">Watched</span>
+            } @else if (progressPct() > 0) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="progress-status">{{ progressPct() }}% watched</span>
+            }
           </p>
         </div>
 
@@ -103,6 +117,12 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
                   {{ isSaved() ? 'bookmark_remove' : 'watch_later' }}
                 </span>
                 {{ isSaved() ? 'Remove from Watch Later' : 'Save to Watch Later' }}
+              </button>
+              <button type="button" class="card-menu-item" (click)="toggleWatched()">
+                <span class="material-symbols-rounded">
+                  {{ isWatched() ? 'visibility_off' : 'check_circle' }}
+                </span>
+                {{ isWatched() ? 'Mark as unwatched' : 'Mark as watched' }}
               </button>
               <button type="button" class="card-menu-item" (click)="share()">
                 <span class="material-symbols-rounded">share</span>
@@ -175,22 +195,21 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
         font-weight: 700;
       }
 
+      .watched-badge {
+        left: 8px;
+        top: 8px;
+        right: auto;
+        bottom: auto;
+        background-color: rgba(0, 0, 0, 0.82);
+        color: #ffffff;
+      }
+
+      .watched-badge .badge-icon {
+        color: var(--accent);
+      }
+
       .badge-icon {
         font-size: 13px;
-      }
-
-      .progress-track {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 3px;
-        background-color: rgba(255, 255, 255, 0.25);
-      }
-
-      .progress-fill {
-        height: 100%;
-        background-color: var(--accent);
       }
 
       .meta-row {
@@ -252,6 +271,16 @@ import { VideoLibraryService } from '../../features/videos/services/video-librar
 
       .channel-link:hover {
         color: var(--on-surface);
+      }
+
+      .watched-status {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .progress-status {
+        color: var(--on-surface-muted);
+        font-weight: 500;
       }
 
       .card-menu-wrap {
@@ -323,6 +352,8 @@ export class VideoCardComponent {
 
   readonly menuOpen = signal<boolean>(false);
   readonly isSaved = computed(() => this.library.isWatchLater(this.video().id));
+  readonly watchStatus = computed(() => this.library.watchStatus(this.video().id));
+  readonly isWatched = computed(() => this.watchStatus() === 'watched');
   readonly progressPct = computed(() =>
     Math.round(this.library.progressFraction(this.video().id) * 100),
   );
@@ -342,6 +373,16 @@ export class VideoCardComponent {
 
   toggleWatchLater(): void {
     this.library.toggleWatchLater(this.video());
+    this.menuOpen.set(false);
+  }
+
+  toggleWatched(): void {
+    const v = this.video();
+    if (this.isWatched()) {
+      this.library.markUnwatched(v.id);
+    } else {
+      this.library.markWatched(v);
+    }
     this.menuOpen.set(false);
   }
 

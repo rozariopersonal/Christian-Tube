@@ -63,6 +63,7 @@ import { VideoLibraryService } from '../services/video-library.service';
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        flex-wrap: wrap;
         margin-bottom: 18px;
       }
 

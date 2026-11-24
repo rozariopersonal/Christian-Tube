@@ -52,7 +52,8 @@ shell navigation:
   The bottom bar **must not** remain visible at these sizes.
 - The bottom bar **must not** be hidden in landscape on tablets/web — an
   alternate (rail) must be present there. Hidden nav is only acceptable for
-  fullscreen players/shorts (via `BottomBarVisibilityService`).
+  fullscreen players/shorts or an active Bible, book, or article fullscreen
+  reading session (via `BottomBarVisibilityService`).
 
 ### 3. Content width — never stretch
 
@@ -527,8 +528,18 @@ Every change to the Flutter mobile client is subject to a 3-tier quality gate lo
 
 ### 3. Agent Branching & Local Test Standard
 
-- **Dedicated Branch per Task**: Agents and developers **must not** commit or push directly to `main` or `develop`. Every task must be performed on an isolated branch created from `develop`:
+- **Dedicated Branch per Task**: Agents and developers **must not** commit or push directly to `main` or `develop`. Every task must be performed on an isolated branch created from `develop`.
+- **Sync `develop` with `origin/main` if Behind**: Before creating a task branch from `develop`, fetch `origin` and check whether `origin/develop` is behind `origin/main`. If it is behind, recreate `develop` from `origin/main` first:
   ```bash
+  git fetch origin
+  # Check if origin/develop is behind origin/main (count > 0)
+  git rev-list --count origin/develop..origin/main
+  # If behind, recreate develop from origin/main:
+  git branch -f develop origin/main
+  git branch --set-upstream-to=origin/develop develop
+  git push --force-with-lease origin develop
+
+  # Then create your task branch from develop:
   git checkout develop
   git pull origin develop
   git checkout -b agent/<short-task-name>

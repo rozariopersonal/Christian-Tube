@@ -7,12 +7,16 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import {
+  BibleVersionPickerComponent,
+  BibleVersionSelectionEvent,
+} from '../../../shared/ui/bible-version-picker.component';
 import { BibleBook } from '../models/bible.model';
 
 @Component({
   selector: 'app-bible-sidebar',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, BibleVersionPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -49,21 +53,28 @@ import { BibleBook } from '../models/bible.model';
         aria-label="Bible books and chapters"
       >
         <div class="sidebar-header">
-          <div class="sidebar-tabs">
-            <button
-              type="button"
-              class="sidebar-ver-btn"
-              (click)="openVersionPicker.emit()"
-              aria-label="Bible Version"
-              title="Switch Bible version"
-            >
-              <span class="ver-icon">
-                <span class="material-symbols-rounded">menu_book</span>
-              </span>
-              <span class="ver-text">{{ versionLabel() }}</span>
-              <span class="material-symbols-rounded ver-chev">expand_more</span>
-            </button>
+          <div class="sidebar-ver-row">
+            <app-bible-version-picker
+              contextKey="bible"
+              (selectionChanged)="versionChanged.emit($event)"
+            />
+            @if (!inDrawer()) {
+              <button
+                type="button"
+                class="pin-btn"
+                [class.active]="pinned()"
+                [title]="pinned() ? 'Collapse navigator (hover to expand)' : 'Keep navigator expanded'"
+                [attr.aria-label]="pinned() ? 'Collapse navigator' : 'Keep navigator expanded'"
+                (click)="togglePin()"
+              >
+                <span class="material-symbols-rounded">
+                  {{ pinned() ? 'left_panel_close' : 'keep' }}
+                </span>
+              </button>
+            }
+          </div>
 
+          <div class="sidebar-tabs">
             <button
               type="button"
               class="sidebar-tab"
@@ -87,18 +98,6 @@ import { BibleBook } from '../models/bible.model';
               (click)="testament.set('nt')"
             >
               NT
-            </button>
-            <button
-              type="button"
-              class="pin-btn"
-              [class.active]="pinned()"
-              [title]="pinned() ? 'Collapse navigator (hover to expand)' : 'Keep navigator expanded'"
-              [attr.aria-label]="pinned() ? 'Collapse navigator' : 'Keep navigator expanded'"
-              (click)="togglePin()"
-            >
-              <span class="material-symbols-rounded">
-                {{ pinned() ? 'left_panel_close' : 'keep' }}
-              </span>
             </button>
           </div>
           <input
@@ -280,59 +279,23 @@ import { BibleBook } from '../models/bible.model';
         gap: 8px;
       }
 
+      .sidebar-ver-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .sidebar-ver-row app-bible-version-picker {
+        flex: 1;
+        min-width: 0;
+      }
+
       .sidebar-tabs {
         display: flex;
         align-items: center;
         gap: 4px;
-      }
-
-      .sidebar-ver-btn {
-        flex: 1;
-        min-width: 0;
-        height: 32px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 6px 0 4px;
-        border-radius: var(--radius-sm);
-        font-size: 12px;
-        font-weight: 600;
-        background-color: var(--surface);
-        border: 1px solid var(--surface-border);
-        color: var(--on-surface);
-      }
-
-      .sidebar-ver-btn:hover {
-        background-color: var(--surface-variant);
-      }
-
-      .ver-icon {
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-        background-color: var(--accent-soft);
-        color: var(--accent);
-        display: grid;
-        place-items: center;
-        flex-shrink: 0;
-      }
-
-      .ver-icon .material-symbols-rounded {
-        font-size: 14px;
-      }
-
-      .ver-text {
-        flex: 1;
-        text-align: left;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .ver-chev {
-        font-size: 16px;
-        color: var(--on-surface-muted);
-        flex-shrink: 0;
       }
 
       .sidebar-tab {
@@ -445,7 +408,7 @@ export class BibleSidebarComponent {
   readonly versionLabel = input<string>('NASB');
   readonly inDrawer = input<boolean>(false);
   readonly selectChapter = output<{ bookNumber: number; chapter: number }>();
-  readonly openVersionPicker = output<void>();
+  readonly versionChanged = output<BibleVersionSelectionEvent>();
 
   readonly testament = signal<'all' | 'ot' | 'nt'>('all');
   readonly filter = signal<string>('');

@@ -3,18 +3,25 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleJwksService } from '../services/google-jwks.service';
+import { AppJwtService } from '../modules/auth/app-jwt.service';
+import { PrismaService } from '../modules/prisma/prisma.service';
 import { AuthGuard } from './auth.guard';
+import { SessionService } from './session.service';
 
 @Injectable()
 export class AdminGuard extends AuthGuard implements CanActivate {
   constructor(
     googleJwksService: GoogleJwksService,
-    private readonly configService: ConfigService,
+    private readonly adminConfigService: ConfigService,
+    @Optional() appJwtService?: AppJwtService,
+    @Optional() prisma?: PrismaService,
+    @Optional() sessions?: SessionService,
   ) {
-    super(googleJwksService);
+    super(googleJwksService, appJwtService, prisma, adminConfigService, sessions);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -22,25 +29,23 @@ export class AdminGuard extends AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const adminEmails = this.configService.get<string[]>('adminEmails') || [];
 
-    const isEmailAdmin =
-      user?.email && adminEmails.includes(user.email.trim().toLowerCase());
-
-    // Guest tokens are forgeable mock identities used by "Quick Sign-In".
-    // Legacy clients emit guest tokens without an email claim but include the
-    // claimed email in admin request bodies (addChannel / approveRequest), so
-    // fall back to that for guest identities only. Real (verified) Google
-    // tokens never take this path.
-    let claimedEmail = isEmailAdmin ? user.email.trim().toLowerCase() : null;
-    if (user?.isGuest && !claimedEmail) {
-      const bodyEmail = (request.body?.adminEmail as string) ?? '';
-      claimedEmail = bodyEmail.trim().toLowerCase() || null;
+    if (!user || user.isGuest === true) {
+      this.logger.warn(`Admin access denied for guest user: ${user?.userId}`);
+      throw new ForbiddenException('Admin access required');
     }
-    const bodyIsAdmin = claimedEmail !== null && adminEmails.includes(claimedEmail);
 
-    if (user?.role === 'ADMIN' || isEmailAdmin || bodyIsAdmin) {
-      if (user) user.role = 'ADMIN';
+    const adminEmails = (
+      this.adminConfigService.get<string[]>('adminEmails') || []
+    ).map((e) => e.trim().toLowerCase());
+
+    const verifiedEmail =
+      typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
+    const isEmailAdmin =
+      verifiedEmail.length > 0 && adminEmails.includes(verifiedEmail);
+
+    if (user.role === 'ADMIN' || isEmailAdmin) {
+      user.role = 'ADMIN';
       return true;
     }
 

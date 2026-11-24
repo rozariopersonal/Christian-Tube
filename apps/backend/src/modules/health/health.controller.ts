@@ -13,7 +13,7 @@ export class HealthController {
   getRoot() {
     return {
       status: 'ok',
-      service: this.configService.get<string>('appName') || 'PrivateTube API',
+      service: this.configService.get<string>('appName') || 'ChristianApp API',
       instanceId: this.configService.get<string>('instanceId') || 'unknown',
       timestamp: new Date().toISOString(),
     };
