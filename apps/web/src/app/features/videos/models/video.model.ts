@@ -67,6 +67,20 @@ export function normalizeVideo(raw: Record<string, unknown>): Video {
   };
 }
 
+export function parseDurationSeconds(duration?: string): number {
+  if (!duration) return 0;
+  const trimmed = duration.trim();
+  if (!trimmed || trimmed === '0:00') return 0;
+  const parts = trimmed.split(':').map((p) => Number(p));
+  if (parts.some((n) => !Number.isFinite(n) || n < 0)) return 0;
+  if (parts.length === 1) return Math.floor(parts[0]);
+  if (parts.length === 2) return Math.floor(parts[0] * 60 + parts[1]);
+  if (parts.length === 3) {
+    return Math.floor(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  }
+  return 0;
+}
+
 export function formatViewCount(views: number): string {
   if (views >= 1_000_000) return `${(views / 1_000_000).toFixed(1)}M views`;
   if (views >= 1_000) return `${(views / 1_000).toFixed(1)}K views`;
