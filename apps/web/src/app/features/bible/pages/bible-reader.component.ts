@@ -192,9 +192,13 @@ interface AppendedBibleChapter {
             </button>
           </div>
         }
-        <app-reader-columns-toggle [showLayoutToggle]="true" />
+        @if (screen.screenClass() === 'expanded') {
+          <app-reader-columns-toggle [showLayoutToggle]="true" />
+        }
         <app-reader-typography-toggle />
-        <app-reader-auto-fullscreen-toggle />
+        @if (screen.screenClass() === 'expanded') {
+          <app-reader-auto-fullscreen-toggle />
+        }
         <div class="tb-actions-pill">
           <button
             type="button"
@@ -949,7 +953,8 @@ interface AppendedBibleChapter {
         }
 
         .bar-left app-bible-version-picker {
-          max-width: 132px;
+          max-width: 148px;
+          overflow: hidden;
         }
 
         .nav-step-btn {
@@ -1100,13 +1105,20 @@ interface AppendedBibleChapter {
         color: var(--on-surface);
         font-size: 14px;
         font-weight: 600;
+        flex: 1 1 auto;
         min-width: 0;
+        overflow: hidden;
       }
 
       .book-btn span:first-child {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .book-btn .material-symbols-rounded {
+        flex-shrink: 0;
+        font-size: 18px;
       }
 
       .tb-actions-pill {
