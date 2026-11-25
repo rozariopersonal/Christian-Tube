@@ -217,3 +217,132 @@ describe('SyncService private video safeguards', () => {
     });
   });
 });
+
+
+function makeScrapedVideo(id: string) {
+  return {
+    videoId: id,
+    title: `Video ${id}`,
+    thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+    duration: '10:00',
+    durationSeconds: 600,
+    viewCount: 100,
+    publishedAt: new Date('2015-01-01T00:00:00Z'),
+    videoType: 'VIDEO' as const,
+  };
+}
+
+describe('SyncService fault-tolerant pagination & status', () => {
+  it('streams scraped pages to DB and marks COMPLETED when all tabs exhaust', async () => {
+    const { service, prisma, youtubeService } = makeSyncService();
+    (service as any).sleep = jest.fn().mockResolvedValue(undefined);
+    prisma.channel.findUnique.mockResolvedValue({
+      id: 'UCpZG4Vl2tqg5cIfGMocI2Ag',
+      name: 'CFC India - Zac Poonen',
+      category: 'Sermons',
+      syncStatus: 'IDLE',
+      syncCursor: null,
+    });
+    prisma.video.findMany = jest.fn().mockResolvedValue([]);
+    youtubeService.hasApiKey.mockReturnValue(false);
+    youtubeService.fetchChannelMetadata = jest.fn().mockResolvedValue(null);
+    youtubeService.scrapeRssFeed.mockResolvedValue([]);
+    youtubeService.scrapeChannelShortsTab = jest.fn().mockResolvedValue({
+      videos: [],
+      exhausted: true,
+      stoppedEarly: false,
+      batchesProcessed: 1,
+    });
+    youtubeService.scrapeChannelVideosTab.mockImplementation(async (_cid: string, opts: any) => {
+      const p1 = [makeScrapedVideo('v1'), makeScrapedVideo('v2')];
+      const p2 = [makeScrapedVideo('v3')];
+      await opts.onPage?.(p1, 1);
+      await opts.onPage?.(p2, 2);
+      return { videos: [...p1, ...p2], exhausted: true, stoppedEarly: false, batchesProcessed: 2 };
+    });
+
+    await service.syncChannel('UCpZG4Vl2tqg5cIfGMocI2Ag', 'Sermons', true, { full: true });
+
+    expect(prisma.video.upsert).toHaveBeenCalledTimes(3);
+    expect(prisma.channel.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ syncStatus: 'COMPLETED', syncCursor: null }),
+      }),
+    );
+  });
+
+  it('marks channel PARTIAL and preserves earlier pages when a tab fails mid-way', async () => {
+    const { service, prisma, youtubeService } = makeSyncService();
+    (service as any).sleep = jest.fn().mockResolvedValue(undefined);
+    prisma.channel.findUnique.mockResolvedValue({
+      id: 'UCpZG4Vl2tqg5cIfGMocI2Ag',
+      name: 'CFC India - Zac Poonen',
+      category: 'Sermons',
+      syncStatus: 'IDLE',
+      syncCursor: null,
+    });
+    prisma.video.findMany = jest.fn().mockResolvedValue([]);
+    youtubeService.hasApiKey.mockReturnValue(false);
+    youtubeService.fetchChannelMetadata = jest.fn().mockResolvedValue(null);
+    youtubeService.scrapeRssFeed.mockResolvedValue([]);
+    youtubeService.scrapeChannelShortsTab = jest.fn().mockResolvedValue({
+      videos: [],
+      exhausted: true,
+      stoppedEarly: false,
+      batchesProcessed: 1,
+    });
+    youtubeService.scrapeChannelVideosTab.mockImplementation(async (_cid: string, opts: any) => {
+      const p1 = [makeScrapedVideo('v1'), makeScrapedVideo('v2')];
+      await opts.onPage?.(p1, 1);
+      return { videos: p1, exhausted: false, stoppedEarly: false, batchesProcessed: 2, error: 'ETIMEDOUT' };
+    });
+
+    await service.syncChannel('UCpZG4Vl2tqg5cIfGMocI2Ag', 'Sermons', true, { full: true });
+
+    expect(prisma.video.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.channel.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ syncStatus: 'PARTIAL' }),
+      }),
+    );
+  });
+
+  it('stops incremental web scraper early unless full=true', async () => {
+    const { service, prisma, youtubeService } = makeSyncService();
+    (service as any).sleep = jest.fn().mockResolvedValue(undefined);
+    prisma.channel.findUnique.mockResolvedValue({
+      id: 'UC1',
+      name: 'Test',
+      category: 'Sermons',
+      syncStatus: 'COMPLETED',
+      syncCursor: null,
+    });
+    prisma.video.findMany = jest.fn().mockResolvedValue([{ id: 'v1' }, { id: 'v2' }]);
+    youtubeService.hasApiKey.mockReturnValue(false);
+    youtubeService.fetchChannelMetadata = jest.fn().mockResolvedValue(null);
+    youtubeService.scrapeRssFeed.mockResolvedValue([]);
+    youtubeService.scrapeChannelShortsTab = jest.fn().mockResolvedValue({
+      videos: [],
+      exhausted: true,
+      stoppedEarly: false,
+      batchesProcessed: 1,
+    });
+
+    let returnedFromOnPage: boolean | void;
+    youtubeService.scrapeChannelVideosTab.mockImplementation(async (_cid: string, opts: any) => {
+      returnedFromOnPage = await opts.onPage?.([makeScrapedVideo('v1'), makeScrapedVideo('v2')], 1);
+      return {
+        videos: [makeScrapedVideo('v1'), makeScrapedVideo('v2')],
+        exhausted: false,
+        stoppedEarly: returnedFromOnPage === false,
+        batchesProcessed: 1,
+      };
+    });
+
+    await service.syncChannel('UC1', 'Sermons', true, { full: false });
+    expect(returnedFromOnPage).toBe(false);
+
+    await service.syncChannel('UC1', 'Sermons', true, { full: true });
+    expect(returnedFromOnPage).toBe(true);
+  });
+});
