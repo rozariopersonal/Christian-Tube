@@ -113,6 +113,12 @@ class AudioDownloadService extends ChangeNotifier {
     if (kIsWeb || tracks.isEmpty) return;
     final presentOnDisk = <AudioTrack>[];
     for (final track in tracks) {
+      final existing = _entries[track.id];
+      if (existing != null &&
+          (existing.status == AudioDownloadStatus.downloading ||
+              existing.status == AudioDownloadStatus.queued)) {
+        continue;
+      }
       final localUri = await _library.localUriFor(track);
       _entries[track.id] = AudioDownloadEntry(
         track: track,

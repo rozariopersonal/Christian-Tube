@@ -183,11 +183,7 @@ class CommunityShortsGrid extends StatelessWidget {
                       final short = filteredShorts[index];
                       return CommunityGridCard(
                         short: short,
-                        onTap: () {
-                          final realIndex =
-                              allShorts.indexWhere((s) => s.id == short.id);
-                          onShortTap(realIndex != -1 ? realIndex : index);
-                        },
+                        onTap: () => onShortTap(index),
                       );
                     },
                     childCount: filteredShorts.length,

@@ -376,6 +376,9 @@ class UserSyncService extends ChangeNotifier {
     if (_inFlightSync != null) return _inFlightSync!;
 
     _lastPullAt = now;
+    if (force && _canSync) {
+      _authPaused = false;
+    }
     final future = () async {
       try {
         await flushOutbox();

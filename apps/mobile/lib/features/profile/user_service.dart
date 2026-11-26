@@ -251,6 +251,7 @@ class UserService extends ChangeNotifier {
   }
 
   Future<void> clearHistory() async {
+    final idsToDelete = _history.map((v) => v.id).where((id) => id.isNotEmpty).toList();
     _history.clear();
     notifyListeners();
 
@@ -261,9 +262,13 @@ class UserService extends ChangeNotifier {
       debugPrint('Error clearing watch history: $e');
     }
 
-    try {
-      await _apiClient.dio.delete('/user/history');
-    } catch (_) {}
+    for (final videoId in idsToDelete) {
+      await UserSyncService.instance.enqueueWatchItem(
+        itemType: 'video_history',
+        itemId: videoId,
+        isDeleted: true,
+      );
+    }
   }
 
   Future<void> fetchUserData() async {

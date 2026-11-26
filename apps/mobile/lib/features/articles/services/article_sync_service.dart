@@ -97,11 +97,19 @@ class ArticleSyncService {
       return sqliteArticle;
     }
 
-    final cacheDir = await _getCacheDirectory();
-    final localFile = File(p.join(cacheDir, fileName));
+    String? cacheDir;
+    File? localFile;
+    if (!kIsWeb) {
+      try {
+        cacheDir = await _getCacheDirectory();
+        localFile = File(p.join(cacheDir, fileName));
+      } catch (e) {
+        debugPrint('ArticleSyncService: disk cache unavailable: $e');
+      }
+    }
 
     // 3. Check disk cache
-    if (await localFile.exists()) {
+    if (localFile != null && await localFile.exists()) {
       try {
         final content = await localFile.readAsString();
         final json = jsonDecode(content) as Map<String, dynamic>;
@@ -113,7 +121,7 @@ class ArticleSyncService {
       }
     }
 
-    // 3. Fetch from remote CDN
+    // 4. Fetch from remote CDN
     final urls = GitHubDataService.languageArticleUrls(code, articleId);
     for (final url in urls) {
       try {
@@ -129,13 +137,15 @@ class ArticleSyncService {
           // Save to memory cache
           _memoryCache[cacheKey] = article;
 
-          // Save to disk cache asynchronously
-          localFile
-              .writeAsString(response.data!)
-              .catchError((_) => localFile);
-
-          // Drop cache files for the same article from older revisions.
-          _pruneStaleFiles(cacheDir, code, articleId, fileName);
+          // Save to disk cache asynchronously when filesystem is available
+          if (localFile != null && cacheDir != null) {
+            final fileRef = localFile;
+            fileRef
+                .writeAsString(response.data!)
+                .catchError((_) => fileRef);
+            // Drop cache files for the same article from older revisions.
+            _pruneStaleFiles(cacheDir, code, articleId, fileName);
+          }
 
           return article;
         }

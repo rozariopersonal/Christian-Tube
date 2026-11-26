@@ -597,9 +597,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
         if (isFullscreen) {
           return PopScope(
-            canPop: !_isFullScreen,
+            canPop: !isFullscreen,
             onPopInvokedWithResult: (didPop, result) {
-              if (!didPop && _isFullScreen) {
+              if (!didPop && isFullscreen) {
                 // Exiting fullscreen via back button: also lock portrait.
                 setState(() {
                   _isFullScreen = false;

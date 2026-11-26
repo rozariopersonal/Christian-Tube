@@ -392,19 +392,22 @@ export class ShortsService {
       return [];
     }
 
-    const orConditions: any[] = [];
+    const shortCreationOr: any[] = [];
+    const videoOr: any[] = [];
     if (userId) {
-      orConditions.push({ userId }, { creatorUserId: userId });
+      shortCreationOr.push({ userId });
+      videoOr.push({ creatorUserId: userId });
     }
     if (email) {
-      orConditions.push({ userEmail: email }, { creatorEmail: email });
+      shortCreationOr.push({ userEmail: email });
+      videoOr.push({ creatorEmail: email });
     }
 
     try {
       // 1. Fetch from ShortCreation table
       const creations = await (this.prisma as any).shortCreation.findMany({
         where: {
-          OR: orConditions,
+          OR: shortCreationOr,
         },
         orderBy: { createdAt: 'desc' },
       }).catch(() => []);
@@ -413,7 +416,7 @@ export class ShortsService {
       const videos = await this.prisma.video.findMany({
         where: {
           type: 'SHORT',
-          OR: orConditions,
+          OR: videoOr,
         },
         orderBy: { createdAt: 'desc' },
       }).catch(() => []);

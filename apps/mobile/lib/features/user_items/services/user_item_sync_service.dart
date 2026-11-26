@@ -81,8 +81,8 @@ class UserItemSyncService {
   Future<void> pullAndPush() async {
     final uid = _currentUserId;
     if (uid == null || uid.isEmpty || !_canSync) return;
-    await _pushDirty(uid);
     await _pullAndMerge(uid);
+    await _pushDirty(uid);
   }
 
   @visibleForTesting
@@ -271,7 +271,11 @@ class UserItemSyncService {
       }
 
       final cursorRaw = data['updatedAt'] as String?;
-      final cursor = DateTime.tryParse(cursorRaw ?? '');
+      final serverTimeMs = (data['serverTime'] as num?)?.toInt();
+      final cursor = DateTime.tryParse(cursorRaw ?? '') ??
+          (serverTimeMs != null && serverTimeMs > 0
+              ? DateTime.fromMillisecondsSinceEpoch(serverTimeMs, isUtc: true)
+              : null);
       if (cursor != null) {
         final current = DateTime.tryParse(rawCursor ?? '');
         if (current == null || cursor.isAfter(current)) {
