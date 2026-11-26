@@ -173,6 +173,6 @@ describe('ShortsService.getMyCreations', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(res).toHaveLength(1);
-    expect(res[0].youtubeVideoId).toBe('yt_short_1');
+    expect(res[0].id).toBe('yt_short_1');
   });
 });
