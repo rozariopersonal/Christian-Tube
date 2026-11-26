@@ -14,11 +14,13 @@ function makeShortsService(config: Record<string, any> = {}) {
     shortCreation: {
       upsert: jest.fn().mockResolvedValue({ id: 'sc1', youtubeVideoId: 'short_ok' }),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     video: {
       findUnique: jest.fn().mockResolvedValue(null),
       upsert: jest.fn().mockResolvedValue({ id: 'short_ok' }),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     channel: {
       upsert: jest.fn().mockResolvedValue({}),
@@ -131,5 +133,46 @@ describe('ShortsService.recordCreation', () => {
     expect(prisma.shortCreation.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.video.upsert).toHaveBeenCalledTimes(1);
     expect(res).toEqual({ id: 'sc1', youtubeVideoId: 'short_ok' });
+  });
+});
+
+describe('ShortsService.getMyCreations', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('queries shortCreation with userId/userEmail and video with creatorUserId/creatorEmail', async () => {
+    const { service, prisma } = makeShortsService();
+    prisma.shortCreation.findMany.mockResolvedValue([
+      {
+        youtubeVideoId: 'yt_short_1',
+        title: 'My Short',
+        sourceVideoId: 'src_1',
+        clipStartTime: 10,
+        clipEndTime: 40,
+        cropOffsetX: 0,
+        privacyStatus: 'unlisted',
+        createdAt: new Date('2026-11-26T00:00:00Z'),
+      },
+    ]);
+    prisma.video.findMany.mockResolvedValue([]);
+
+    const res = await service.getMyCreations('u1', 'u1@example.com');
+
+    expect(prisma.shortCreation.findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [{ userId: 'u1' }, { userEmail: 'u1@example.com' }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(prisma.video.findMany).toHaveBeenCalledWith({
+      where: {
+        type: 'SHORT',
+        OR: [{ creatorUserId: 'u1' }, { creatorEmail: 'u1@example.com' }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(res).toHaveLength(1);
+    expect(res[0].youtubeVideoId).toBe('yt_short_1');
   });
 });

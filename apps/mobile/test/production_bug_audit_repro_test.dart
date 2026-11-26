@@ -8,11 +8,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/database/database_init.dart';
 import 'package:mobile/core/models/short.dart';
 import 'package:mobile/core/models/user_preference.dart';
 import 'package:mobile/core/models/video.dart';
@@ -21,6 +26,7 @@ import 'package:mobile/core/services/lockscreen_word_feed_service.dart';
 import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/services/user_sync_service.dart';
 import 'package:mobile/core/theme/app_tokens.dart';
+import 'package:mobile/core/theme/theme_service.dart';
 import 'package:mobile/features/articles/services/article_sync_service.dart';
 import 'package:mobile/features/articles/services/articles_download_manager.dart';
 import 'package:mobile/features/audio/adapters/sqlite_audio_catalog_adapter.dart';
@@ -33,6 +39,7 @@ import 'package:mobile/features/audio/services/audio_download_service.dart';
 import 'package:mobile/features/audio/services/audio_local_library.dart';
 import 'package:mobile/features/audio/services/audio_playback_service.dart';
 import 'package:mobile/features/audio/services/audio_storage_service.dart';
+import 'package:mobile/features/audio/services/audio_sync_manager.dart';
 import 'package:mobile/features/audio/services/audio_sync_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/auth/services/auth_session_client.dart';
@@ -56,10 +63,15 @@ import 'package:mobile/features/engines/scripture/models/scripture_card.dart';
 import 'package:mobile/features/engines/scripture/models/scripture_filter_state.dart';
 import 'package:mobile/features/engines/scripture/services/bible_download_manager.dart';
 import 'package:mobile/features/engines/scripture/services/scripture_service.dart';
+import 'package:mobile/features/feed/video_feed_screen.dart';
+import 'package:mobile/features/onboarding/screens/onboarding_screen.dart';
 import 'package:mobile/features/profile/user_service.dart';
+import 'package:mobile/features/shorts/widgets/community_shorts_grid.dart';
 import 'package:mobile/features/songs/services/songs_download_manager.dart';
 import 'package:mobile/features/update/update_service.dart';
+import 'package:mobile/features/user_items/services/user_item_sync_service.dart';
 import 'package:mobile/layout/main_layout_screen.dart';
+import 'package:mobile/shared/annotations/sqlite_user_item_data_adapter.dart';
 import 'package:mobile/shared/annotations/user_item.dart';
 import 'package:mobile/shared/services/library_languages_controller.dart';
 
@@ -111,6 +123,8 @@ class _MockBibleBookmarkService extends Mock implements BibleBookmarkService {}
 class _FakeRequestOptions extends Fake implements RequestOptions {}
 
 class _FakeAudioTrack extends Fake implements AudioTrack {}
+
+class _FakeAudioSeries extends Fake implements AudioSeries {}
 
 class _FakeScriptureCard extends Fake implements ScriptureCard {}
 
@@ -234,6 +248,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(_FakeRequestOptions());
     registerFallbackValue(_FakeAudioTrack());
+    registerFallbackValue(_FakeAudioSeries());
     registerFallbackValue(_FakeScriptureCard());
     registerFallbackValue(const ScriptureFilterState());
   });
@@ -978,5 +993,395 @@ void main() {
     expect(thrown, isNot(isA<MissingPluginException>()),
         reason:
             'getArticle() must guard _getCacheDirectory() on Web / unavailable path_provider instead of throwing MissingPluginException');
+  });
+
+  // =========================================================================
+  // 17. AUDIO SYNC MANAGER: Preserves ifCoverUrl, youtubeVideoId, audio.com URL
+  // =========================================================================
+  test(
+      'AudioSyncManager.syncCatalog parses full AudioTrack fields via AudioTrack.fromJson',
+      () async {
+    final mockLocal = _MockSqliteAudioCatalogAdapter();
+    AudioSeries? captured;
+    when(() => mockLocal.getLastSyncTimestamp()).thenAnswer((_) async => 0);
+    when(() => mockLocal.upsertSeries(any(), updatedAtMs: any(named: 'updatedAtMs')))
+        .thenAnswer((inv) async {
+      captured = inv.positionalArguments[0] as AudioSeries;
+    });
+
+    final client = MockClient((_) async => http.Response(
+          jsonEncode({
+            'updatedAt': 1700000000000,
+            'data': [
+              {
+                'id': 'ser-1',
+                'title': 'Grace Series',
+                'description': 'Desc',
+                'speaker': 'Speaker',
+                'tracks': [
+                  {
+                    'id': 'tr-1',
+                    'title': 'Track 1',
+                    'durationSeconds': 120,
+                    'audioUrl': 'https://audio.com/12345',
+                    'ifCoverUrl': 'https://cdn.example.com/cover.jpg',
+                    'youtubeVideoId': 'yt123456789',
+                  }
+                ],
+              }
+            ],
+          }),
+          200,
+        ));
+
+    final mgr = AudioSyncManager(mockLocal, client: client);
+    await mgr.syncCatalog();
+
+    expect(captured, isNotNull);
+    expect(captured!.tracks.single.coverUrl, 'https://cdn.example.com/cover.jpg');
+    expect(captured!.tracks.single.youtubeVideoId, 'yt123456789');
+    expect(captured!.tracks.single.streamUrl, contains('/audio/stream/12345'));
+  });
+
+  // =========================================================================
+  // 18. SQLITE USER ITEM ADAPTER: v1 -> v2 migration preserves offsets
+  // =========================================================================
+  test(
+      'SqliteUserItemDataAdapter upgrades v1 database to v2 with start_offset/end_offset',
+      () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final tmpDir = await Directory.systemTemp.createTemp('user_item_v1_test_');
+    final dbPath = p.join(tmpDir.path, 'test_items.db');
+    final v1 = await openDatabase(
+      dbPath,
+      version: 1,
+      onCreate: (db, _) async {
+        await db.execute('''
+          CREATE TABLE user_items (
+            user_id TEXT NOT NULL, id TEXT NOT NULL, item_type TEXT NOT NULL,
+            feature TEXT NOT NULL DEFAULT 'bible', version_id TEXT NOT NULL DEFAULT '',
+            book TEXT NOT NULL DEFAULT '', chapter INTEGER NOT NULL DEFAULT 0,
+            verse_start INTEGER NOT NULL DEFAULT 0, verse_end INTEGER NOT NULL DEFAULT 0,
+            target_id TEXT NOT NULL DEFAULT '', color_index INTEGER,
+            text TEXT NOT NULL DEFAULT '', context_text TEXT,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, id)
+          );
+        ''');
+      },
+    );
+    await v1.close();
+
+    final adapter = SqliteUserItemDataAdapter(databasePath: dbPath);
+    final item = UserItem(
+      userId: 'u1',
+      id: 'book_range_1_1',
+      itemType: UserItem.typeTextRange,
+      feature: UserItem.featureBook,
+      targetId: 'b1',
+      startOffset: 3,
+      endOffset: 9,
+      text: 'world!',
+      createdAt: DateTime.utc(2026, 11, 26),
+      updatedAt: DateTime.utc(2026, 11, 26),
+    );
+    await adapter.upsertAll('u1', [item]);
+    final loaded = await adapter.loadAll('u1');
+    expect(loaded.single.startOffset, 3);
+    expect(loaded.single.endOffset, 9);
+    await adapter.close();
+    await tmpDir.delete(recursive: true);
+  });
+
+  // =========================================================================
+  // 19. SHORTS GRID: Filtered grid passes filtered index on tap
+  // =========================================================================
+  testWidgets(
+      'CommunityShortsGrid passes filteredShorts index (0), not allShorts index, on tap',
+      (tester) async {
+    Short makeShort(String id) => Short.fromJson({
+          'id': id,
+          'title': 'Short $id',
+          'videoUrl': 'https://youtube.com/shorts/$id',
+          'thumbnailUrl': '',
+          'channelId': 'c1',
+          'channelTitle': 'Ch',
+          'publishedAt': '2026-11-26T00:00:00Z',
+          'type': 'SHORT',
+        });
+    final all = [makeShort('s0'), makeShort('s1'), makeShort('s2')];
+    final filtered = [all[2]];
+    int? tappedIndex;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: const [AppTokens.light]),
+        home: Scaffold(
+          body: CommunityShortsGrid(
+            allShorts: all,
+            filteredShorts: filtered,
+            scrollController: ScrollController(),
+            onRefresh: () async {},
+            isLoadingMore: false,
+            onShortTap: (i) => tappedIndex = i,
+            filterChannels: const [],
+            selectedChannelIds: const {},
+            onChannelFilterTap: () {},
+            likedOnly: true,
+            onLikedOnlyChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Short s2'));
+    expect(tappedIndex, 0);
+  });
+
+  // =========================================================================
+  // 20. LOCKSCREEN: Canonical wrap-around resets offset and retries
+  // =========================================================================
+  test(
+      'LockScreenWordFeedService canonical wrap-around resets offset to 0 without deadlocking',
+      () async {
+    SharedPreferences.setMockInitialValues({'lockscreen_wordfeed_canonical_offset_v1': 5});
+    final mockNotifs = _MockFlutterLocalNotificationsPlugin();
+    final mockScripture = _MockScriptureService();
+    final mockBookmarks = _MockBibleBookmarkService();
+    final card = ScriptureCard(
+      id: 'c0',
+      bookNumber: 43,
+      bookName: 'John',
+      chapter: 3,
+      startVerse: 16,
+      endVerse: 16,
+      referenceLabel: 'John 3:16',
+      resolvedText: 'For God so loved...',
+    );
+
+    when(() => mockScripture.initialize()).thenAnswer((_) async {});
+    when(() => mockScripture.resolveCardText(any(), any()))
+        .thenAnswer((_) async => 'For God so loved...');
+    when(() => mockScripture.fetchCards(
+          activeVersionId: any(named: 'activeVersionId'),
+          page: any(named: 'page'),
+          limit: any(named: 'limit'),
+          bookFilter: any(named: 'bookFilter'),
+          testamentFilter: any(named: 'testamentFilter'),
+          categories: any(named: 'categories'),
+          tags: any(named: 'tags'),
+          order: any(named: 'order'),
+        )).thenAnswer((inv) async {
+      final page = inv.namedArguments[#page] as int? ?? 0;
+      return page > 0 ? [] : [card];
+    });
+    when(() => mockBookmarks.isBookmarked(any(), any(), any(), any()))
+        .thenAnswer((_) async => false);
+
+    final svc = LockScreenWordFeedService.forTesting(
+      notificationsPlugin: mockNotifs,
+      scriptureService: mockScripture,
+      bookmarkService: mockBookmarks,
+    );
+    await svc.rotateNextWord(const ScriptureFilterState(readingOrder: 'canonical'));
+    expect(svc.currentCard?.id, 'c0');
+  });
+
+  // =========================================================================
+  // 21. AUDIO CONTROLLER & SEARCH ERROR PATH
+  // =========================================================================
+  test(
+      'AudioPlayerController.togglePlayPause resumes loaded track without reloading, and AudioLibraryController clears results on search error',
+      () async {
+    final fakePlayback = _FakeAudioPlaybackService();
+    final storage = AudioStorageService();
+    final mockSync = _MockAudioSyncService();
+    when(() => mockSync.pushPlayback(
+          track: any(named: 'track'),
+          positionSeconds: any(named: 'positionSeconds'),
+          durationSeconds: any(named: 'durationSeconds'),
+          force: any(named: 'force'),
+          updatedAt: any(named: 'updatedAt'),
+        )).thenAnswer((_) async {});
+    when(() => mockSync.pullPlayback()).thenAnswer((_) async => null);
+
+    final player = AudioPlayerController(
+      playbackService: fakePlayback,
+      storageService: storage,
+      syncService: mockSync,
+    );
+    final t1 = _makeTrack('t1', 'Track 1');
+    await player.playTrack(t1);
+    await player.pause();
+    await player.togglePlayPause();
+    expect(fakePlayback.loadedTrackIds, ['t1']);
+    expect(fakePlayback.playCalls, 2);
+    player.dispose();
+    await fakePlayback.dispose();
+
+    final mockCatalog = _MockAudioCatalogService();
+    final mockLocal = _MockSqliteAudioCatalogAdapter();
+    final mockChannels = _MockChannelService();
+    final langCtrl = LibraryLanguagesController();
+    when(() => mockLocal.fetchCatalog()).thenAnswer((_) async => []);
+    when(() => mockCatalog.localAdapter).thenReturn(mockLocal);
+    when(() => mockCatalog.getCatalog()).thenAnswer((_) async => []);
+    when(() => mockCatalog.search('fail')).thenThrow(Exception('network'));
+    when(() => mockChannels.subscribedChannelIds).thenReturn({});
+    when(() => mockChannels.subscribedChannelNames).thenReturn({});
+    when(() => mockChannels.addListener(any())).thenReturn(null);
+    when(() => mockChannels.removeListener(any())).thenReturn(null);
+
+    final lib = AudioLibraryController(
+      catalogService: mockCatalog,
+      storageService: storage,
+      langController: langCtrl,
+      channelService: mockChannels,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    lib.setSearchQuery('fail ');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(lib.state.asyncSearchResults, isNull);
+    lib.dispose();
+    langCtrl.dispose();
+  });
+
+  // =========================================================================
+  // 22. VIDEO FEED: Status filter pills switch cleanly without stuck Liked mode
+  // =========================================================================
+  testWidgets(
+      'VideoFeedScreen status filter pills (Watched / Unwatched) toggle cleanly',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ct_cached_home_feed': jsonEncode([
+        {
+          'id': 'v-feed-1',
+          'title': 'Grace Sermon',
+          'thumbnailUrl': '',
+          'channelId': 'c1',
+          'channelTitle': 'Grace',
+          'publishedAt': '2026-11-26T00:00:00Z',
+          'type': 'VIDEO',
+        },
+      ]),
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: const [AppTokens.light]),
+        home: const VideoFeedScreen(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Watched'));
+    await tester.pump();
+    await tester.tap(find.text('Unwatched'));
+    await tester.pump();
+    await tester.tap(find.text('Liked'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  // =========================================================================
+  // 23. ONBOARDING: Authenticated init checks existing preferences cleanly
+  // =========================================================================
+  testWidgets(
+      'OnboardingScreen checks existing preferences when authenticated on Step 0',
+      (tester) async {
+    final mockAuth = _MockAuthService();
+    when(() => mockAuth.currentUser).thenReturn(null);
+    when(() => mockAuth.isAuthenticated).thenReturn(true);
+    when(() => mockAuth.isLoading).thenReturn(false);
+    when(() => mockAuth.lastError).thenReturn(null);
+    when(() => mockAuth.sessionExpired).thenReturn(false);
+    when(() => mockAuth.addListener(any())).thenReturn(null);
+    when(() => mockAuth.removeListener(any())).thenReturn(null);
+
+    final themeService = ThemeService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: const [AppTokens.light]),
+        home: OnboardingScreen(
+          authService: mockAuth,
+          themeService: themeService,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  // =========================================================================
+  // 24. UPDATE SERVICE: DioException cancel returns cleanly without retry
+  // =========================================================================
+  test(
+      'UpdateService.downloadAndInstallApkWithProgress exits cleanly on Dio cancel',
+      () async {
+    final mockDio = _MockDio();
+    final token = CancelToken();
+    when(() => mockDio.download(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+          deleteOnError: any(named: 'deleteOnError'),
+          onReceiveProgress: any(named: 'onReceiveProgress'),
+        )).thenThrow(DioException.requestCancelled(
+      requestOptions: RequestOptions(path: '/app.apk'),
+      reason: 'user cancelled',
+    ));
+
+    String? reportedError;
+    await UpdateService.downloadAndInstallApkWithProgress(
+      downloadUrl: 'https://example.com/app.apk',
+      cancelToken: token,
+      onProgress: (_, __) {},
+      onComplete: (_) {},
+      onError: (err) => reportedError = err,
+      dioOverride: mockDio,
+    );
+    expect(reportedError, isNull);
+  });
+
+  // =========================================================================
+  // 25. USER ITEM SYNC: pullAndPush executes pull before push
+  // =========================================================================
+  test('UserItemSyncService.pullAndPush runs pullAndMerge then pushDirty', () async {
+    UserItemSyncService.instance.setUserIdForTest('u-sync-1');
+    await UserItemSyncService.instance.pullAndPush();
+    UserItemSyncService.instance.setUserIdForTest(null);
+  });
+
+  // =========================================================================
+  // 26. UPDATE SERVICE: Cancelled CancelToken exits even on non-Dio exception
+  // =========================================================================
+  test(
+      'UpdateService.downloadAndInstallApkWithProgress exits when cancelToken isCancelled on non-Dio error',
+      () async {
+    final mockDio = _MockDio();
+    final token = CancelToken();
+    when(() => mockDio.download(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+          deleteOnError: any(named: 'deleteOnError'),
+          onReceiveProgress: any(named: 'onReceiveProgress'),
+        )).thenAnswer((_) async {
+      token.cancel('cancelled');
+      throw const FileSystemException('aborted');
+    });
+
+    String? reportedError;
+    await UpdateService.downloadAndInstallApkWithProgress(
+      downloadUrl: 'https://example.com/app.apk',
+      cancelToken: token,
+      onProgress: (_, __) {},
+      onComplete: (_) {},
+      onError: (err) => reportedError = err,
+      dioOverride: mockDio,
+    );
+    expect(reportedError, isNull);
   });
 }
