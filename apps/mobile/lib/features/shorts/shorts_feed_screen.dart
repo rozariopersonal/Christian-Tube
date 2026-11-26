@@ -185,7 +185,7 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     if (index < 0 || index >= shorts.length) return;
     AudioPlayerController.instance.pause();
     setState(() {
-      _selectedCommunityShorts = shorts;
+      _selectedCommunityShorts = null;
       _selectedCommunityIndex = index;
     });
   }

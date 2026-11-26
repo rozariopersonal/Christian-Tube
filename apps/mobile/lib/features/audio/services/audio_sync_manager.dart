@@ -81,22 +81,12 @@ class AudioSyncManager {
           channelName: s['channelName'] as String?,
           channelThumbnail: s['channelThumbnail'] as String?,
           tracks: (s['tracks'] as List<dynamic>? ?? []).map((trackJson) {
-            return AudioTrack(
-              id: trackJson['id'] as String,
-              title: trackJson['title'] as String,
-              seriesId: trackJson['seriesId'] as String? ?? seriesId,
-              seriesTitle: trackJson['seriesTitle'] as String? ?? seriesTitle,
-              speaker: trackJson['speaker'] as String? ?? seriesSpeaker,
-              durationSeconds: trackJson['durationSeconds'] as int? ?? 0,
-              audioUrl: trackJson['audioUrl'] as String,
-              streamUrl: trackJson['streamUrl'] as String?,
-              fallbackUrl: trackJson['fallbackUrl'] as String?,
-              coverUrl: trackJson['coverUrl'] as String?,
-              thumbnailUrl: trackJson['thumbnailUrl'] as String?,
-              scriptureBook: trackJson['scriptureBook'] as String?,
-              scriptureChapter: trackJson['scriptureChapter'] as int?,
-              scriptureVerse: trackJson['scriptureVerse'] as int?,
-            );
+            final map = Map<String, dynamic>.from(trackJson as Map);
+            map['seriesId'] ??= seriesId;
+            map['seriesTitle'] ??= seriesTitle;
+            map['speaker'] ??= seriesSpeaker;
+            map['coverUrl'] ??= map['ifCoverUrl'];
+            return AudioTrack.fromJson(map);
           }).toList(),
         );
         

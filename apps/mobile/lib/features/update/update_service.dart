@@ -438,7 +438,8 @@ class UpdateService {
         await launchApkInstaller(savePath, downloadUrl);
         return;
       } catch (e) {
-        if (CancelToken.isCancel(e as dynamic) || (cancelToken?.isCancelled ?? false)) {
+        if ((e is DioException && CancelToken.isCancel(e)) ||
+            (cancelToken?.isCancelled ?? false)) {
           return;
         }
 

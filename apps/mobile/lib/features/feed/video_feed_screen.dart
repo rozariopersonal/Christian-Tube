@@ -100,7 +100,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 !userService.isWatched(v.id, duration: v.duration))
             .toList();
       case _filterLiked:
-        return raw.where((v) => userService.isVideoLiked(v.id)).toList();
+        return raw
+            .where((v) =>
+                UserSyncService.instance.isLiked(UserSyncService.likedVideoType, v.id))
+            .toList();
       default:
         return raw;
     }
@@ -320,8 +323,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         child: InkWell(
                           onTap: () {
                             final isSelected = _selectedCategory == entry.$1;
-                            setState(() => _selectedCategory =
-                                isSelected ? 'All' : entry.$1);
+                            setState(() {
+                              _showLikedOnly = false;
+                              _selectedCategory =
+                                  isSelected ? 'All' : entry.$1;
+                            });
                             _videoService.setFilter(
                               channelId: null,
                               onlySubscribed: subscribedIds.isNotEmpty,

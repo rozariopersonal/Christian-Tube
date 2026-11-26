@@ -69,7 +69,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isSaving = false;
   bool _channelsLoaded = false;
   bool _hasRestoredExisting = false;
-  bool _isCheckingPrefs = false;
   bool _restoredDraft = false;
   bool _hasChannelDefaults = false;
   bool _movingStep = false;
@@ -114,6 +113,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _onAuthChanged() {
+    if (mounted) {
+      setState(() {});
+    }
     if (widget.authService.isAuthenticated && !_hasRestoredExisting) {
       _checkExistingPreferences();
     }
@@ -133,26 +135,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Future<void> _checkExistingPreferences() async {
-    if (_isCheckingPrefs) return;
-    _isCheckingPrefs = true;
+  Future<void>? _checkingPrefsFuture;
 
-    try {
-      final pref = await _preferenceService.fetchPreferences(auth: widget.authService);
-      if (!mounted || _currentStep != 0 || _restoredDraft) return;
+  Future<void> _checkExistingPreferences() {
+    if (_checkingPrefsFuture != null) return _checkingPrefsFuture!;
 
-      if (pref.hasCompletedOnboarding) {
-        setState(() {
-          _restoreSelections(pref);
-          _hasChannelDefaults = true;
-          _hasRestoredExisting = true;
-        });
+    final future = () async {
+      try {
+        final pref = await _preferenceService.fetchPreferences(auth: widget.authService);
+        if (!mounted || _currentStep != 0 || _restoredDraft) return;
+
+        if (pref.hasCompletedOnboarding) {
+          setState(() {
+            _restoreSelections(pref);
+            _hasChannelDefaults = true;
+            _hasRestoredExisting = true;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error checking existing preferences: $e');
+      } finally {
+        _checkingPrefsFuture = null;
       }
-    } catch (e) {
-      debugPrint('Error checking existing preferences: $e');
-    } finally {
-      _isCheckingPrefs = false;
-    }
+    }();
+    _checkingPrefsFuture = future;
+    return future;
   }
 
   void _restoreSelections(UserPreference pref) {

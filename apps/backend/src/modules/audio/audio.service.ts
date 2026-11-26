@@ -658,6 +658,7 @@ export class AudioService implements OnModuleInit {
         speaker: true,
         coverUrl: true,
         trackCount: true,
+        latestPublishedAt: true,
         category: true,
         language: true,
         channelId: true,
