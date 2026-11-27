@@ -703,14 +703,16 @@ class TestDualDbAndSync(unittest.TestCase):
                 "DATABASE_URL": "postgresql://neon_user:pass@neon/db",
                 "AUDIO_COM_TOKEN": "aud",
                 "VIDEO_PACE_SECONDS": "45",
-                "DAILY_PROCESS_CAP": "60",
+                "DAILY_PROCESS_CAP": "250",
+                "NEON_PUSH_BATCH_SIZE": "100",
             },
         ):
             cfg = load_config(args)
         self.assertEqual(cfg.database_url, "postgresql://postgres:postgres@db:5432/christiantube")
         self.assertEqual(cfg.neon_database_url, "postgresql://neon_user:pass@neon/db")
         self.assertEqual(cfg.video_pace_seconds, 45)
-        self.assertEqual(cfg.daily_process_cap, 60)
+        self.assertEqual(cfg.daily_process_cap, 250)
+        self.assertEqual(cfg.neon_push_batch_size, 100)
 
     def test_audiocom_401_retries_with_redis_token(self):
         client = AudioComClient("old_token")
