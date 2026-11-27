@@ -23,8 +23,12 @@ import 'features/engines/scripture/screens/scripture_screensaver_app.dart';
 import 'features/feed/video_feed_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
+import 'features/playlists/screens/playlist_detail_screen.dart';
+import 'features/playlists/screens/playlists_screen.dart';
+import 'features/playlists/screens/watch_later_screen.dart';
+import 'features/playlists/services/playlist_service.dart';
+import 'features/playlists/services/watch_later_service.dart';
 import 'features/profile/admin_users_screen.dart';
-import 'features/profile/playlist_detail_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/settings_screen.dart';
 import 'features/profile/screens/content_preferences_screen.dart';
@@ -86,6 +90,8 @@ void main() async {
   LockScreenWordFeedService.instance.initialize().catchError((e) => debugPrint('LockScreenWordFeedService init error: $e'));
   LockScreenScreensaverService.instance.initialize().catchError((e) => debugPrint('LockScreenScreensaverService init error: $e'));
   NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
+  WatchLaterService.instance.init().catchError((e) => debugPrint('WatchLaterService init error: $e'));
+  PlaylistService.instance.init().catchError((e) => debugPrint('PlaylistService init error: $e'));
   if (kMicroFeedEnabled) {
     try {
       final engine = createActiveFeedEngine();
@@ -448,15 +454,22 @@ class _ChristianAppState extends State<ChristianApp> {
               builder: (context, state) => const SavedScripturesScreen(),
             ),
             GoRoute(
+              path: '/watch-later',
+              builder: (context, state) => const WatchLaterScreen(),
+            ),
+            GoRoute(
+              path: '/playlists',
+              builder: (context, state) => const PlaylistsScreen(),
+            ),
+            GoRoute(
               path: '/playlists/:id',
               builder: (context, state) {
+                final playlistId = state.pathParameters['id'] ?? '';
                 final playlist = state.extra is Playlist ? state.extra as Playlist : null;
-                if (playlist == null) {
-                  return const Scaffold(
-                    body: Center(child: Text('Playlist not found')),
-                  );
-                }
-                return PlaylistDetailScreen(playlist: playlist);
+                return PlaylistDetailScreen(
+                  playlistId: playlistId,
+                  initialPlaylist: playlist,
+                );
               },
             ),
             GoRoute(

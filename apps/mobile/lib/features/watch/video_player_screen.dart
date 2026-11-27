@@ -20,7 +20,9 @@ import '../../shared/services/note_service.dart';
 import '../../shared/ui/channel_avatar.dart';
 import '../../shared/ui/media_note_helper.dart';
 import '../../shared/ui/recommendation_video_card.dart';
-import '../../shared/ui/video_options_bottom_sheet.dart';
+import '../playlists/services/playlist_service.dart';
+import '../playlists/services/watch_later_service.dart';
+import '../playlists/widgets/save_to_playlist_sheet.dart';
 import '../channels/channel_service.dart';
 import '../channels/channel_detail_screen.dart';
 import '../profile/user_service.dart';
@@ -1032,7 +1034,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // ── Action Buttons (Like, Clip, Share, Save, YouTube) ──────────────────────
   Widget _buildActionButtons(BuildContext context) {
     return AnimatedBuilder(
-      animation: UserSyncService.instance,
+      animation: Listenable.merge([
+        UserSyncService.instance,
+        WatchLaterService.instance,
+        PlaylistService.instance,
+      ]),
       builder: (context, _) {
         final targetId = _video?.id ?? _activeVideoId;
         final likeItemType = _video?.type == 'SHORT'
@@ -1040,8 +1046,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             : UserSyncService.likedVideoType;
         final isLiked = targetId.isNotEmpty &&
             UserSyncService.instance.isLiked(likeItemType, targetId);
+        final isSaved = targetId.isNotEmpty &&
+            (WatchLaterService.instance.isWatchLater(targetId) ||
+                PlaylistService.instance.isVideoInAnyPlaylist(targetId));
         return VideoActionBar(
           isLiked: isLiked,
+          isSaved: isSaved,
           onToggleLike: () {
             if (targetId.isEmpty) return;
             if (UserSyncService.instance.activeUserId == null) {
@@ -1078,7 +1088,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           onShare: _shareVideo,
           onSave: () {
             if (_video != null) {
-              VideoOptionsBottomSheet.show(
+              SaveToPlaylistSheet.show(
                 context,
                 video: _video!,
               );

@@ -5,17 +5,24 @@ import '../../core/config/app_config.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/link/deep_link_service.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../features/playlists/services/playlist_service.dart';
+import '../../features/playlists/services/watch_later_service.dart';
+import '../../features/playlists/widgets/save_to_playlist_sheet.dart';
 
 class VideoOptionsBottomSheet extends StatelessWidget {
   final Video video;
   final VoidCallback? onSaveToPlaylist;
   final VoidCallback? onAddToWatchPlan;
+  final WatchLaterService? watchLaterService;
+  final PlaylistService? playlistService;
 
   const VideoOptionsBottomSheet({
     super.key,
     required this.video,
     this.onSaveToPlaylist,
     this.onAddToWatchPlan,
+    this.watchLaterService,
+    this.playlistService,
   });
 
   static Future<void> show(
@@ -23,6 +30,8 @@ class VideoOptionsBottomSheet extends StatelessWidget {
     required Video video,
     VoidCallback? onSaveToPlaylist,
     VoidCallback? onAddToWatchPlan,
+    WatchLaterService? watchLaterService,
+    PlaylistService? playlistService,
   }) {
     final tokens = context.tokens;
     return showAdaptiveBottomSheet(
@@ -33,8 +42,16 @@ class VideoOptionsBottomSheet extends StatelessWidget {
       ),
       builder: (ctx) => VideoOptionsBottomSheet(
         video: video,
-        onSaveToPlaylist: onSaveToPlaylist,
+        onSaveToPlaylist: onSaveToPlaylist ??
+            () => SaveToPlaylistSheet.show(
+                  context,
+                  video: video,
+                  watchLaterService: watchLaterService,
+                  playlistService: playlistService,
+                ),
         onAddToWatchPlan: onAddToWatchPlan,
+        watchLaterService: watchLaterService,
+        playlistService: playlistService,
       ),
     );
   }
@@ -42,9 +59,11 @@ class VideoOptionsBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final wl = watchLaterService ?? WatchLaterService.instance;
+    final inWatchLater = wl.isWatchLater(video.id);
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -59,11 +78,45 @@ class VideoOptionsBottomSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ListTile(
+              leading: Icon(
+                inWatchLater
+                    ? Icons.watch_later_rounded
+                    : Icons.watch_later_outlined,
+                color: inWatchLater ? context.accent : null,
+              ),
+              title: Text(
+                inWatchLater ? 'Remove from Watch Later' : 'Save to Watch Later',
+              ),
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                Navigator.pop(context);
+                final saved = await wl.toggleWatchLater(video);
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      saved ? 'Saved to Watch Later' : 'Removed from Watch Later',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.playlist_add),
               title: const Text('Save to Playlist'),
               onTap: () {
                 Navigator.pop(context);
-                onSaveToPlaylist?.call();
+                if (onSaveToPlaylist != null) {
+                  onSaveToPlaylist!();
+                } else {
+                  SaveToPlaylistSheet.show(
+                    context,
+                    video: video,
+                    watchLaterService: watchLaterService,
+                    playlistService: playlistService,
+                  );
+                }
               },
             ),
             ListTile(

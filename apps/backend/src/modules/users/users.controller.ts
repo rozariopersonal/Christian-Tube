@@ -14,10 +14,21 @@ import { AuthGuard } from '../../guards/auth.guard';
 import { AdminGuard } from '../../guards/admin.guard';
 import { CurrentUser, CurrentUser as CurrentUserType } from '../../guards/current-user.decorator';
 import { UsersService } from './users.service';
+import { UserPlaylistsService } from './user-playlists.service';
+import {
+  AddPlaylistItemDto,
+  CreatePlaylistDto,
+  DeletePlaylistDto,
+  ReorderPlaylistItemsDto,
+  UpdatePlaylistDto,
+} from './dto/playlist.dto';
 
 @Controller(['users', 'api/users', 'user', 'api/user'])
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly userPlaylistsService: UserPlaylistsService,
+  ) {}
 
   @UseGuards(AuthGuard)
   @Post('sync')
@@ -92,6 +103,88 @@ export class UsersController {
     @Query('mediaType') mediaType?: string,
   ) {
     return this.usersService.getPlayback({ userId: user.userId, userEmail: user.email, mediaType });
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('playlists')
+  async listPlaylists(@CurrentUser() user: CurrentUserType) {
+    return this.userPlaylistsService.listPlaylists(user.userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('playlists/:playlistId')
+  async getPlaylist(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+  ) {
+    return this.userPlaylistsService.getPlaylist(user.userId, playlistId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('playlists')
+  async createPlaylist(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: CreatePlaylistDto,
+  ) {
+    return this.userPlaylistsService.createPlaylist(
+      { userId: user.userId, email: user.isGuest ? '' : user.email },
+      dto,
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('playlists/:playlistId')
+  async updatePlaylist(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+    @Body() dto: UpdatePlaylistDto,
+  ) {
+    return this.userPlaylistsService.updatePlaylist(user.userId, playlistId, dto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete('playlists/:playlistId')
+  async deletePlaylist(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+    @Query('clientUpdatedAt') clientUpdatedAtQuery?: string,
+    @Body() body?: DeletePlaylistDto,
+  ) {
+    return this.userPlaylistsService.deletePlaylist(
+      user.userId,
+      playlistId,
+      clientUpdatedAtQuery ?? body?.clientUpdatedAt,
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('playlists/:playlistId/items')
+  async addPlaylistItem(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+    @Body() dto: AddPlaylistItemDto,
+  ) {
+    return this.userPlaylistsService.addItem(user.userId, playlistId, dto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete('playlists/:playlistId/items/:videoId')
+  async removePlaylistItem(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+    @Param('videoId') videoId: string,
+  ) {
+    return this.userPlaylistsService.removeItem(user.userId, playlistId, videoId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Put('playlists/:playlistId/items/reorder')
+  async reorderPlaylistItems(
+    @CurrentUser() user: CurrentUserType,
+    @Param('playlistId') playlistId: string,
+    @Body() dto: ReorderPlaylistItemsDto,
+  ) {
+    return this.userPlaylistsService.reorderItems(user.userId, playlistId, dto);
   }
 
   @UseGuards(AdminGuard)
