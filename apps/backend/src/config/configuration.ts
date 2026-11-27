@@ -77,7 +77,7 @@ export default () => {
         process.env.UPSTASH_VIDEO_VECTOR_NAMESPACE ||
         (instanceId === 'christian_tube' ? 'videos' : `videos_${instanceId}`),
       timeoutMs: parseInt(process.env.UPSTASH_VIDEO_VECTOR_TIMEOUT_MS || '2500', 10),
-      minScore: parseFloat(process.env.VIDEO_VECTOR_MIN_SCORE || '0.66'),
+      minScore: parseFloat(process.env.VIDEO_VECTOR_MIN_SCORE || '0.72'),
       maxInlineOps: parseInt(process.env.VIDEO_VECTOR_MAX_INLINE_OPS || '200', 10),
       readOnly: process.env.UPSTASH_VIDEO_VECTOR_READ_ONLY === 'true',
     },
