@@ -14,7 +14,6 @@ export interface StoredAuthUser {
   displayName: string;
   photoUrl?: string;
   idToken?: string;
-  isGuest?: boolean;
 }
 
 export interface AuthBroadcastMessage {
@@ -159,6 +158,24 @@ export class AuthTokenStore {
       // ignore
     }
     this.broadcast({ type: 'session_expired' });
+  }
+
+  clearAuthSessionKeysOnly(legacyGuestUserId?: string): void {
+    try {
+      localStorage.removeItem(KEY_USER);
+      localStorage.removeItem(KEY_ACCESS_TOKEN);
+      localStorage.removeItem(KEY_REFRESH_TOKEN);
+      localStorage.removeItem(KEY_SESSION_ID);
+      localStorage.removeItem(KEY_SESSION_EXPIRED);
+      localStorage.removeItem(LEGACY_KEY_TOKEN);
+      localStorage.removeItem('ct_web_last_guest_id_v1');
+      if (legacyGuestUserId) {
+        localStorage.removeItem(`ct_web_sync_pending_v2_${legacyGuestUserId}`);
+        localStorage.removeItem(`ct_web_user_items_pending_v1_${legacyGuestUserId}`);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   wipeAllKeepingDeviceId(): void {

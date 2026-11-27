@@ -32,61 +32,6 @@ class ProfileScreen extends StatelessWidget {
     required this.themeService,
   });
 
-  void _showQuickSignInDialog(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Sign In to ${AppConfig.appName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Enter your email to sign in or test Admin access if configured.',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Display Name',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Email Address',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final user = await authService.signInAsGuest(
-                  nameCtrl.text, emailCtrl.text);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Signed in as ${user.displayName}')),
-                );
-              }
-            },
-            child: const Text('Sign In'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _handleGoogleSignIn(BuildContext context) async {
     final user = await authService.signInWithGoogle();
     if (context.mounted) {
@@ -96,13 +41,7 @@ class ProfileScreen extends StatelessWidget {
         );
       } else if (authService.lastError != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authService.lastError!),
-            action: SnackBarAction(
-              label: 'Quick Sign-In',
-              onPressed: () => _showQuickSignInDialog(context),
-            ),
-          ),
+          SnackBar(content: Text(authService.lastError!)),
         );
       }
     }
@@ -308,7 +247,7 @@ class ProfileScreen extends StatelessWidget {
                                     child: Padding(
                                         padding: EdgeInsets.all(8),
                                         child: CircularProgressIndicator()))
-                              else ...[
+                              else
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: context.tokens.onSurface,
@@ -333,16 +272,6 @@ class ProfileScreen extends StatelessWidget {
                                       style: TextStyle(
                                           fontWeight: FontWeight.bold)),
                                 ),
-                                const SizedBox(height: 8),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      _showQuickSignInDialog(context),
-                                  icon: const Icon(Icons.email_outlined,
-                                      size: 16),
-                                  label: const Text('Sign In with Email / Name',
-                                      style: TextStyle(fontSize: 13)),
-                                ),
-                              ],
                             ],
                           ),
                         ),
@@ -676,7 +605,7 @@ class ProfileScreen extends StatelessWidget {
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   subtitle: const Text(
-                      'Languages, video & shorts channels, Bible translations',
+                      'Languages, followed channels, primary Bible translation',
                       style: TextStyle(fontSize: 13)),
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () {

@@ -41,6 +41,8 @@ describe('UserPlaylistsService', () => {
     prisma = {
       user: {
         upsert: jest.fn().mockResolvedValue({ id: 'u1' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'u1' }),
+        update: jest.fn().mockResolvedValue({ id: 'u1' }),
       },
       userPlaylist: {
         findMany: jest.fn(),
@@ -153,7 +155,7 @@ describe('UserPlaylistsService', () => {
     it('ensures user, validates & trims fields, and creates playlist', async () => {
       prisma.userPlaylist.create.mockResolvedValue({
         id: 'pl-new',
-        userId: 'guest_abc',
+        userId: 'u_abc',
         title: 'Morning Devotion',
         description: 'Daily',
         isDeleted: false,
@@ -164,16 +166,16 @@ describe('UserPlaylistsService', () => {
       });
 
       const res = await service.createPlaylist(
-        { userId: 'guest_abc', email: '' },
+        { userId: 'u_abc', email: 'u_abc@example.com' },
         { title: '  Morning Devotion  ', description: '  Daily  ', clientUpdatedAt: 10000 },
       );
 
       expect(prisma.user.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'guest_abc' },
+          where: { id: 'u_abc' },
           create: expect.objectContaining({
-            id: 'guest_abc',
-            email: 'guest_guest_abc@christianapp.local',
+            id: 'u_abc',
+            email: 'u_abc@example.com',
           }),
         }),
       );
@@ -182,10 +184,22 @@ describe('UserPlaylistsService', () => {
       expect(res.thumbnailUrl).toBeNull();
     });
 
-    it('falls back to guest email on P2002 email collision during ensureUser', async () => {
-      prisma.user.upsert
-        .mockRejectedValueOnce({ code: 'P2002' })
-        .mockResolvedValueOnce({ id: 'u2' });
+    it('rejects creating a user when email is missing instead of synthesizing a guest email', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.createPlaylist(
+          { userId: 'u_missing', email: '' },
+          { title: 'Sunday' },
+        ),
+      ).rejects.toThrow('Valid email is required to create user');
+      expect(prisma.user.upsert).not.toHaveBeenCalled();
+    });
+
+    it('updates existing user on P2002 email collision during ensureUser', async () => {
+      prisma.user.upsert.mockRejectedValueOnce({ code: 'P2002' });
+      prisma.user.findUnique.mockResolvedValueOnce({ id: 'u2' });
+      prisma.user.update.mockResolvedValueOnce({ id: 'u2' });
       prisma.userPlaylist.create.mockResolvedValue({
         id: 'pl-2',
         userId: 'u2',
@@ -202,14 +216,15 @@ describe('UserPlaylistsService', () => {
         { userId: 'u2', email: 'taken@example.com' },
         { title: 'Sunday' },
       );
-      expect(prisma.user.upsert).toHaveBeenCalledTimes(2);
+      expect(prisma.user.upsert).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).toHaveBeenCalledTimes(1);
       expect(res.id).toBe('pl-2');
     });
 
     it('rethrows non-P2002 errors from ensureUser', async () => {
       prisma.user.upsert.mockRejectedValueOnce(new Error('DB down'));
       await expect(
-        service.createPlaylist({ userId: 'u1' }, { title: 'Test' }),
+        service.createPlaylist({ userId: 'u1', email: 'u1@example.com' }, { title: 'Test' }),
       ).rejects.toThrow('DB down');
     });
 

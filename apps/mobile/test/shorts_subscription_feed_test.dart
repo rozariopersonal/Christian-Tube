@@ -92,7 +92,6 @@ void main() {
 
     final controller = CommunityShortsController(
       apiClient: apiClient,
-      isAuthenticated: auth.isAuthenticated,
       subscribedChannelIds: channelService.subscribedChannelIds,
     );
 
@@ -150,7 +149,6 @@ void main() {
 
     final controller = CommunityShortsController(
       apiClient: apiClient,
-      isAuthenticated: auth.isAuthenticated,
       subscribedChannelIds: channelService.subscribedChannelIds,
     );
 
@@ -191,5 +189,60 @@ void main() {
           reason: 'No unfiltered request should be made while subscriptions are pending');
       expect(channelIds!.split(','), containsAll(['ch1', 'ch2']));
     }
+  });
+
+  testWidgets('ShortsFeedScreen filters by subscribed channelIds when unauthenticated', (tester) async {
+    final adapter = _RecordingAdapter();
+    final apiClient = ApiClient();
+    apiClient.dio.httpClientAdapter = adapter;
+
+    final channelDio = Dio();
+    channelDio.httpClientAdapter = adapter;
+
+    final auth = _StubAuth(false);
+    final channelService = ChannelService.forTesting(
+      dio: channelDio,
+      authService: auth,
+    );
+    channelService.toggleSubscribe('ch1');
+
+    final controller = CommunityShortsController(
+      apiClient: apiClient,
+      subscribedChannelIds: channelService.subscribedChannelIds,
+    );
+
+    final router = GoRouter(
+      initialLocation: '/shorts',
+      routes: [
+        GoRoute(
+          path: '/shorts',
+          builder: (context, state) => ShortsFeedScreen(
+            authService: auth,
+            channelService: channelService,
+            communityController: controller,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        theme: _testTheme(),
+        routerConfig: router,
+      ),
+    );
+
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final videoRequests =
+        adapter.requests.where((r) => r.path == '/videos').toList();
+    expect(videoRequests, isNotEmpty);
+
+    final channelIds =
+        videoRequests.first.queryParameters['channelIds'] as String?;
+    expect(channelIds, isNotNull);
+    expect(channelIds!.split(','), ['ch1']);
   });
 }

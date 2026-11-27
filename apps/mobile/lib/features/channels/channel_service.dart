@@ -8,7 +8,6 @@ import '../../core/api/api_client.dart';
 import '../../core/models/channel.dart';
 import '../../core/models/channel_request.dart';
 import '../auth/auth_service.dart';
-import '../../core/services/user_preference_service.dart';
 import '../../core/services/user_sync_service.dart';
 
 class ChannelService extends ChangeNotifier {
@@ -145,7 +144,7 @@ class ChannelService extends ChangeNotifier {
   void toggleFollow(String channelId) => toggleSubscribe(channelId);
   Future<void> loadFollowing() => loadSubscriptions();
 
-  /// Seeds initial followed channel IDs (e.g. from onboarding or user preferences).
+  /// Seeds initial followed channel IDs (e.g. from onboarding).
   void seedSubscribedIds(Set<String> ids) {
     if (ids.isEmpty) return;
     _subscriptionMutationVersion++;
@@ -609,16 +608,10 @@ class ChannelService extends ChangeNotifier {
     _saveToPrefs();
     notifyListeners();
 
-    // Synchronize into UserPreference so video & shorts channels stay in sync
-    final ch = _channels.cast<Channel?>().firstWhere(
-          (c) => c?.id == channelId,
-          orElse: () => null,
-        );
     unawaited(_persistFollowChange(
       channelId,
       willSubscribe,
       wasSubscribed,
-      ch?.hasShorts ?? true,
     ));
   }
 
@@ -626,38 +619,25 @@ class ChannelService extends ChangeNotifier {
     String channelId,
     bool followed,
     bool wasFollowed,
-    bool hasShorts,
   ) async {
-    if (_isAuthenticated) {
-      if (_syncService.activeUserId != null &&
-          (_authService?.currentUser == null ||
-              _authService!.currentUser!.id == _syncService.activeUserId)) {
-        await _syncService.enqueueSubscription(channelId, followed);
-      } else {
-        try {
-          if (followed) {
-            await _dio.post('/api/channels/$channelId/subscribe');
-          } else {
-            await _dio.delete('/api/channels/$channelId/subscribe');
-          }
-        } catch (error) {
-          debugPrint('Subscription backend sync failed, reverting: $error');
-          _applySubscriptionState(channelId, wasFollowed);
-          await _saveToPrefs();
-          notifyListeners();
-          return;
+    if (!_isAuthenticated) return;
+    if (_syncService.activeUserId != null &&
+        (_authService?.currentUser == null ||
+            _authService!.currentUser!.id == _syncService.activeUserId)) {
+      await _syncService.enqueueSubscription(channelId, followed);
+    } else {
+      try {
+        if (followed) {
+          await _dio.post('/api/channels/$channelId/subscribe');
+        } else {
+          await _dio.delete('/api/channels/$channelId/subscribe');
         }
+      } catch (error) {
+        debugPrint('Subscription backend sync failed, reverting: $error');
+        _applySubscriptionState(channelId, wasFollowed);
+        await _saveToPrefs();
+        notifyListeners();
       }
-    }
-    try {
-      await UserPreferenceService.instance.syncChannelFollowState(
-        channelId,
-        followed,
-        auth: _authService,
-        hasShorts: hasShorts,
-      );
-    } catch (error) {
-      debugPrint('Could not persist channel follow: $error');
     }
   }
 

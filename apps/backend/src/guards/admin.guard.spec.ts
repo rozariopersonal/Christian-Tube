@@ -6,18 +6,9 @@ const ADMIN_EMAIL = 'arul.rozario4@gmail.com';
 
 function makeGuard(options?: {
   verifyPayload?: { sub: string; email: string };
-  appJwtPayload?: { sub: string; sid: string; email: string | null; isGuest: boolean };
+  appJwtPayload?: { sub: string; sid: string; email: string | null };
 }) {
   const jwks = {
-    isGuestToken: (token: string) => token.startsWith('token_'),
-    parseGuestToken: (token: string) => {
-      const id = token.split('::')[0].replace('token_', '');
-      return id ? id : null;
-    },
-    parseGuestEmail: (token: string) => {
-      const claim = token.split('::')[1];
-      return claim && claim.trim() ? claim.trim() : null;
-    },
     verifyIdToken: jest.fn(async () => options?.verifyPayload),
   } as any;
 
@@ -45,38 +36,15 @@ function makeContext(request: any): any {
 }
 
 describe('AdminGuard', () => {
-  it('rejects guest tokens even when body.adminEmail matches an admin', async () => {
-    const { guard, request } = makeGuard();
-    request.headers = { authorization: 'Bearer token_user_123' };
-    request.body = { adminEmail: ADMIN_EMAIL };
-
-    await expect(guard.canActivate(makeContext(request))).rejects.toThrow(
-      ForbiddenException,
-    );
-  });
-
-  it('rejects guest tokens even when carrying ::adminEmail in the token string', async () => {
-    const { guard, request } = makeGuard();
-    request.headers = {
-      authorization: `Bearer token_user_123::${ADMIN_EMAIL}`,
-    };
-    request.body = {};
-
-    await expect(guard.canActivate(makeContext(request))).rejects.toThrow(
-      ForbiddenException,
-    );
-  });
-
-  it('rejects app-JWT guest sessions even if email claim is forged', async () => {
+  it('rejects app-JWT users whose email is not in adminEmails', async () => {
     const { guard, request } = makeGuard({
       appJwtPayload: {
-        sub: 'guest_1',
+        sub: 'user_1',
         sid: 'sid_1',
-        email: ADMIN_EMAIL,
-        isGuest: true,
+        email: 'someone@else.com',
       },
     });
-    request.headers = { authorization: 'Bearer app.guest.jwt' };
+    request.headers = { authorization: 'Bearer app.user.jwt' };
     request.body = {};
 
     await expect(guard.canActivate(makeContext(request))).rejects.toThrow(
@@ -107,13 +75,12 @@ describe('AdminGuard', () => {
     expect(request.user.role).toBe('ADMIN');
   });
 
-  it('accepts non-guest app-JWT users whose verified email matches an admin', async () => {
+  it('accepts app-JWT users whose verified email matches an admin', async () => {
     const { guard, request } = makeGuard({
       appJwtPayload: {
         sub: 'google_sub',
         sid: 'sid_1',
         email: ADMIN_EMAIL,
-        isGuest: false,
       },
     });
     request.headers = { authorization: 'Bearer app.admin.jwt' };

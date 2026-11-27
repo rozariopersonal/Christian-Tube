@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ChannelsService } from './channels.service';
 
 function makeService(cache?: { getOrSet: jest.Mock; invalidate: jest.Mock }) {
@@ -25,6 +30,7 @@ function makeService(cache?: { getOrSet: jest.Mock; invalidate: jest.Mock }) {
     },
     user: {
       upsert: jest.fn(),
+      findUnique: jest.fn(),
     },
     video: {
       deleteMany: jest.fn(),
@@ -130,19 +136,17 @@ describe('ChannelsService subscriptions', () => {
       expect(out).toMatchObject({ status: 'subscribed', channelId: 'c1' });
     });
 
-    it('creates a synthetic guest email when the token has no email', async () => {
+    it('rejects creating a user when email is missing instead of synthesizing a guest email', async () => {
       const { service, prisma } = makeService();
       prisma.channel.findUnique.mockResolvedValue({ id: 'c1' });
-      prisma.user.upsert.mockResolvedValue({ id: 'guest_1' });
-      prisma.channelSubscription.upsert.mockResolvedValue({ id: 'sub_1' });
+      prisma.user.findUnique.mockResolvedValue(null);
 
-      await service.subscribe({ userId: 'guest_1', email: null }, 'c1');
+      await expect(
+        service.subscribe({ userId: 'u_no_email', email: null }, 'c1'),
+      ).rejects.toThrow(UnauthorizedException);
 
-      expect(prisma.user.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ id: 'guest_1', email: 'guest_guest_1@christianapp.local' }),
-        }),
-      );
+      expect(prisma.user.upsert).not.toHaveBeenCalled();
+      expect(prisma.channelSubscription.upsert).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the channel does not exist', async () => {

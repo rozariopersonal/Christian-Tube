@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleJwksService } from '../../services/google-jwks.service';
 import { AppJwtService } from './app-jwt.service';
@@ -17,7 +17,6 @@ export interface AuthSessionUser {
   email: string | null;
   displayName: string | null;
   photoUrl: string | null;
-  isGuest: boolean;
 }
 
 export interface AuthSessionResponse {
@@ -144,7 +143,6 @@ export class AuthSessionService {
         email,
         displayName,
         photoUrl,
-        isGuest: false,
         role,
         lastLoginAt: new Date(),
       },
@@ -152,7 +150,6 @@ export class AuthSessionService {
         email,
         displayName,
         photoUrl,
-        isGuest: false,
         role,
         lastLoginAt: new Date(),
       },
@@ -161,7 +158,6 @@ export class AuthSessionService {
         email: true,
         displayName: true,
         photoUrl: true,
-        isGuest: true,
       },
     });
 
@@ -175,7 +171,6 @@ export class AuthSessionService {
         refreshTokenHash: this.hashToken(rawRefresh),
         deviceId: params.deviceId,
         deviceLabel: params.deviceLabel?.trim() || null,
-        isGuest: false,
         expiresAt,
         lastUsedAt: now,
       },
@@ -188,13 +183,11 @@ export class AuthSessionService {
       sub: user.id,
       sid: session.id,
       email: user.email,
-      isGuest: false,
     });
 
     this.logEvent('session.created', {
       userId: user.id,
       sessionId: session.id,
-      isGuest: false,
       deviceId: params.deviceId,
     });
 
@@ -208,82 +201,6 @@ export class AuthSessionService {
         email: user.email,
         displayName: user.displayName,
         photoUrl: user.photoUrl,
-        isGuest: false,
-      },
-    };
-  }
-
-  async createGuestSession(params: {
-    deviceId: string;
-    deviceLabel?: string;
-    displayName?: string;
-  }): Promise<AuthSessionResponse> {
-    const userId = `guest_${randomUUID()}`;
-    const displayName = params.displayName?.trim() || 'Guest User';
-    const internalEmail = `${userId}@guest.local`;
-
-    const user = await this.prisma.user.create({
-      data: {
-        id: userId,
-        email: internalEmail,
-        displayName,
-        photoUrl: null,
-        isGuest: true,
-        role: 'USER',
-        lastLoginAt: new Date(),
-      },
-      select: {
-        id: true,
-        displayName: true,
-        photoUrl: true,
-        isGuest: true,
-      },
-    });
-
-    const rawRefresh = this.generateRefreshToken();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + this.getRefreshTtlMs());
-
-    const session = await this.prisma.userSession.create({
-      data: {
-        userId: user.id,
-        refreshTokenHash: this.hashToken(rawRefresh),
-        deviceId: params.deviceId,
-        deviceLabel: params.deviceLabel?.trim() || null,
-        isGuest: true,
-        expiresAt,
-        lastUsedAt: now,
-      },
-      select: { id: true },
-    });
-
-    await this.enforceSessionCap(user.id);
-
-    const accessToken = await this.appJwtService.signAccessToken({
-      sub: user.id,
-      sid: session.id,
-      email: null,
-      isGuest: true,
-    });
-
-    this.logEvent('session.created', {
-      userId: user.id,
-      sessionId: session.id,
-      isGuest: true,
-      deviceId: params.deviceId,
-    });
-
-    return {
-      accessToken,
-      refreshToken: rawRefresh,
-      sessionId: session.id,
-      expiresIn: this.appJwtService.getTtlSeconds(),
-      user: {
-        id: user.id,
-        email: null,
-        displayName: user.displayName,
-        photoUrl: user.photoUrl,
-        isGuest: true,
       },
     };
   }
@@ -297,7 +214,7 @@ export class AuthSessionService {
       where: { id: params.sessionId },
       include: {
         user: {
-          select: { id: true, email: true, isBlocked: true, isGuest: true },
+          select: { id: true, email: true, isBlocked: true },
         },
       },
     });
@@ -353,8 +270,7 @@ export class AuthSessionService {
         const accessToken = await this.appJwtService.signAccessToken({
           sub: session.userId,
           sid: session.id,
-          email: session.isGuest ? null : session.user.email,
-          isGuest: session.isGuest,
+          email: session.user.email,
         });
         this.logEvent('session.refreshed', {
           userId: session.userId,
@@ -403,8 +319,7 @@ export class AuthSessionService {
         const accessToken = await this.appJwtService.signAccessToken({
           sub: session.userId,
           sid: session.id,
-          email: session.isGuest ? null : session.user.email,
-          isGuest: session.isGuest,
+          email: session.user.email,
         });
         this.logEvent('session.grace_hit', {
           userId: session.userId,
@@ -459,7 +374,6 @@ export class AuthSessionService {
       select: {
         id: true,
         deviceLabel: true,
-        isGuest: true,
         createdAt: true,
         lastUsedAt: true,
       },
@@ -468,7 +382,6 @@ export class AuthSessionService {
     return rows.map((row) => ({
       id: row.id,
       deviceLabel: row.deviceLabel,
-      isGuest: row.isGuest,
       createdAt: row.createdAt,
       lastUsedAt: row.lastUsedAt,
       current: row.id === currentSessionId,

@@ -59,10 +59,9 @@ describe('AuthSessionService', () => {
       refreshTokenHash: sha256(rawRefresh),
       prevTokenHash: null,
       prevTokenGraceUntil: null,
-      isGuest: false,
       expiresAt: future,
       revokedAt: null,
-      user: { id: 'u_1', email: 'u@example.com', isBlocked: false, isGuest: false },
+      user: { id: 'u_1', email: 'u@example.com', isBlocked: false },
     });
     prisma.userSession.updateMany.mockResolvedValue({ count: 1 });
 
@@ -99,10 +98,9 @@ describe('AuthSessionService', () => {
         refreshTokenHash: currentHash,
         prevTokenHash: sha256(oldRefresh),
         prevTokenGraceUntil: graceUntil,
-        isGuest: false,
         expiresAt: future,
         revokedAt: null,
-        user: { id: 'u_1', email: 'u@example.com', isBlocked: false, isGuest: false },
+        user: { id: 'u_1', email: 'u@example.com', isBlocked: false },
       })
       .mockResolvedValueOnce({
         id: 'sess_1',
@@ -110,7 +108,6 @@ describe('AuthSessionService', () => {
         refreshTokenHash: currentHash,
         prevTokenHash: sha256(oldRefresh),
         prevTokenGraceUntil: graceUntil,
-        isGuest: false,
         expiresAt: future,
         revokedAt: null,
       });
@@ -144,10 +141,9 @@ describe('AuthSessionService', () => {
       refreshTokenHash: sha256('newer-token'),
       prevTokenHash: sha256(reused),
       prevTokenGraceUntil: new Date(Date.now() - 5_000), // expired grace
-      isGuest: false,
       expiresAt: future,
       revokedAt: null,
-      user: { id: 'u_1', email: 'u@example.com', isBlocked: false, isGuest: false },
+      user: { id: 'u_1', email: 'u@example.com', isBlocked: false },
     });
     prisma.userSession.updateMany.mockResolvedValue({ count: 1 });
 
@@ -172,10 +168,9 @@ describe('AuthSessionService', () => {
       refreshTokenHash: sha256(rawRefresh),
       prevTokenHash: null,
       prevTokenGraceUntil: null,
-      isGuest: false,
       expiresAt: new Date(Date.now() + 60_000_000),
       revokedAt: null,
-      user: { id: 'u_1', email: 'u@example.com', isBlocked: true, isGuest: false },
+      user: { id: 'u_1', email: 'u@example.com', isBlocked: true },
     });
     prisma.userSession.updateMany.mockResolvedValue({ count: 1 });
 
@@ -198,7 +193,6 @@ describe('AuthSessionService', () => {
       email: 'user@example.com',
       displayName: 'Arul',
       photoUrl: null,
-      isGuest: false,
     });
     prisma.userSession.create.mockResolvedValue({ id: 'sess_newest' });
     prisma.userSession.findMany.mockResolvedValue(
@@ -218,26 +212,5 @@ describe('AuthSessionService', () => {
         data: expect.objectContaining({ revokeReason: 'evicted' }),
       }),
     );
-  });
-
-  it('creates server-minted guest session with null email and isGuest=true', async () => {
-    const { service, prisma } = makeDeps();
-    prisma.user.create.mockImplementation(async ({ data }: any) => ({
-      id: data.id,
-      displayName: data.displayName,
-      photoUrl: null,
-      isGuest: true,
-    }));
-    prisma.userSession.create.mockResolvedValue({ id: 'sess_guest' });
-
-    const res = await service.createGuestSession({
-      deviceId: 'dev_guest',
-      displayName: 'Visitor',
-    });
-
-    expect(res.user.id).toMatch(/^guest_/);
-    expect(res.user.isGuest).toBe(true);
-    expect(res.user.email).toBeNull();
-    expect(res.sessionId).toBe('sess_guest');
   });
 });

@@ -38,7 +38,7 @@ export class UsersController {
   ) {
     return this.usersService.syncUser({
       id: user.userId,
-      email: user.isGuest ? '' : (user.email || body?.email || ''),
+      email: user.email || body?.email || '',
       displayName: body?.displayName,
       photoUrl: body?.photoUrl,
     });
@@ -53,7 +53,7 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @Get('preferences')
   async getPreferences(@CurrentUser() user: CurrentUserType) {
-    return this.usersService.getPreferences(user.userId);
+    return this.usersService.getPreferences(user.userId, user.email);
   }
 
   @UseGuards(AuthGuard)
@@ -127,7 +127,7 @@ export class UsersController {
     @Body() dto: CreatePlaylistDto,
   ) {
     return this.userPlaylistsService.createPlaylist(
-      { userId: user.userId, email: user.isGuest ? '' : user.email },
+      { userId: user.userId, email: user.email },
       dto,
     );
   }

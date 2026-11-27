@@ -38,7 +38,6 @@ interface BackendSessionResponse {
     email: string | null;
     displayName: string | null;
     photoUrl: string | null;
-    isGuest: boolean;
   };
 }
 
@@ -99,9 +98,9 @@ export class AuthService implements OnDestroy {
   private googleInitialized = false;
   private inFlightRefresh: Promise<string | null> | null = null;
   private lastRefreshFailureAt = 0;
+  private legacyUpgradeStarted = false;
+  private signedOutDuringUpgrade = false;
   private unsubExternal: (() => void) | null = null;
-  private bootstrapStarted = false;
-  private signedOutDuringBootstrap = false;
 
   constructor() {
     this.unsubExternal = this.tokenStore.subscribeExternalChanges((msg) => {
@@ -121,11 +120,17 @@ export class AuthService implements OnDestroy {
     });
 
     const user = this.currentUser();
-    if (user?.email) {
-      void this.checkIsAdmin(user.email);
-    }
-    if (user && !this.tokenStore.getRefreshToken() && !this.sessionExpired()) {
-      void this.bootstrapLegacySession(user);
+    if (user && user.id.startsWith('guest_')) {
+      this.tokenStore.clearAuthSessionKeysOnly(user.id);
+      this.currentUser.set(null);
+      this.sessionExpired.set(false);
+    } else {
+      if (user?.email) {
+        void this.checkIsAdmin(user.email);
+      }
+      if (user && !this.tokenStore.getRefreshToken() && !this.sessionExpired()) {
+        void this.upgradeLegacyGoogleSession(user);
+      }
     }
   }
 
@@ -177,46 +182,6 @@ export class AuthService implements OnDestroy {
       return;
     }
     window.google?.accounts?.id?.prompt();
-  }
-
-  async signInAsGuest(displayName?: string): Promise<void> {
-    this.isLoading.set(true);
-    this.lastError.set(null);
-    try {
-      const res = await firstValueFrom(
-        this.rawHttp.post<BackendSessionResponse>(
-          `${AppConfig.apiBaseUrl}/api/auth/guest`,
-          {
-            deviceId: this.tokenStore.getDeviceId(),
-            deviceLabel: this.tokenStore.getDeviceLabel(),
-            displayName: displayName?.trim() || undefined,
-          },
-        ),
-      );
-      const user: AuthUser = {
-        id: res.user.id,
-        email: res.user.email ?? '',
-        displayName: res.user.displayName || 'Guest User',
-        photoUrl: res.user.photoUrl ?? undefined,
-        isGuest: true,
-      };
-      this.tokenStore.saveSession({
-        user,
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-        sessionId: res.sessionId,
-      });
-      this.currentUser.set(user);
-      this.sessionExpired.set(false);
-      this.sessionPromptDismissed.set(false);
-      this.isAdmin.set(false);
-    } catch (err) {
-      this.lastError.set(
-        err instanceof Error ? err.message : 'Guest sign-in failed',
-      );
-    } finally {
-      this.isLoading.set(false);
-    }
   }
 
   async refreshSession(): Promise<string | null> {
@@ -295,7 +260,7 @@ export class AuthService implements OnDestroy {
   }
 
   signOut(): void {
-    this.signedOutDuringBootstrap = true;
+    this.signedOutDuringUpgrade = true;
     const accessToken = this.tokenStore.getAccessToken();
     const sessionId = this.tokenStore.getSessionId();
     if (accessToken && sessionId) {
@@ -366,18 +331,13 @@ export class AuthService implements OnDestroy {
         : undefined;
 
       const existing = this.currentUser();
-      const existingIsGoogle =
-        existing !== null &&
-        !existing.isGuest &&
-        !existing.id.startsWith('guest_');
 
-      if (existingIsGoogle && nextSub && existing.id !== nextSub) {
+      if (existing !== null && nextSub && existing.id !== nextSub) {
         const confirmed = await this.confirmAccountSwitch(existing, {
           id: nextSub,
           email: nextEmail,
           displayName: nextName,
           photoUrl: nextPhoto,
-          isGuest: false,
         });
         if (!confirmed) {
           return;
@@ -401,7 +361,6 @@ export class AuthService implements OnDestroy {
         email: res.user.email ?? nextEmail,
         displayName: res.user.displayName || nextName,
         photoUrl: res.user.photoUrl ?? nextPhoto,
-        isGuest: false,
       };
       this.lastRefreshFailureAt = 0;
       this.tokenStore.saveSession({
@@ -427,12 +386,12 @@ export class AuthService implements OnDestroy {
   private computeInitialExpired(): boolean {
     if (this.tokenStore.readSessionExpired()) return true;
     const user = this.tokenStore.readUser();
-    if (!user || user.isGuest || user.id.startsWith('guest_')) return false;
+    if (!user) return false;
     if (this.tokenStore.getRefreshToken()) return false;
 
     const token = this.tokenStore.getAccessToken() ?? user.idToken;
     if (!token) return true;
-    if (token.startsWith('session_') || token.startsWith('token_')) return false;
+    if (token.startsWith('session_')) return false;
 
     const payload = this.decodeJwtPayload(token);
     const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
@@ -457,135 +416,63 @@ export class AuthService implements OnDestroy {
     });
   }
 
-  private async bootstrapLegacySession(user: AuthUser): Promise<void> {
-    if (this.bootstrapStarted) return;
-    this.bootstrapStarted = true;
-    this.signedOutDuringBootstrap = false;
-
-    const isLegacyGuest = Boolean(user.isGuest) || user.id.startsWith('guest_');
-    if (isLegacyGuest) {
-      try {
-        const res = await firstValueFrom(
-          this.rawHttp.post<BackendSessionResponse>(
-            `${AppConfig.apiBaseUrl}/api/auth/guest`,
-            {
-              deviceId: this.tokenStore.getDeviceId(),
-              deviceLabel: this.tokenStore.getDeviceLabel(),
-              displayName: user.displayName,
-            },
-          ),
-        );
-        if (this.signedOutDuringBootstrap) {
-          void firstValueFrom(
-            this.rawHttp.post(
-              `${AppConfig.apiBaseUrl}/api/auth/logout`,
-              {},
-              { headers: { Authorization: `Bearer ${res.accessToken}` } },
-            ),
-          ).catch(() => {});
-          return;
-        }
-        const migratedUser: AuthUser = {
-          id: res.user.id,
-          email: '',
-          displayName: res.user.displayName || user.displayName,
-          isGuest: true,
-        };
-        this.rekeyGuestStorage(user.id, migratedUser.id);
-        this.tokenStore.saveSession({
-          user: migratedUser,
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
-          sessionId: res.sessionId,
-        });
-        this.currentUser.set(migratedUser);
-        this.sessionExpired.set(false);
-      } catch {
-        // Offline or server unavailable; legacy token or local cache remains
-      }
-      return;
-    }
+  private async upgradeLegacyGoogleSession(user: AuthUser): Promise<void> {
+    if (this.legacyUpgradeStarted) return;
+    this.legacyUpgradeStarted = true;
+    this.signedOutDuringUpgrade = false;
 
     const legacyToken = this.tokenStore.getAccessToken() ?? user.idToken;
     if (
-      legacyToken &&
-      !legacyToken.startsWith('session_') &&
-      legacyToken.split('.').length === 3
+      !legacyToken ||
+      legacyToken.startsWith('session_') ||
+      legacyToken.split('.').length !== 3
     ) {
-      const payload = this.decodeJwtPayload(legacyToken);
-      const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
-      if (exp !== null && exp * 1000 > Date.now()) {
-        try {
-          const res = await firstValueFrom(
-            this.rawHttp.post<BackendSessionResponse>(
-              `${AppConfig.apiBaseUrl}/api/auth/google`,
-              {
-                idToken: legacyToken,
-                deviceId: this.tokenStore.getDeviceId(),
-                deviceLabel: this.tokenStore.getDeviceLabel(),
-              },
-            ),
-          );
-          if (this.signedOutDuringBootstrap) {
-            void firstValueFrom(
-              this.rawHttp.post(
-                `${AppConfig.apiBaseUrl}/api/auth/logout`,
-                {},
-                { headers: { Authorization: `Bearer ${res.accessToken}` } },
-              ),
-            ).catch(() => {});
-            return;
-          }
-          const upgraded: AuthUser = {
-            id: res.user.id,
-            email: res.user.email ?? user.email,
-            displayName: res.user.displayName || user.displayName,
-            photoUrl: res.user.photoUrl ?? user.photoUrl,
-            isGuest: false,
-          };
-          this.tokenStore.saveSession({
-            user: upgraded,
-            accessToken: res.accessToken,
-            refreshToken: res.refreshToken,
-            sessionId: res.sessionId,
-          });
-          this.currentUser.set(upgraded);
-          this.sessionExpired.set(false);
-          return;
-        } catch {
-          // Non-fatal; fall through
-        }
-      }
+      return;
     }
 
-    if (this.initGoogleSignIn()) {
-      try {
-        window.google?.accounts?.id?.prompt();
-      } catch {
-        // ignore
-      }
+    const payload = this.decodeJwtPayload(legacyToken);
+    const exp = typeof payload['exp'] === 'number' ? payload['exp'] : null;
+    if (exp === null || exp * 1000 <= Date.now()) {
+      return;
     }
-  }
 
-  private rekeyGuestStorage(oldId: string, newId: string): void {
-    if (oldId === newId) return;
     try {
-      const syncKeyOld = `ct_web_sync_pending_v2_${oldId}`;
-      const syncKeyNew = `ct_web_sync_pending_v2_${newId}`;
-      const itemsKeyOld = `ct_web_user_items_pending_v1_${oldId}`;
-      const itemsKeyNew = `ct_web_user_items_pending_v1_${newId}`;
-      const syncVal = localStorage.getItem(syncKeyOld);
-      if (syncVal && !localStorage.getItem(syncKeyNew)) {
-        localStorage.setItem(syncKeyNew, syncVal.replaceAll(oldId, newId));
-        localStorage.removeItem(syncKeyOld);
+      const res = await firstValueFrom(
+        this.rawHttp.post<BackendSessionResponse>(
+          `${AppConfig.apiBaseUrl}/api/auth/google`,
+          {
+            idToken: legacyToken,
+            deviceId: this.tokenStore.getDeviceId(),
+            deviceLabel: this.tokenStore.getDeviceLabel(),
+          },
+        ),
+      );
+      if (this.signedOutDuringUpgrade) {
+        void firstValueFrom(
+          this.rawHttp.post(
+            `${AppConfig.apiBaseUrl}/api/auth/logout`,
+            {},
+            { headers: { Authorization: `Bearer ${res.accessToken}` } },
+          ),
+        ).catch(() => {});
+        return;
       }
-      const itemsVal = localStorage.getItem(itemsKeyOld);
-      if (itemsVal && !localStorage.getItem(itemsKeyNew)) {
-        localStorage.setItem(itemsKeyNew, itemsVal.replaceAll(oldId, newId));
-        localStorage.removeItem(itemsKeyOld);
-      }
+      const upgraded: AuthUser = {
+        id: res.user.id,
+        email: res.user.email ?? user.email,
+        displayName: res.user.displayName || user.displayName,
+        photoUrl: res.user.photoUrl ?? user.photoUrl,
+      };
+      this.tokenStore.saveSession({
+        user: upgraded,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        sessionId: res.sessionId,
+      });
+      this.currentUser.set(upgraded);
+      this.sessionExpired.set(false);
     } catch {
-      // ignore
+      // Non-fatal if offline or backend unavailable
     }
   }
 

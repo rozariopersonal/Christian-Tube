@@ -7,8 +7,6 @@ function makeContext(request: any): any {
 
 describe('AuthGuard', () => {
   const jwks = {
-    isGuestToken: (token: string) => token.startsWith('token_'),
-    parseGuestToken: (token: string) => token.split('::')[0].replace('token_', '') || null,
     verifyIdToken: jest.fn(),
   } as any;
 
@@ -26,7 +24,6 @@ describe('AuthGuard', () => {
       sub: 'user_1',
       sid: 'sess_1',
       email: 'u@example.com',
-      isGuest: false,
     });
     const guard = new AuthGuard(jwks, appJwt);
     const req: any = { headers: { authorization: 'Bearer app.valid.jwt' } };
@@ -37,7 +34,6 @@ describe('AuthGuard', () => {
       email: 'u@example.com',
       role: 'USER',
       sessionId: 'sess_1',
-      isGuest: false,
     });
     expect(jwks.verifyIdToken).not.toHaveBeenCalled();
   });
@@ -66,61 +62,19 @@ describe('AuthGuard', () => {
       userId: 'google_123',
       email: 'user@gmail.com',
       role: 'USER',
-      isGuest: false,
       isGoogle: true,
     });
   });
 
-  it('ignores ::email claim on legacy guest tokens', async () => {
+  it('rejects legacy token_* guest tokens', async () => {
+    jwks.verifyIdToken.mockRejectedValue(new Error('Invalid or expired token'));
     const guard = new AuthGuard(jwks, appJwt);
     const req: any = {
       headers: { authorization: 'Bearer token_guest_abc::admin@example.com' },
     };
 
-    await expect(guard.canActivate(makeContext(req))).resolves.toBe(true);
-    expect(req.user).toEqual({
-      userId: 'guest_abc',
-      email: '',
-      role: 'USER',
-      isGuest: true,
-    });
-  });
-
-  it('rejects guest tokens impersonating a Google sub when reject flag is enabled', async () => {
-    const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ isGuest: false }) },
-    } as any;
-    const config = {
-      get: jest.fn((k: string) =>
-        k === 'auth.rejectLegacyGuestImpersonation' ? true : undefined,
-      ),
-    } as any;
-    const guard = new AuthGuard(jwks, appJwt, prisma, config);
-    const req: any = {
-      headers: { authorization: 'Bearer token_109876543210987654321' },
-    };
-
     await expect(guard.canActivate(makeContext(req))).rejects.toThrow(
       UnauthorizedException,
     );
-  });
-
-  it('logs but allows legacy guest impersonation pattern when reject flag is false', async () => {
-    const prisma = {
-      user: { findUnique: jest.fn().mockResolvedValue({ isGuest: false }) },
-    } as any;
-    const config = {
-      get: jest.fn((k: string) =>
-        k === 'auth.rejectLegacyGuestImpersonation' ? false : undefined,
-      ),
-    } as any;
-    const guard = new AuthGuard(jwks, appJwt, prisma, config);
-    const req: any = {
-      headers: { authorization: 'Bearer token_109876543210987654321' },
-    };
-
-    await expect(guard.canActivate(makeContext(req))).resolves.toBe(true);
-    expect(req.user.isGuest).toBe(true);
-    expect(req.user.email).toBe('');
   });
 });

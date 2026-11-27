@@ -134,45 +134,44 @@ describe('UserSyncService', () => {
     expect(userSync.pendingOps()['sub:ch-valid']).toBeDefined();
   });
 
-  it('hands off guest pending ops to authenticated user on Google sign-in', async () => {
+  it('isolates pending ops per userId without cross-user handoff', async () => {
     authService.currentUser.set({
-      id: 'guest_123',
-      email: 'guest_123@christianapp.local',
-      displayName: 'Guest',
+      id: 'user-a',
+      email: 'a@example.com',
+      displayName: 'User A',
     });
     TestBed.flushEffects();
     await Promise.resolve();
 
-    const guestStateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
-    guestStateReq.flush({ serverTime: Date.now() });
+    const stateReqA = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+    stateReqA.flush({ serverTime: Date.now() });
     await Promise.resolve();
 
-    userSync.enqueueSubscription('ch-guest', true);
-    const guestSubReq = httpMock.expectOne((r) =>
-      r.url.endsWith('/api/channels/ch-guest/subscribe'),
+    userSync.enqueueSubscription('ch-a', true);
+    const subReqA = httpMock.expectOne((r) =>
+      r.url.endsWith('/api/channels/ch-a/subscribe'),
     );
-    guestSubReq.flush(null, { status: 503, statusText: 'Unavailable' });
+    subReqA.flush(null, { status: 503, statusText: 'Unavailable' });
     await Promise.resolve();
-    expect(userSync.pendingOps()['sub:ch-guest']).toBeDefined();
+    expect(userSync.pendingOps()['sub:ch-a']).toBeDefined();
 
-    // Sign in as Google user
+    // Switch to another authenticated user
     authService.currentUser.set({
-      id: 'google-sub-999',
-      email: 'user@gmail.com',
-      displayName: 'Real User',
+      id: 'user-b',
+      email: 'b@example.com',
+      displayName: 'User B',
     });
     TestBed.flushEffects();
     await Promise.resolve();
 
-    const handoffSubReq = httpMock.expectOne((r) =>
-      r.url.endsWith('/api/channels/ch-guest/subscribe'),
+    httpMock.expectNone((r) =>
+      r.url.endsWith('/api/channels/ch-a/subscribe'),
     );
-    handoffSubReq.flush({ status: 'subscribed', channelId: 'ch-guest' });
-    await new Promise((r) => setTimeout(r, 0));
-
-    const userStateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
-    userStateReq.flush({ serverTime: Date.now(), subscriptions: ['ch-guest'] });
+    const stateReqB = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+    stateReqB.flush({ serverTime: Date.now(), subscriptions: [] });
     await Promise.resolve();
+
+    expect(userSync.pendingOps()).toEqual({});
   });
 
   it('clears all on-device user data from localStorage on signOut', async () => {
@@ -445,67 +444,5 @@ describe('UserSyncService', () => {
     r401.flush(null, { status: 401, statusText: 'Unauthorized' });
     await new Promise((r) => setTimeout(r, 0));
     expect(userSync.hasPendingPlaylistOps('pl-500')).toBe(true);
-  });
-
-  it('preserves FIFO order of guest playlist_op entries during sign-in handoff', async () => {
-    authService.currentUser.set({
-      id: 'guest_pl_1',
-      email: '',
-      displayName: 'Guest',
-      isGuest: true,
-    });
-    TestBed.flushEffects();
-    await Promise.resolve();
-    httpMock
-      .expectOne((r) => r.url.endsWith('/api/user/state'))
-      .flush({ serverTime: Date.now() });
-    await Promise.resolve();
-
-    userSync.enqueuePlaylistOp({
-      playlistId: 'pl-g',
-      action: 'create',
-      payload: { title: 'Guest List' },
-      clientUpdatedAt: 3000,
-    });
-    userSync.enqueuePlaylistOp({
-      playlistId: 'pl-g',
-      action: 'add_item',
-      payload: { videoId: 'v-g1' },
-      clientUpdatedAt: 3001,
-    });
-
-    // Fail first op with 503 so both stay pending for guest
-    httpMock
-      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists'))
-      .flush(null, { status: 503, statusText: 'Unavailable' });
-    await new Promise((r) => setTimeout(r, 0));
-
-    // Sign in as authenticated user
-    authService.currentUser.set({
-      id: 'google-pl-user',
-      email: 'g@example.com',
-      displayName: 'Google User',
-    });
-    TestBed.flushEffects();
-    await Promise.resolve();
-
-    // Handoff flushes create first, then add_item, then pulls /api/user/state
-    const handoffCreate = httpMock.expectOne(
-      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists'),
-    );
-    handoffCreate.flush({ id: 'pl-g' });
-    await new Promise((r) => setTimeout(r, 0));
-
-    const handoffAdd = httpMock.expectOne(
-      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists/pl-g/items'),
-    );
-    handoffAdd.flush({ ok: true });
-    await new Promise((r) => setTimeout(r, 0));
-
-    httpMock
-      .expectOne((r) => r.url.endsWith('/api/user/state'))
-      .flush({ serverTime: Date.now(), playlists: [] });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(userSync.hasPendingPlaylistOps('pl-g')).toBe(false);
   });
 });

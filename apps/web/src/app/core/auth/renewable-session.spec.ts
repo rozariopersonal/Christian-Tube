@@ -53,7 +53,6 @@ describe('renewable web session', () => {
         email: 'u@example.com',
         displayName: 'User',
         photoUrl: null,
-        isGuest: false,
       },
     });
     await Promise.resolve();
@@ -95,7 +94,6 @@ describe('renewable web session', () => {
         email: 'u@example.com',
         displayName: 'User',
         photoUrl: null,
-        isGuest: false,
       },
     });
     await Promise.resolve();

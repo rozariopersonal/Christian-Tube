@@ -80,7 +80,6 @@ export interface RemoteSyncState {
 
 const KEY_CLOCK_OFFSET = 'ct_web_clock_offset_v1';
 const KEY_PENDING_PREFIX = 'ct_web_sync_pending_v2_';
-const KEY_LAST_GUEST_ID = 'ct_web_last_guest_id_v1';
 
 @Injectable({ providedIn: 'root' })
 export class UserSyncService {
@@ -135,12 +134,6 @@ export class UserSyncService {
           this.activeUserId = user.id;
           if (!expired) {
             this.authPaused = false;
-          }
-
-          if (user.id.startsWith('guest_')) {
-            this.writeStorage(KEY_LAST_GUEST_ID, user.id);
-          } else {
-            this.handoffGuestPendingOps(user.id);
           }
 
           if (prevUserId !== user.id) {
@@ -699,27 +692,6 @@ export class UserSyncService {
     }
   }
 
-  private handoffGuestPendingOps(newUserId: string): void {
-    const guestId = this.readStorage(KEY_LAST_GUEST_ID);
-    if (!guestId || guestId === newUserId) return;
-
-    const guestOps = this.readPendingMap(guestId);
-    const targetOps = this.readPendingMap(newUserId);
-    const merged: Record<string, SyncOp> = {};
-
-    // Place guest ops first so FIFO playlist_op entries preserve guest -> signed-in order
-    for (const [key, op] of Object.entries(guestOps)) {
-      if (!targetOps[key]) {
-        merged[key] = { ...op, userId: newUserId };
-      }
-    }
-    for (const [key, op] of Object.entries(targetOps)) {
-      merged[key] = op;
-    }
-    this.writePendingMap(newUserId, merged);
-    this.removeStorage(this.pendingKey(guestId));
-    this.removeStorage(KEY_LAST_GUEST_ID);
-  }
 
   private saveOp(userId: string, key: string, op: SyncOp): void {
     const map = this.readPendingMap(userId);
@@ -783,25 +755,9 @@ export class UserSyncService {
     }
   }
 
-  private readStorage(key: string): string | null {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  }
-
   private writeStorage(key: string, value: string): void {
     try {
       localStorage.setItem(key, value);
-    } catch {
-      // ignore
-    }
-  }
-
-  private removeStorage(key: string): void {
-    try {
-      localStorage.removeItem(key);
     } catch {
       // ignore
     }

@@ -322,21 +322,27 @@ test.describe('ChristianApp Web E2E', () => {
       'Part 1: Repentance',
     );
 
-    // 6. Settings: Dark + AMOLED + Royal Crimson + Guest Sign-In
+    // 6. Settings: Dark + AMOLED + Royal Crimson (Google Sign-In only, no Guest Sign-In)
     await page.goto('/settings');
     await page.getByRole('button', { name: 'Dark', exact: true }).click();
     await page.getByRole('button', { name: 'AMOLED Black' }).click();
     await page.getByRole('button', { name: 'Royal Crimson' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.locator('html')).toHaveAttribute('data-amoled', 'true');
-    await page.getByRole('button', { name: 'Guest Sign-In' }).click();
-    await expect(page.getByText('Guest User')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guest Sign-In' })).toHaveCount(0);
 
-    // 7. Onboarding Wizard
+    // 7. Single-Screen Quick Start Onboarding
     await page.goto('/onboarding');
-    await expect(page.getByText('Step 1 of 5')).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText('Step 2 of 5')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Welcome to ChristianApp' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue as Guest' })).toHaveCount(0);
+    await page.getByRole('button', { name: /Tamil/ }).click();
+    await page.getByRole('button', { name: 'Start Exploring' }).click();
+    await expect(page).toHaveURL(/\/feed/);
+    await expect(page.getByText('Walking in the Light')).toBeVisible();
 
     expect(errors).toEqual([]);
   });

@@ -146,21 +146,18 @@ void main() {
     expect(flushingSync.pendingOps, isEmpty);
   });
 
-  test('guest to signed-in handoff preserves FIFO playlist_op order and clearAllDeviceData wipes caches', () async {
+  test('clearAllDeviceData wipes playlist and watch later caches', () async {
     final dio = Dio()..httpClientAdapter = _RecordingAdapter();
     final sync = UserSyncService.forTesting(dio: dio, canSyncCheck: () => false);
 
-    await sync.onUserChanged('guest_123');
-    await sync.enqueuePlaylistOp(opType: 'create', playlistId: 'p1', payload: {'title': 'Guest List'});
+    await sync.onUserChanged('signed_1');
+    await sync.enqueuePlaylistOp(opType: 'create', playlistId: 'p1', payload: {'title': 'My List'});
     await sync.enqueuePlaylistOp(opType: 'add_item', playlistId: 'p1', payload: {'videoId': 'v1'});
+    expect(sync.pendingOps.values.map((o) => o.itemType).toList(), ['create', 'add_item']);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('watch_later_v1_signed_1', '[]');
     await prefs.setString('playlists_v1_signed_1', '[]');
-
-    await sync.onUserChanged('signed_1');
-    final opTypes = sync.pendingOps.values.map((o) => o.itemType).toList();
-    expect(opTypes, ['create', 'add_item']);
 
     await sync.clearAllDeviceData();
     expect(prefs.getString('watch_later_v1_signed_1'), isNull);

@@ -50,15 +50,6 @@ describe('UsersController (playlists & DTO validation)', () => {
       { title: 'My List' },
     );
 
-    await controller.createPlaylist(
-      { ...authedUser, isGuest: true },
-      { title: 'Guest List' },
-    );
-    expect(userPlaylistsService.createPlaylist).toHaveBeenLastCalledWith(
-      { userId: 'u1', email: '' },
-      { title: 'Guest List' },
-    );
-
     await controller.updatePlaylist(authedUser, 'pl-1', { title: 'Updated' });
     expect(userPlaylistsService.updatePlaylist).toHaveBeenCalledWith('u1', 'pl-1', {
       title: 'Updated',

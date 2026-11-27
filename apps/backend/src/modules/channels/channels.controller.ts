@@ -113,7 +113,7 @@ export class ChannelsController {
     @CurrentUser() user?: CurrentUserType,
   ) {
     const verifiedEmail =
-      user && !user.isGuest && typeof user.email === 'string' && user.email.trim()
+      user && typeof user.email === 'string' && user.email.trim()
         ? user.email.trim().toLowerCase()
         : undefined;
     return this.channelsService.createRequest({

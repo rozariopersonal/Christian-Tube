@@ -82,11 +82,6 @@ class UserPreferenceService extends ChangeNotifier {
       if (raw != null && raw.isNotEmpty) {
         final savedData = jsonDecode(raw) as Map<String, dynamic>;
         _preferences = UserPreference.fromJson(savedData);
-        if (_preferences.hasCompletedOnboarding &&
-            (_preferences.videoChannelIds.isNotEmpty ||
-                _preferences.shortsChannelIds.isNotEmpty)) {
-          _preferences = _preferences.copyWith(channelSelectionsConfigured: true);
-        }
         _cachedUserId = savedData['userId'] as String?;
         final savedUser = prefs.getString('current_user');
         if (_cachedUserId == null && savedUser != null) {
@@ -138,13 +133,6 @@ class UserPreferenceService extends ChangeNotifier {
           if (sameUser && data['hasCompletedOnboarding'] != true &&
               _preferences.hasCompletedOnboarding) {
             data.addAll(_preferences.toJson());
-          } else if (sameUser && _preferences.channelSelectionsConfigured &&
-              !UserPreference.fromJson(data).channelSelectionsConfigured) {
-            data.addAll({
-              'channelSelectionsConfigured': true,
-              'videoChannelIds': _preferences.videoChannelIds,
-              'shortsChannelIds': _preferences.shortsChannelIds,
-            });
           }
           for (final op in pending) {
             data[op.itemId] = op.prefValue;
@@ -180,8 +168,7 @@ class UserPreferenceService extends ChangeNotifier {
     final previousUserId = _cachedUserId;
     final userId = auth?.currentUser?.id ?? previousUserId;
     final prevJson = previous.toJson();
-    final nextJson = newPreferences.toJson()
-      ..remove('channelSelectionsConfigured');
+    final nextJson = newPreferences.toJson();
     final revision = ++_preferenceRevision;
     _preferences = newPreferences;
     _cachedUserId = userId;
@@ -202,17 +189,9 @@ class UserPreferenceService extends ChangeNotifier {
     if (syncWithBackend &&
         (auth == null || auth.currentUser?.id == sync.activeUserId) &&
         sync.activeUserId != null) {
-      final sendChannelSelections = newPreferences.channelSelectionsConfigured;
-      final channelListsChanged = sendChannelSelections &&
-          (!previous.channelSelectionsConfigured ||
-              !listEquals(previous.videoChannelIds, newPreferences.videoChannelIds) ||
-              !listEquals(previous.shortsChannelIds, newPreferences.shortsChannelIds));
       final changes = <String, dynamic>{};
       for (final entry in nextJson.entries) {
-        final isChannelList = entry.key == 'videoChannelIds' ||
-            entry.key == 'shortsChannelIds';
-        if (isChannelList && !sendChannelSelections) continue;
-        if (syncAll || (isChannelList && channelListsChanged) ||
+        if (syncAll ||
             jsonEncode(prevJson[entry.key]) != jsonEncode(entry.value)) {
           changes[entry.key] = entry.value;
         }
@@ -253,39 +232,6 @@ class UserPreferenceService extends ChangeNotifier {
     await savePreferences(updated, auth: auth, syncWithBackend: syncWithBackend);
   }
 
-  /// Synchronizes a follow/unfollow action into the local UserPreference.
-  Future<void> syncChannelFollowState(
-    String channelId,
-    bool isFollowed, {
-    AuthService? auth,
-    bool hasShorts = true,
-    bool? targetVideo,
-    bool? targetShorts,
-  }) async {
-    final videoList = List<String>.from(_preferences.videoChannelIds);
-    final shortsList = List<String>.from(_preferences.shortsChannelIds);
-
-    final affectVideo = targetVideo ?? true;
-    final affectShorts = targetShorts ?? hasShorts;
-
-    if (isFollowed) {
-      if (affectVideo && !videoList.contains(channelId)) videoList.add(channelId);
-      if (affectShorts && !shortsList.contains(channelId)) shortsList.add(channelId);
-    } else {
-      if (affectVideo) videoList.remove(channelId);
-      if (affectShorts) shortsList.remove(channelId);
-    }
-
-    if (!listEquals(videoList, _preferences.videoChannelIds) ||
-        !listEquals(shortsList, _preferences.shortsChannelIds)) {
-      final updated = _preferences.copyWith(
-        videoChannelIds: videoList,
-        shortsChannelIds: shortsList,
-        channelSelectionsConfigured: true,
-      );
-      await savePreferences(updated, auth: auth, applyRuntime: false);
-    }
-  }
 
   /// Propagates saved preferences to the app's specialized controllers.
   Future<void> applyToRuntimeControllers(UserPreference pref) async {

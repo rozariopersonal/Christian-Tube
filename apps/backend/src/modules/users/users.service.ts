@@ -42,15 +42,10 @@ const VALID_WATCH_ITEM_TYPES = new Set<string>([
 
 const PREF_FIELDS = [
   'languages',
-  'videoChannelIds',
-  'shortsChannelIds',
   'primaryBibleVersionId',
-  'bibleVersionIds',
   'themeMode',
   'accentColor',
   'defaultPage',
-  'dailyReminderEnabled',
-  'dailyReminderTime',
   'lockScreenWordFeedEnabled',
   'lockScreenRefreshIntervalMinutes',
   'hasCompletedOnboarding',
@@ -94,14 +89,26 @@ export class UsersService {
     photoUrl?: string;
   }) {
     const cleanEmail = (data.email || '').trim().toLowerCase();
-    const fallbackEmail = `guest_${data.id}@christianapp.local`;
+    if (!cleanEmail) {
+      if (typeof this.prisma.user?.findUnique === 'function') {
+        const existing = await this.prisma.user.findUnique({
+          where: { id: data.id },
+          include: { preference: true },
+        });
+        if (existing) {
+          return existing;
+        }
+      }
+      throw new BadRequestException('Valid email is required to create user');
+    }
+
     const role = this.isAdmin(cleanEmail) ? 'ADMIN' : 'USER';
 
     try {
       return await this.prisma.user.upsert({
         where: { id: data.id },
         update: {
-          email: cleanEmail || undefined,
+          email: cleanEmail,
           displayName: data.displayName || undefined,
           photoUrl: data.photoUrl || undefined,
           role,
@@ -109,7 +116,7 @@ export class UsersService {
         },
         create: {
           id: data.id,
-          email: cleanEmail || fallbackEmail,
+          email: cleanEmail,
           displayName: data.displayName || 'User',
           photoUrl: data.photoUrl || null,
           role,
@@ -121,28 +128,14 @@ export class UsersService {
         },
       });
     } catch (err: any) {
-      if (err?.code === 'P2002') {
-        return this.prisma.user.upsert({
+      if (err?.code === 'P2002' && typeof this.prisma.user?.findUnique === 'function') {
+        const existing = await this.prisma.user.findUnique({
           where: { id: data.id },
-          update: {
-            displayName: data.displayName || undefined,
-            photoUrl: data.photoUrl || undefined,
-            role,
-            lastLoginAt: new Date(),
-          },
-          create: {
-            id: data.id,
-            email: fallbackEmail,
-            displayName: data.displayName || 'User',
-            photoUrl: data.photoUrl || null,
-            role,
-            isBlocked: false,
-            lastLoginAt: new Date(),
-          },
-          include: {
-            preference: true,
-          },
+          include: { preference: true },
         });
+        if (existing) {
+          return existing;
+        }
       }
       throw err;
     }
@@ -157,23 +150,42 @@ export class UsersService {
     return this.ensureUser(data);
   }
 
-  async getPreferences(userId: string) {
-    return this.getPreferencesUncached(userId);
+  async getPreferences(userId: string, userEmail?: string | null) {
+    return this.getPreferencesUncached(userId, userEmail);
   }
 
-  private async getPreferencesUncached(userId: string) {
+  private async getPreferencesUncached(userId: string, userEmail?: string | null) {
     let pref = await this.prisma.userPreference.findUnique({
       where: { userId },
     });
     if (!pref) {
+      const cleanEmail = (userEmail || '').trim().toLowerCase();
+      if (cleanEmail) {
+        await this.ensureUser({ id: userId, email: cleanEmail });
+      } else if (typeof this.prisma.user?.findUnique === 'function') {
+        const existingUser = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        if (!existingUser) {
+          return {
+            userId,
+            languages: ['en'],
+            primaryBibleVersionId: 'NASB',
+            themeMode: 'system',
+            accentColor: 'blue',
+            defaultPage: 'feed',
+            lockScreenWordFeedEnabled: false,
+            lockScreenRefreshIntervalMinutes: 60,
+            hasCompletedOnboarding: false,
+          };
+        }
+      }
+
       pref = await this.prisma.userPreference.create({
         data: {
           userId,
           languages: ['en'],
-          videoChannelIds: [],
-          shortsChannelIds: [],
           primaryBibleVersionId: 'NASB',
-          bibleVersionIds: ['NASB'],
           defaultPage: 'feed',
           hasCompletedOnboarding: false,
         },
@@ -187,15 +199,10 @@ export class UsersService {
     userId: string,
     data: {
       languages?: string[];
-      videoChannelIds?: string[];
-      shortsChannelIds?: string[];
       primaryBibleVersionId?: string;
-      bibleVersionIds?: string[];
       themeMode?: string;
       accentColor?: string;
       defaultPage?: string;
-      dailyReminderEnabled?: boolean;
-      dailyReminderTime?: string;
       lockScreenWordFeedEnabled?: boolean;
       lockScreenRefreshIntervalMinutes?: number;
       hasCompletedOnboarding?: boolean;
@@ -250,15 +257,10 @@ export class UsersService {
         create: {
           userId,
           languages: data.languages || ['en'],
-          videoChannelIds: data.videoChannelIds || [],
-          shortsChannelIds: data.shortsChannelIds || [],
           primaryBibleVersionId: data.primaryBibleVersionId || 'NASB',
-          bibleVersionIds: data.bibleVersionIds || [],
           themeMode: data.themeMode || 'system',
           accentColor: data.accentColor || 'blue',
           defaultPage: data.defaultPage || 'feed',
-          dailyReminderEnabled: data.dailyReminderEnabled ?? false,
-          dailyReminderTime: data.dailyReminderTime || '07:00',
           lockScreenWordFeedEnabled: data.lockScreenWordFeedEnabled ?? false,
           lockScreenRefreshIntervalMinutes: data.lockScreenRefreshIntervalMinutes || 60,
           hasCompletedOnboarding: data.hasCompletedOnboarding ?? true,
@@ -466,7 +468,7 @@ export class UsersService {
       playheadRows,
       audioRow,
     ] = await Promise.all([
-      this.getPreferencesUncached(userId),
+      this.getPreferencesUncached(userId, userEmail),
       subModel?.findMany
         ? subModel.findMany({
             where: { userId },

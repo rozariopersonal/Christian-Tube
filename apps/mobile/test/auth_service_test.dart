@@ -72,7 +72,9 @@ void main() {
       expect(await AuthTokenStore.instance.getAccessToken(), 'mock_token');
     });
 
-    test('signOut clears user and tokens while preserving auth_device_id', () async {
+    test(
+      'signOut clears user and tokens while preserving auth_device_id and ct_device_onboarding_completed_v1',
+      () async {
       const mockUser = User(
         id: '12345',
         email: 'test@example.com',
@@ -85,6 +87,8 @@ void main() {
         sessionId: 'sid_1',
       );
       final deviceId = await AuthTokenStore.instance.getOrCreateDeviceId();
+      final prefsBefore = await SharedPreferences.getInstance();
+      await prefsBefore.setBool('ct_device_onboarding_completed_v1', true);
 
       final mockClient = MockAuthSessionClient();
       when(() => mockClient.logout(accessToken: any(named: 'accessToken')))
@@ -107,43 +111,33 @@ void main() {
       expect(prefs.getString(AuthTokenStore.keyUser), isNull);
       expect(prefs.getString(AuthTokenStore.keyAccessToken), isNull);
       expect(prefs.getString(AuthTokenStore.keyDeviceId), deviceId);
+      expect(prefs.getBool('ct_device_onboarding_completed_v1'), isTrue);
     });
 
-    test('signInAsGuest calls server /api/auth/guest and stores session without email', () async {
-      final mockClient = MockAuthSessionClient();
-      when(
-        () => mockClient.createGuest(
-          deviceId: any(named: 'deviceId'),
-          deviceLabel: any(named: 'deviceLabel'),
-          displayName: any(named: 'displayName'),
-        ),
-      ).thenAnswer(
-        (_) async => const AuthSessionResult(
-          accessToken: 'jwt_guest_1',
-          refreshToken: 'ref_guest_1',
-          sessionId: 'sid_guest_1',
-          expiresIn: 900,
-          user: User(
-            id: 'guest_server_uuid',
-            email: '',
-            displayName: 'Guest Tester',
-            isGuest: true,
-          ),
-        ),
-      );
+    test('AuthService clears legacy guest cached user on startup', () async {
+      SharedPreferences.setMockInitialValues({
+        AuthTokenStore.keyUser: jsonEncode({
+          'id': 'guest_legacy_1',
+          'email': '',
+          'displayName': 'Legacy Guest',
+          'isGuest': true,
+        }),
+        AuthTokenStore.keyAccessToken: 'old_guest_jwt',
+        AuthTokenStore.keyDeviceId: 'dev_keep_1',
+        'ct_device_onboarding_completed_v1': true,
+      });
 
-      final authService = AuthService(
-        sessionClient: mockClient,
-        registerAsShared: false,
-      );
-      final user = await authService.signInAsGuest('Guest Tester', 'ignored@admin.com');
+      final authService = AuthService(registerAsShared: false);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      expect(user, isNotNull);
-      expect(user.id, 'guest_server_uuid');
-      expect(user.email, '');
-      expect(user.isGuest, isTrue);
-      expect(authService.canSync, isTrue);
-      expect(await AuthTokenStore.instance.getAccessToken(), 'jwt_guest_1');
+      expect(authService.isAuthenticated, isFalse);
+      expect(authService.currentUser, isNull);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(AuthTokenStore.keyUser), isNull);
+      expect(prefs.getString(AuthTokenStore.keyAccessToken), isNull);
+      expect(prefs.getString(AuthTokenStore.keyDeviceId), 'dev_keep_1');
+      expect(prefs.getBool('ct_device_onboarding_completed_v1'), isTrue);
     });
   });
 
@@ -229,43 +223,42 @@ void main() {
   });
 
   group('SessionBootstrap', () {
-    test('migrates legacy guest and rekeys pending ops', () async {
-      SharedPreferences.setMockInitialValues({
-        'mobile_sync_pending_v2_user_legacy_1': '{"k":{"userId":"user_legacy_1"}}',
-      });
-      final mockClient = MockAuthSessionClient();
-      when(
-        () => mockClient.createGuest(
-          deviceId: any(named: 'deviceId'),
-          deviceLabel: any(named: 'deviceLabel'),
-          displayName: 'Old Guest',
-        ),
-      ).thenAnswer(
-        (_) async => const AuthSessionResult(
-          accessToken: 'acc_g',
-          refreshToken: 'ref_g',
-          sessionId: 'sid_g',
-          expiresIn: 900,
-          user: User(id: 'guest_new_1', email: '', displayName: 'Old Guest', isGuest: true),
-        ),
-      );
+    test('clears legacy guest_ and user_ cached sessions cleanly while preserving local preferences, channels, device id and onboarding flag', () async {
+      for (final legacyId in ['guest_1', 'user_legacy_1']) {
+        SharedPreferences.setMockInitialValues({
+          AuthTokenStore.keyUser: jsonEncode({'id': legacyId, 'email': '', 'displayName': 'Old Guest'}),
+          AuthTokenStore.keyAccessToken: 'old_acc',
+          AuthTokenStore.keyDeviceId: 'device_123',
+          'ct_device_onboarding_completed_v1': true,
+          'ct_user_preferences_v1': jsonEncode({'languages': ['ta'], 'primaryBibleVersionId': 'TAOBVSI'}),
+          'subscribed_channel_ids': ['ch_1', 'ch_2'],
+          'mobile_last_guest_id_v1': legacyId,
+          'mobile_sync_pending_v2_$legacyId': '{"k":"v"}',
+        });
+        final mockClient = MockAuthSessionClient();
+        final bootstrap = SessionBootstrap(client: mockClient);
+        final res = await bootstrap.bootstrapIfNeeded(
+          cachedUser: User(
+            id: legacyId,
+            email: '',
+            displayName: 'Old Guest',
+          ),
+          fetchSilentGoogleIdToken: () async => null,
+        );
 
-      final bootstrap = SessionBootstrap(client: mockClient);
-      final res = await bootstrap.bootstrapIfNeeded(
-        cachedUser: const User(
-          id: 'user_legacy_1',
-          email: '',
-          displayName: 'Old Guest',
-          isGuest: true,
-        ),
-        fetchSilentGoogleIdToken: () async => null,
-      );
-
-      expect(res.migrated, isTrue);
-      expect(res.user?.id, 'guest_new_1');
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('mobile_sync_pending_v2_user_legacy_1'), isNull);
-      expect(prefs.getString('mobile_sync_pending_v2_guest_new_1'), contains('guest_new_1'));
+        expect(res.cleared, isTrue);
+        expect(res.migrated, isFalse);
+        expect(res.user, isNull);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(AuthTokenStore.keyUser), isNull);
+        expect(prefs.getString(AuthTokenStore.keyAccessToken), isNull);
+        expect(prefs.getString('mobile_last_guest_id_v1'), isNull);
+        expect(prefs.getString('mobile_sync_pending_v2_$legacyId'), isNull);
+        expect(prefs.getString(AuthTokenStore.keyDeviceId), 'device_123');
+        expect(prefs.getBool('ct_device_onboarding_completed_v1'), isTrue);
+        expect(prefs.getString('ct_user_preferences_v1'), isNotNull);
+        expect(prefs.getStringList('subscribed_channel_ids'), ['ch_1', 'ch_2']);
+      }
     });
 
     test('exchanges silent Google idToken for upgraded Google users', () async {
@@ -282,7 +275,7 @@ void main() {
           refreshToken: 'ref_new',
           sessionId: 'sid_new',
           expiresIn: 900,
-          user: User(id: 'g_1', email: 'g@example.com', displayName: 'G', isGuest: false),
+          user: User(id: 'g_1', email: 'g@example.com', displayName: 'G'),
         ),
       );
 

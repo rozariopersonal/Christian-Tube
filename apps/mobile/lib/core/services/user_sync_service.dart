@@ -110,7 +110,6 @@ class UserSyncService extends ChangeNotifier {
 
   static const String _keyClockOffset = 'mobile_clock_offset_v1';
   static const String _keyPendingPrefix = 'mobile_sync_pending_v2_';
-  static const String _keyLastGuestId = 'mobile_last_guest_id_v1';
 
   int _clockOffsetMs = 0;
   String? _activeUserId;
@@ -242,7 +241,6 @@ class UserSyncService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       const exactKeys = [
         _keyClockOffset,
-        _keyLastGuestId,
         'subscribed_channel_ids',
         'user_watch_history_v1',
         'video_playheads_map_v1',
@@ -278,14 +276,8 @@ class UserSyncService extends ChangeNotifier {
     _activeUserId = userId;
     _authPaused = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    if (userId.startsWith('user_') || userId.startsWith('guest_')) {
-      await prefs.setString(_keyLastGuestId, userId);
-    } else {
-      await _handoffGuestPendingOps(prefs, userId);
-    }
-
     if (changed) {
+      final prefs = await SharedPreferences.getInstance();
       _pendingOps = _readPendingMap(prefs, userId);
       _remoteState = null;
       notifyListeners();
@@ -722,42 +714,6 @@ class UserSyncService extends ChangeNotifier {
     if (shouldRetry) {
       _scheduleRetry();
     }
-  }
-
-  Future<void> _handoffGuestPendingOps(
-    SharedPreferences prefs,
-    String newUserId,
-  ) async {
-    final guestId = prefs.getString(_keyLastGuestId);
-    if (guestId == null || guestId.isEmpty || guestId == newUserId) return;
-
-    final guestOps = _readPendingMap(prefs, guestId);
-    if (guestOps.isNotEmpty) {
-      final targetOps = _readPendingMap(prefs, newUserId);
-      for (final entry in guestOps.entries) {
-        targetOps.putIfAbsent(
-          entry.key,
-          () => SyncOp(
-            opId: entry.value.opId,
-            userId: newUserId,
-            kind: entry.value.kind,
-            itemType: entry.value.itemType,
-            itemId: entry.value.itemId,
-            positionSeconds: entry.value.positionSeconds,
-            durationSeconds: entry.value.durationSeconds,
-            payloadJson: entry.value.payloadJson,
-            isDeleted: entry.value.isDeleted,
-            isActive: entry.value.isActive,
-            prefField: entry.value.prefField,
-            prefValue: entry.value.prefValue,
-            clientUpdatedAt: entry.value.clientUpdatedAt,
-          ),
-        );
-      }
-      await _writePendingMap(prefs, newUserId, targetOps);
-    }
-    await prefs.remove('$_keyPendingPrefix$guestId');
-    await prefs.remove(_keyLastGuestId);
   }
 
   Future<void> _saveOp(String userId, String key, SyncOp op) async {

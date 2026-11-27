@@ -110,18 +110,27 @@ export class UserPlaylistsService {
 
   private async ensureUser(data: { id: string; email?: string | null }) {
     const cleanEmail = (data.email || '').trim().toLowerCase();
-    const fallbackEmail = `guest_${data.id}@christianapp.local`;
+    if (!cleanEmail) {
+      const existing = await this.prisma.user.findUnique({ where: { id: data.id } });
+      if (existing) {
+        return this.prisma.user.update({
+          where: { id: data.id },
+          data: { lastLoginAt: new Date() },
+        });
+      }
+      throw new BadRequestException('Valid email is required to create user');
+    }
 
     try {
       return await this.prisma.user.upsert({
         where: { id: data.id },
         update: {
-          email: cleanEmail || undefined,
+          email: cleanEmail,
           lastLoginAt: new Date(),
         },
         create: {
           id: data.id,
-          email: cleanEmail || fallbackEmail,
+          email: cleanEmail,
           displayName: 'User',
           role: 'USER',
           isBlocked: false,
@@ -130,20 +139,13 @@ export class UserPlaylistsService {
       });
     } catch (err: any) {
       if (err?.code === 'P2002') {
-        return this.prisma.user.upsert({
-          where: { id: data.id },
-          update: {
-            lastLoginAt: new Date(),
-          },
-          create: {
-            id: data.id,
-            email: fallbackEmail,
-            displayName: 'User',
-            role: 'USER',
-            isBlocked: false,
-            lastLoginAt: new Date(),
-          },
-        });
+        const existing = await this.prisma.user.findUnique({ where: { id: data.id } });
+        if (existing) {
+          return this.prisma.user.update({
+            where: { id: data.id },
+            data: { lastLoginAt: new Date() },
+          });
+        }
       }
       throw err;
     }

@@ -5,7 +5,6 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/layout/adaptivity.dart';
 import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
-import '../../core/services/user_preference_service.dart';
 import '../../core/services/user_sync_service.dart';
 import '../../shared/ui/sync_avatar_button.dart';
 import '../../shared/ui/video_card.dart';
@@ -27,10 +26,7 @@ class VideoFeedScreen extends StatefulWidget {
 class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final VideoService _videoService = VideoService();
   final ChannelService _channelService = ChannelService();
-  final UserPreferenceService _preferenceService = UserPreferenceService.instance;
 
-  Set<String> get _videoChannelIds => _preferenceService.preferences
-      .videoFeedChannels(_channelService.subscribedChannelIds);
   final ScrollController _scrollController = ScrollController();
 
   String _selectedCategory = 'All';
@@ -40,14 +36,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   void initState() {
     super.initState();
     _channelService.addListener(_onChannelsChanged);
-    _preferenceService.addListener(_onChannelsChanged);
     _loadInitialFeed();
     _scrollController.addListener(_onScroll);
   }
 
   void _onChannelsChanged() {
     _videoService.updateSubscribedChannelIds(
-      _videoChannelIds,
+      _channelService.subscribedChannelIds,
       triggerRefresh: true,
     );
   }
@@ -56,7 +51,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     await _channelService.loadSubscriptions();
     await _channelService.fetchChannels();
     _videoService.updateSubscribedChannelIds(
-      _videoChannelIds,
+      _channelService.subscribedChannelIds,
       triggerRefresh: true,
     );
   }
@@ -72,7 +67,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   void dispose() {
     _channelService.removeListener(_onChannelsChanged);
-    _preferenceService.removeListener(_onChannelsChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -115,7 +109,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       animation: Listenable.merge([
         _videoService,
         _channelService,
-        _preferenceService,
         UserSyncService.instance,
         UserService(),
       ]),
@@ -132,7 +125,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         final baseVideos = _showLikedOnly ? likedById.values.toList(growable: false) : videos;
         final displayVideos = _applyStatusFilter(baseVideos);
         final channels = _channelService.channels;
-        final subscribedIds = _videoChannelIds;
+        final subscribedIds = _channelService.subscribedChannelIds;
         final subscribedChannels =
             channels.where((c) => subscribedIds.contains(c.id)).toList();
 
@@ -544,7 +537,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               const SizedBox(height: 16),
               Text(
                 _showLikedOnly ? 'No liked videos yet.' : 'No videos found for selected filter',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -566,7 +559,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       onRefresh: () async {
         await _channelService.loadSubscriptions();
         _videoService
-            .updateSubscribedChannelIds(_videoChannelIds);
+            .updateSubscribedChannelIds(_channelService.subscribedChannelIds);
         await _videoService.refreshVideos();
       },
       child: ScreenClass.of(context).isCompact

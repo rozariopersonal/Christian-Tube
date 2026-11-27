@@ -74,7 +74,7 @@ import { AuthService } from './auth.service';
               <div class="popover-identity">
                 <div class="popover-name">{{ user.displayName }}</div>
                 <div class="popover-email">
-                  {{ isGuest(user) ? 'Guest session' : user.email }}
+                  {{ user.email }}
                 </div>
               </div>
               <button
@@ -101,23 +101,6 @@ import { AuthService } from './auth.service';
                     (click)="auth.promptGoogleSignIn()"
                   >
                     Resume sync
-                  </button>
-                }
-              </div>
-            } @else if (isGuest(user)) {
-              <div class="status-pill">
-                <span class="material-symbols-rounded" aria-hidden="true">cloud_off</span>
-                <span>Guest session · Local changes saved on this device</span>
-              </div>
-              <div class="gsi-section">
-                <div #gsiHost class="gsi-host"></div>
-                @if (!gsiRendered()) {
-                  <button
-                    type="button"
-                    class="primary-btn"
-                    (click)="auth.promptGoogleSignIn()"
-                  >
-                    Sign in with Google
                   </button>
                 }
               </div>
@@ -209,13 +192,13 @@ import { AuthService } from './auth.service';
                   Sign in with Google
                 </button>
               }
-              <button
-                type="button"
-                class="ghost-btn full"
-                (click)="continueAsGuest()"
-              >
-                Continue as Guest
-              </button>
+            </div>
+
+            <div class="popover-actions">
+              <a class="menu-link" routerLink="/settings" (click)="close()">
+                <span class="material-symbols-rounded">tune</span>
+                <span>Settings</span>
+              </a>
             </div>
 
             <div class="popover-actions">
@@ -496,10 +479,6 @@ import { AuthService } from './auth.service';
         font-weight: 500;
       }
 
-      .ghost-btn.full {
-        width: 100%;
-      }
-
       .danger-btn {
         padding: 8px 14px;
         border-radius: var(--radius-pill);
@@ -666,10 +645,6 @@ export class AccountAvatarMenuComponent {
     }
   }
 
-  isGuest(user: { isGuest?: boolean; id: string }): boolean {
-    return Boolean(user.isGuest) || user.id.startsWith('guest_');
-  }
-
   initials(name: string): string {
     const clean = (name || 'U').trim();
     const parts = clean.split(/\s+/);
@@ -683,11 +658,6 @@ export class AccountAvatarMenuComponent {
     this.open.set(false);
     this.confirmingSignOut.set(false);
     this.auth.signOut();
-  }
-
-  async continueAsGuest(): Promise<void> {
-    await this.auth.signInAsGuest();
-    this.close();
   }
 
   private tryRenderGsiButton(host: HTMLElement): void {

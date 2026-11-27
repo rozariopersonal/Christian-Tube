@@ -227,7 +227,6 @@ model User {
   displayName   String?
   photoUrl      String?
   isBlocked     Boolean               @default(false)
-  isGuest       Boolean               @default(false)
   role          String                @default("USER") // "ADMIN" or "USER"
   lastLoginAt   DateTime              @default(now())
   createdAt     DateTime              @default(now())
@@ -248,15 +247,10 @@ model UserPreference {
   id                     String   @id @default(uuid())
   userId                 String   @unique
   languages              String[] @default(["en"])
-  videoChannelIds        String[] @default([])
-  shortsChannelIds       String[] @default([])
   primaryBibleVersionId  String?  @default("NASB")
-  bibleVersionIds        String[] @default([])
   themeMode              String?  @default("system")
   accentColor            String?  @default("blue")
   defaultPage            String?  @default("feed")
-  dailyReminderEnabled             Boolean  @default(false)
-  dailyReminderTime                String?  @default("07:00")
   lockScreenWordFeedEnabled        Boolean  @default(false)
   lockScreenRefreshIntervalMinutes Int      @default(60)
   hasCompletedOnboarding           Boolean  @default(false)
@@ -488,7 +482,6 @@ model UserSession {
   prevTokenGraceUntil DateTime?
   deviceId            String?
   deviceLabel         String?
-  isGuest             Boolean   @default(false)
   expiresAt           DateTime
   revokedAt           DateTime?
   revokeReason        String?

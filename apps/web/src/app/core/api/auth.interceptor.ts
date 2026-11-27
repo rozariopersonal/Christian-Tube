@@ -14,7 +14,6 @@ export const AUTH_RETRIED = new HttpContextToken<boolean>(() => false);
 function isAuthEndpoint(url: string): boolean {
   return (
     url.includes('/auth/google') ||
-    url.includes('/auth/guest') ||
     url.includes('/auth/refresh') ||
     url.includes('/auth/logout')
   );

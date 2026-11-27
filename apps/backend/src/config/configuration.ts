@@ -100,8 +100,6 @@ export default () => {
     auth: {
       jwtKeysRaw: process.env.AUTH_JWT_KEYS || '',
       jwtSecretFallback: process.env.AUTH_JWT_SECRET || '',
-      rejectLegacyGuestImpersonation:
-        process.env.AUTH_REJECT_LEGACY_GUEST_IMPERSONATION === 'true',
       accessTokenTtlSec: 900,
       refreshTokenTtlDays: 90,
       graceWindowSec: 60,

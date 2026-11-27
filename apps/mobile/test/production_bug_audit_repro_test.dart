@@ -764,29 +764,6 @@ void main() {
   });
 
   // =========================================================================
-  // 11. PREFERENCES: Following a channel drops sync when channelSelectionsConfigured == false
-  // =========================================================================
-  test(
-      'BUG 11 (Preferences): syncChannelFollowState must enqueue channel list even when channelSelectionsConfigured was false',
-      () async {
-    final prefService = UserPreferenceService.forTesting(
-      initial: const UserPreference(
-        channelSelectionsConfigured: false,
-        videoChannelIds: [],
-      ),
-    );
-    UserSyncService.instance.setActiveUserForTesting('user-1');
-
-    await prefService.syncChannelFollowState('ch-grace', true);
-
-    final hasVideoChannelOp = UserSyncService.instance.pendingOps.values.any(
-      (op) => op.kind == 'preference' && op.prefField == 'videoChannelIds',
-    );
-    expect(hasVideoChannelOp, isTrue,
-        reason: 'Following a channel must sync videoChannelIds to backend');
-  });
-
-  // =========================================================================
   // 12. LOCKSCREEN: Recursive rotateNextWord deadlocks on empty-bookmarks fallback
   // =========================================================================
   test(

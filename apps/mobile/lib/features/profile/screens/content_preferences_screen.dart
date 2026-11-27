@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/layout/content_width.dart';
 import '../../../core/models/user_preference.dart';
 import '../../../core/services/user_preference_service.dart';
@@ -15,11 +16,15 @@ import '../../../shared/ui/channel_follow_tile.dart';
 class ContentPreferencesScreen extends StatefulWidget {
   final AuthService authService;
   final ThemeService themeService;
+  final UserPreferenceService? preferenceService;
+  final ChannelService? channelService;
 
   const ContentPreferencesScreen({
     super.key,
     required this.authService,
     required this.themeService,
+    this.preferenceService,
+    this.channelService,
   });
 
   @override
@@ -30,8 +35,8 @@ class ContentPreferencesScreen extends StatefulWidget {
 class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final UserPreferenceService _preferenceService = UserPreferenceService();
-  final ChannelService _channelService = ChannelService();
+  late final UserPreferenceService _preferenceService;
+  late final ChannelService _channelService;
 
   late UserPreference _currentPref;
   bool _isSaving = false;
@@ -42,9 +47,13 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _preferenceService = widget.preferenceService ?? UserPreferenceService();
+    _channelService = widget.channelService ?? ChannelService();
     _currentPref = _preferenceService.preferences;
     _channelService.addListener(_onChannelsChanged);
-    _channelService.fetchChannels();
+    if (widget.channelService == null) {
+      _channelService.fetchChannels();
+    }
     _preferenceService.addListener(_onPrefChanged);
   }
 
@@ -128,7 +137,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           tabs: const [
             Tab(text: 'Languages', icon: Icon(Icons.translate_rounded, size: 18)),
             Tab(text: 'Channels', icon: Icon(Icons.subscriptions_outlined, size: 18)),
-            Tab(text: 'Bible Versions', icon: Icon(Icons.menu_book_rounded, size: 18)),
+            Tab(text: 'Bible Version', icon: Icon(Icons.menu_book_rounded, size: 18)),
           ],
         ),
       ),
@@ -180,7 +189,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           const SizedBox(height: 4),
           Text(
             'Filter books, sermons, articles, and songs by your selected languages.',
-            style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
+            style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -226,7 +235,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                     ),
                     subtitle: lang.nativeName.isNotEmpty &&
                             lang.nativeName != lang.englishName
-                        ? Text(lang.nativeName, style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted))
+                        ? Text(lang.nativeName, style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted))
                         : null,
                     onChanged: (val) {
                       final newLangs = List<String>.from(_currentPref.languages);
@@ -255,7 +264,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   }
 
   // -------------------------------------------------------------
-  // TAB 2: Followed Channels (Unified for Videos & Shorts)
+  // TAB 2: Followed Channels (Unified via ChannelService)
   // -------------------------------------------------------------
   Widget _buildChannelsTab(BuildContext context) {
     final tokens = context.tokens;
@@ -295,7 +304,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           const SizedBox(height: 2),
           Text(
             'Channels featured in your video and shorts feeds.',
-            style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
+            style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
           ),
           const SizedBox(height: 12),
           Row(
@@ -317,29 +326,38 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               TextButton(
-                onPressed: () {
-                  final allIds = channels.map((c) => c.id).toSet();
-                  _channelService.seedSubscribedIds(allIds);
-                  _updatePreferences(_currentPref.copyWith(
-                    videoChannelIds: allIds.toList(),
-                    shortsChannelIds: allIds.toList(),
-                  ));
-                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(44, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: channels.isEmpty
+                    ? null
+                    : () async {
+                        final allIds = channels.map((c) => c.id).toSet();
+                        await _channelService.saveChannelSelections(
+                          Set<String>.from(followedIds),
+                          allIds,
+                        );
+                      },
                 child: const Text('All'),
               ),
               TextButton(
-                onPressed: () {
-                  final currentFollowed = Set<String>.from(followedIds);
-                  for (final id in currentFollowed) {
-                    _channelService.toggleFollow(id);
-                  }
-                  _updatePreferences(_currentPref.copyWith(
-                    videoChannelIds: const [],
-                    shortsChannelIds: const [],
-                  ));
-                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(44, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: followedIds.isEmpty
+                    ? null
+                    : () async {
+                        await _channelService.saveChannelSelections(
+                          Set<String>.from(followedIds),
+                          const <String>{},
+                        );
+                      },
                 child: const Text('Clear'),
               ),
             ],
@@ -350,7 +368,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                 ? Center(
                     child: Text(
                       'No channels found',
-                      style: TextStyle(color: tokens.onSurfaceMuted),
+                      style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
                     ),
                   )
                 : ListView.separated(
@@ -369,19 +387,26 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
                         isFollowed: isFollowed,
                         badge: ch.hasShorts
                             ? Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.error.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: Text(
-                                  'SHORTS',
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: ScreenClass.of(context).isCompact
+                                    ? Icon(
+                                        Icons.bolt_rounded,
+                                        size: 12,
+                                        color: Theme.of(context).colorScheme.error,
+                                        semanticLabel: 'Shorts',
+                                      )
+                                    : Text(
+                                        'SHORTS',
+                                        style: TextStyle(
+                                          color: Theme.of(context).colorScheme.error,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               )
                             : null,
                         onToggleFollow: () => _channelService.toggleFollow(ch.id),
@@ -395,15 +420,17 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
   }
 
   // -------------------------------------------------------------
-  // TAB 4: Bible Versions
+  // TAB 3: Primary Bible Version
   // -------------------------------------------------------------
   Widget _buildBibleTab(BuildContext context) {
     final tokens = context.tokens;
+    final selectedLanguages = _currentPref.languages
+        .map((code) => code.toLowerCase())
+        .toSet();
 
     // Filter catalog based on chosen languages
     final candidateBibles = BibleDownloadManager.catalog.where((b) {
-      final code = b.languageCode.toLowerCase();
-      return _currentPref.languages.contains(code);
+      return selectedLanguages.contains(b.languageCode.toLowerCase());
     }).toList();
 
     return Padding(
@@ -412,7 +439,7 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Preferred Bible Translations',
+            'Primary Bible Version',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -421,123 +448,117 @@ class _ContentPreferencesScreenState extends State<ContentPreferencesScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            'Select your primary reading translation and secondary comparative translations.',
-            style: TextStyle(fontSize: 12, color: tokens.onSurfaceMuted),
+            'Choose your default Bible translation for reading and study.',
+            style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: ListView.separated(
-              itemCount: candidateBibles.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 6),
-              itemBuilder: (context, index) {
-                final b = candidateBibles[index];
-                final isPrimary = _currentPref.primaryBibleVersionId.toUpperCase() == b.id.toUpperCase();
-                final isChecked = _currentPref.bibleVersionIds.contains(b.id) || isPrimary;
-
-                final nativeScript = BibleVersionNativeNames.getNativeScript(
-                  b.id,
-                  language: b.language,
-                  languageCode: b.languageCode,
-                );
-
-                return Material(
-                  color: isPrimary
-                      ? context.primary.withValues(alpha: 0.1)
-                      : tokens.surface,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isPrimary ? context.primary : tokens.surfaceBorder,
-                      width: isPrimary ? 1.5 : 1.0,
+            child: candidateBibles.isEmpty
+                ? Center(
+                    child: Text(
+                      'No Bible versions found for your selected languages.',
+                      style: TextStyle(fontSize: 13, color: tokens.onSurfaceMuted),
                     ),
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    onTap: () {
-                      final newVersions = List<String>.from(_currentPref.bibleVersionIds);
-                      if (!newVersions.contains(b.id)) newVersions.add(b.id);
-                      _updatePreferences(
-                        _currentPref.copyWith(
-                          primaryBibleVersionId: b.id,
-                          bibleVersionIds: newVersions,
-                        ),
+                  )
+                : ListView.separated(
+                    itemCount: candidateBibles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final b = candidateBibles[index];
+                      final isPrimary = _currentPref.primaryBibleVersionId.toUpperCase() ==
+                          b.id.toUpperCase();
+
+                      final nativeScript = BibleVersionNativeNames.getNativeScript(
+                        b.id,
+                        language: b.language,
+                        languageCode: b.languageCode,
                       );
-                    },
-                    title: Row(
-                      children: [
-                        Text(
-                          b.id,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            b.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
+
+                      return Material(
+                        color: isPrimary
+                            ? context.primary.withValues(alpha: 0.1)
+                            : tokens.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isPrimary ? context.primary : tokens.surfaceBorder,
+                            width: isPrimary ? 1.5 : 1.0,
                           ),
                         ),
-                      ],
-                    ),
-                    subtitle: nativeScript.isNotEmpty && nativeScript != b.name
-                        ? Text(
-                            '$nativeScript • ${b.language}',
-                            style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted),
-                          )
-                        : Text(b.language, style: TextStyle(fontSize: 11, color: tokens.onSurfaceMuted)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isPrimary)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: context.primary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'PRIMARY',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          )
-                        else
-                          TextButton(
-                            onPressed: () {
-                              final newVersions = List<String>.from(_currentPref.bibleVersionIds);
-                              if (!newVersions.contains(b.id)) newVersions.add(b.id);
+                        child: ListTile(
+                          dense: true,
+                          onTap: () {
+                            if (!isPrimary) {
                               _updatePreferences(
                                 _currentPref.copyWith(
                                   primaryBibleVersionId: b.id,
-                                  bibleVersionIds: newVersions,
                                 ),
                               );
-                            },
-                            child: const Text('Set Primary', style: TextStyle(fontSize: 11)),
-                          ),
-                        Checkbox(
-                          value: isChecked,
-                          activeColor: context.primary,
-                          onChanged: (val) {
-                            final newVersions = List<String>.from(_currentPref.bibleVersionIds);
-                            if (val == true) {
-                              if (!newVersions.contains(b.id)) newVersions.add(b.id);
-                            } else if (!isPrimary) {
-                              newVersions.remove(b.id);
                             }
-                            _updatePreferences(_currentPref.copyWith(bibleVersionIds: newVersions));
                           },
+                          title: Row(
+                            children: [
+                              Text(
+                                b.id,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  b.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: nativeScript.isNotEmpty && nativeScript != b.name
+                              ? Text(
+                                  '$nativeScript • ${b.language}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: tokens.onSurfaceMuted,
+                                  ),
+                                )
+                              : Text(
+                                  b.language,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: tokens.onSurfaceMuted,
+                                  ),
+                                ),
+                          trailing: isPrimary
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    'PRIMARY',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.radio_button_unchecked,
+                                  size: 20,
+                                  color: tokens.onSurfaceMuted,
+                                ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/api/api_client.dart';
 import '../../core/config/app_config.dart';
@@ -152,10 +151,18 @@ class AuthService extends ChangeNotifier {
     final user = await _tokenStore.readUser();
     if (user == null) return;
 
+    if (user.id.startsWith('guest_') || user.id.startsWith('user_')) {
+      await _bootstrap.bootstrapIfNeeded(
+        cachedUser: user,
+        fetchSilentGoogleIdToken: _fetchSilentGoogleIdToken,
+      );
+      return;
+    }
+
     _currentUser = user;
     _sessionExpired = await _tokenStore.readSessionExpired();
     unawaited(UserSyncService.instance.onUserChanged(user.id));
-    if (!user.isGuest && user.email.isNotEmpty) {
+    if (user.email.isNotEmpty) {
       await checkIsAdmin(user.email);
     }
     notifyListeners();
@@ -164,7 +171,13 @@ class AuthService extends ChangeNotifier {
       cachedUser: user,
       fetchSilentGoogleIdToken: _fetchSilentGoogleIdToken,
     );
-    if (result.migrated && result.user != null) {
+    if (result.cleared) {
+      _currentUser = null;
+      _sessionExpired = false;
+      _isAdmin = false;
+      unawaited(UserSyncService.instance.onUserChanged(null));
+      notifyListeners();
+    } else if (result.migrated && result.user != null) {
       _currentUser = result.user;
       _sessionExpired = result.sessionExpired;
       unawaited(UserSyncService.instance.onUserChanged(result.user!.id));
@@ -212,7 +225,6 @@ class AuthService extends ChangeNotifier {
                 ? account.displayName!
                 : account.email.split('@').first,
             photoUrl: account.photoUrl,
-            isGuest: false,
           );
       await _tokenStore.saveSession(
         user: user,
@@ -257,9 +269,7 @@ class AuthService extends ChangeNotifier {
 
   Future<bool> checkIsAdmin([String? email]) async {
     final targetEmail = email ?? _currentUser?.email;
-    if (targetEmail == null ||
-        targetEmail.isEmpty ||
-        (_currentUser?.isGuest ?? false)) {
+    if (targetEmail == null || targetEmail.isEmpty) {
       _isAdmin = false;
       notifyListeners();
       return false;
@@ -326,14 +336,10 @@ class AuthService extends ChangeNotifier {
             ? account.displayName!
             : account.email.split('@').first,
         photoUrl: account.photoUrl,
-        isGuest: false,
       );
 
       final existing = _currentUser;
-      final existingIsGoogle =
-          existing != null && !existing.isGuest && !existing.id.startsWith('guest_');
-
-      if (existingIsGoogle && existing.id != account.id) {
+      if (existing != null && existing.id != account.id) {
         if (onConfirmAccountSwitch != null) {
           final confirmed = await onConfirmAccountSwitch(existing, previewUser);
           if (!confirmed) {
@@ -420,71 +426,6 @@ class AuthService extends ChangeNotifier {
             .catchError((_) => const UserPreference());
       }
     });
-  }
-
-  Future<User> signInAsGuest([String? customName, String? ignoredEmail]) async {
-    _isLoading = true;
-    _lastError = null;
-    notifyListeners();
-
-    final fallbackName = customName?.trim().isNotEmpty == true
-        ? customName!.trim()
-        : '${AppConfig.appName} Member';
-
-    try {
-      final deviceId = await _tokenStore.getOrCreateDeviceId();
-      final res = await _sessionClient.createGuest(
-        deviceId: deviceId,
-        deviceLabel: _tokenStore.getDeviceLabel(),
-        displayName: fallbackName,
-      );
-
-      final user = res.user ??
-          User(
-            id: 'guest_${DateTime.now().millisecondsSinceEpoch}',
-            email: '',
-            displayName: fallbackName,
-            isGuest: true,
-          );
-
-      _currentUser = user;
-      _sessionExpired = false;
-      _isAdmin = false;
-      _refreshCoordinator.clearBackoff();
-
-      await _tokenStore.saveSession(
-        user: user,
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-        sessionId: res.sessionId,
-      );
-      broadcastAuthEvent('session_updated');
-
-      _syncUserWithBackend(user);
-      unawaited(UserSyncService.instance.onUserChanged(user.id));
-      return user;
-    } catch (e) {
-      debugPrint('Offline/fallback guest sign-in: $e');
-      final offlineUser = User(
-        id: 'guest_${DateTime.now().millisecondsSinceEpoch}',
-        email: '',
-        displayName: fallbackName,
-        isGuest: true,
-      );
-      _currentUser = offlineUser;
-      _sessionExpired = false;
-      _isAdmin = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        AuthTokenStore.keyUser,
-        jsonEncode(offlineUser.toJson()),
-      );
-      unawaited(UserSyncService.instance.onUserChanged(offlineUser.id));
-      return offlineUser;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
   Future<void> signOut() async {

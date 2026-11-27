@@ -36,13 +36,12 @@ describe('renewable web sessions', () => {
 
   it('requires a verified Google identity to create a session', async () => {
     const controller = new SessionController(sessions);
-    await expect(controller.create({ user: { isGuest: true, userId: 'guest', email: 'x' } })).rejects.toThrow();
     await expect(controller.create({ user: { userId: 'u', email: 'x' } })).rejects.toThrow();
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
   it('rejects expired sessions instead of treating them as Google credentials', async () => {
-    const google = { isGuestToken: jest.fn(), verifyIdToken: jest.fn() };
+    const google = { verifyIdToken: jest.fn() };
     const guard = new AuthGuard(google as any, undefined, undefined, undefined, sessions);
     const request = { headers: { authorization: `Bearer session_${'a'.repeat(43)}` } };
     const context = { switchToHttp: () => ({ getRequest: () => request }) };

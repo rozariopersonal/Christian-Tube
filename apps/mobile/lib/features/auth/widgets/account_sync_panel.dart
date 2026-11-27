@@ -155,8 +155,6 @@ class _AccountSyncPanelState extends State<AccountSyncPanel> {
         final user = widget.authService.currentUser;
         final expired = widget.authService.sessionExpired;
         final isLoading = widget.authService.isLoading;
-        final isGuest =
-            user != null && (user.isGuest || user.id.startsWith('guest_'));
 
         return SingleChildScrollView(
           padding: ScreenClass.of(context).isCompact
@@ -187,7 +185,7 @@ class _AccountSyncPanelState extends State<AccountSyncPanel> {
                         Text(
                           user == null
                               ? 'Sign in to sync across devices'
-                              : (isGuest ? 'Guest session' : user.email),
+                              : user.email,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.bodySmall?.copyWith(
@@ -204,12 +202,10 @@ class _AccountSyncPanelState extends State<AccountSyncPanel> {
                 _StatusPill(
                   icon: expired
                       ? Icons.sync_problem
-                      : (isGuest ? Icons.cloud_off_outlined : Icons.cloud_done_outlined),
+                      : Icons.cloud_done_outlined,
                   text: expired
                       ? 'Sync paused · Local changes are saved on this device'
-                      : (isGuest
-                          ? 'Guest session · Local changes saved on this device'
-                          : 'Synced across your devices'),
+                      : 'Synced across your devices',
                   highlightBorder: expired ? accent : null,
                   iconColor: expired ? accent : tokens.onSurfaceMuted,
                 ),
@@ -220,7 +216,7 @@ class _AccountSyncPanelState extends State<AccountSyncPanel> {
                   style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
                 ),
               ],
-              if (user == null || expired || isGuest) ...[
+              if (user == null || expired) ...[
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: isLoading ? null : _handleResumeOrSignIn,
@@ -240,20 +236,6 @@ class _AccountSyncPanelState extends State<AccountSyncPanel> {
                   label: Text(
                     expired ? 'Resume sync' : 'Sign in with Google',
                   ),
-                ),
-              ],
-              if (user == null) ...[
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          await widget.authService.signInAsGuest();
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                  child: const Text('Continue as Guest'),
                 ),
               ],
               const SizedBox(height: 10),

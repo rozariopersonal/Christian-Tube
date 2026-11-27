@@ -12,8 +12,6 @@ import { AppJwtService } from '../modules/auth/app-jwt.service';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { SessionService } from './session.service';
 
-const GOOGLE_SUB_PATTERN = /^\d{18,30}$/;
-
 @Injectable()
 export class AuthGuard implements CanActivate {
   protected readonly logger = new Logger(AuthGuard.name);
@@ -50,7 +48,6 @@ export class AuthGuard implements CanActivate {
           email: claims.email ?? '',
           role: 'USER',
           sessionId: claims.sid,
-          isGuest: claims.isGuest,
         };
         return true;
       } catch (error) {
@@ -65,62 +62,11 @@ export class AuthGuard implements CanActivate {
     if (token.startsWith('session_') && this.sessions) {
       const user = await this.sessions.authenticate(token);
       if (!user) throw new UnauthorizedException('Invalid or expired session');
-      request.user = { ...user, role: 'USER', isGuest: false };
+      request.user = { ...user, role: 'USER' };
       return true;
     }
 
-    // 3. Legacy guest token (non-admin; ::email claim is ignored for authz)
-    if (this.googleJwksService.isGuestToken(token)) {
-      const userId = this.googleJwksService.parseGuestToken(token);
-      if (!userId) {
-        throw new UnauthorizedException('Invalid guest token');
-      }
-
-      this.logger.debug(JSON.stringify({ event: 'auth.legacy_guest_token', userId }));
-
-      const looksLikeGoogleSub = GOOGLE_SUB_PATTERN.test(userId);
-      let belongsToNonGuestUser = false;
-      if (this.prisma) {
-        try {
-          const existing = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { isGuest: true },
-          });
-          if (existing && existing.isGuest === false) {
-            belongsToNonGuestUser = true;
-          }
-        } catch {
-          // Non-fatal check failure
-        }
-      }
-
-      if (looksLikeGoogleSub || belongsToNonGuestUser) {
-        this.logger.warn(
-          JSON.stringify({
-            event: 'auth.legacy_guest_impersonation_detected',
-            userId,
-            looksLikeGoogleSub,
-            belongsToNonGuestUser,
-          }),
-        );
-        const rejectFlag =
-          this.configService?.get<boolean>('auth.rejectLegacyGuestImpersonation') ??
-          process.env.AUTH_REJECT_LEGACY_GUEST_IMPERSONATION === 'true';
-        if (rejectFlag) {
-          throw new UnauthorizedException('Legacy token rejected; please sign in again');
-        }
-      }
-
-      request.user = {
-        userId,
-        email: '',
-        role: 'USER',
-        isGuest: true,
-      };
-      return true;
-    }
-
-    // 4. Legacy Google idToken (JWKS verification, sunset path)
+    // 3. Legacy Google idToken (JWKS verification, sunset path)
     try {
       const payload = await this.googleJwksService.verifyIdToken(token);
       this.logger.debug(
@@ -130,7 +76,6 @@ export class AuthGuard implements CanActivate {
         userId: payload.sub,
         email: (payload.email as string) || '',
         role: 'USER',
-        isGuest: false,
         isGoogle: true,
       };
       return true;
