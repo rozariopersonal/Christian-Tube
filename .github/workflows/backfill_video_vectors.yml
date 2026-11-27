@@ -1,0 +1,44 @@
+name: Backfill Video Vectors (Upstash)
+
+on:
+  schedule:
+    # Daily at 12:00 PM IST (06:30 UTC) — uploads 6,000 priority videos/day within free-tier 10k/day cap
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      max_videos:
+        description: 'Max videos to upload in this run'
+        required: false
+        default: '6000'
+
+concurrency:
+  group: backfill-video-vectors
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    if: ${{ vars.BACKFILL_VIDEO_VECTORS_DISABLED != 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/backend/package-lock.json
+
+      - name: Install backend Prisma client
+        working-directory: apps/backend
+        run: npm ci --omit=dev --no-audit --no-fund && npx prisma generate
+
+      - name: Run resumable video vector backfill
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          UPSTASH_VECTOR_REST_URL: ${{ secrets.UPSTASH_VECTOR_REST_URL }}
+          UPSTASH_VECTOR_REST_TOKEN: ${{ secrets.UPSTASH_VECTOR_REST_TOKEN }}
+        run: |
+          MAX_VIDEOS="${{ github.event.inputs.max_videos || '6000' }}"
+          node scripts/ingest-video-vectors.mjs --max-videos "$MAX_VIDEOS" --batch 100
