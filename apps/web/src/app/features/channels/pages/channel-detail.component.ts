@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -47,7 +47,7 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
               <h1 class="font-display">{{ channel()!.title }}</h1>
               <p class="sub">
                 @if (channel()!.subscriberCount > 0) {
-                  <span>{{ formatViews(channel()!.subscriberCount).replace(' views', '') }} followers · </span>
+                  <span>{{ formatFollowers(channel()!.subscriberCount) }} followers · </span>
                 }
                 <span>{{ channel()!.videoCount }} videos</span>
               </p>
@@ -141,7 +141,7 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
               </div>
               <div class="shorts-strip">
                 @for (s of homeShorts(); track s.id) {
-                  <a class="short-tile" routerLink="/shorts">
+                  <a class="short-tile" [routerLink]="['/watch', s.id]">
                     <img class="short-thumb" [src]="s.thumbnailUrl" [alt]="s.title" />
                     <span class="short-title">{{ s.title }}</span>
                   </a>
@@ -497,6 +497,7 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
 })
 export class ChannelDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(ApiService);
   private readonly videoService = inject(VideoService);
   readonly channelService = inject(ChannelService);
@@ -547,6 +548,9 @@ export class ChannelDetailComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.destroyRef.onDestroy(() => {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+    });
     void this.channelService.loadSubscriptions();
     this.route.paramMap.subscribe(async (params) => {
       const id = params.get('id');
@@ -628,6 +632,12 @@ export class ChannelDetailComponent implements OnInit {
     } finally {
       this.tabLoading.set(false);
     }
+  }
+
+  formatFollowers(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
   }
 
   formatViews(n: number): string {
