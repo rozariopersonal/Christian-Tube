@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/models/video.dart';
-import '../../core/models/short.dart';
 import '../../shared/ui/search_video_card.dart';
 import '../../core/config/app_config.dart';
 
 class VideoSearchDelegate extends SearchDelegate<Video?> {
   final ApiClient _apiClient = ApiClient();
+  String? _lastQuery;
+  Future<List<Video>>? _lastFuture;
 
   @override
   String get searchFieldLabel => 'Search ${AppConfig.appName} videos...';
@@ -25,6 +27,21 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
   @override
   Widget? buildLeading(BuildContext context) => null;
 
+  Future<List<Video>> _memoizedSearch(String raw) {
+    final q = raw.trim();
+    if (_lastQuery != q || _lastFuture == null) {
+      _lastQuery = q;
+      _lastFuture = _searchVideos(q).catchError((Object err, StackTrace st) {
+        // Clear cached future on error so retrying the same query works
+        if (_lastQuery == q) {
+          _lastFuture = null;
+        }
+        Error.throwWithStackTrace(err, st);
+      });
+    }
+    return _lastFuture!;
+  }
+
   @override
   Widget buildResults(BuildContext context) {
     if (query.trim().isEmpty) {
@@ -32,21 +49,23 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
     }
 
     return FutureBuilder<List<Video>>(
-      future: _searchVideos(query),
+      future: _memoizedSearch(query),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return const Center(child: Text('Could not search videos. Please try again.'));
         }
         final videos = snapshot.data ?? [];
         if (videos.isEmpty) {
-          return const Center(child: Text('No videos found.'));
+          return Center(child: Text('No videos found for "${query.trim()}".'));
         }
-        return ListView.builder(
-          itemCount: videos.length,
-          itemBuilder: (context, index) => SearchVideoCard(video: videos[index]),
+        return MaxWidthBox(
+          child: ListView.builder(
+            itemCount: videos.length,
+            itemBuilder: (context, index) => SearchVideoCard(video: videos[index]),
+          ),
         );
       },
     );
@@ -75,32 +94,24 @@ class VideoSearchDelegate extends SearchDelegate<Video?> {
   }
 
   Future<List<Video>> _searchVideos(String query) async {
-    try {
-      dynamic response;
-      try {
-        response = await _apiClient.dio.get(
-          '/api/search',
-          queryParameters: {'q': query, 'type': 'VIDEO'},
-        );
-      } catch (_) {
-        response = await _apiClient.dio.get(
-          '/videos',
-          queryParameters: {'search': query, 'type': 'VIDEO'},
-        );
-      }
+    final response = await _apiClient.dio.get(
+      '/api/search',
+      queryParameters: {
+        'q': query,
+        'type': 'VIDEO',
+        'sort': 'relevance',
+        'limit': 50,
+      },
+    );
 
-      if (response.statusCode == 200 && response.data != null) {
-        final dynamic raw = response.data;
-        final List<dynamic> list = raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .where((json) => !Short.isShort(json))
-            .map((v) => Video.fromJson(v))
-            .where((v) => v.type != 'SHORT')
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Search error: $e');
+    if (response.statusCode == 200 && response.data != null) {
+      final dynamic raw = response.data;
+      final List<dynamic> list =
+          raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((v) => Video.fromJson(v))
+          .toList();
     }
     return [];
   }

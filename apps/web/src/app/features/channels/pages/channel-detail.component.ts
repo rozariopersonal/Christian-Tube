@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -495,7 +495,7 @@ type ChannelSort = 'latest' | 'popular' | 'oldest';
     `,
   ],
 })
-export class ChannelDetailComponent implements OnInit {
+export class ChannelDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly api = inject(ApiService);
@@ -584,40 +584,66 @@ export class ChannelDetailComponent implements OnInit {
   }
 
   selectSort(nextSort: ChannelSort): void {
+    this.userSelectedSort = true;
     this.sort.set(nextSort);
     void this.loadTabPage(true);
+  }
+
+  private tabRequestId = 0;
+  private userSelectedSort = false;
+
+  ngOnDestroy(): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
   }
 
   onSearchChange(q: string): void {
     this.channelQuery.set(q);
     if (this.searchTimer) clearTimeout(this.searchTimer);
+    const trimmed = q.trim();
+    if (!trimmed) {
+      this.userSelectedSort = false;
+    } else if (trimmed.length < 3) {
+      return;
+    }
     this.searchTimer = setTimeout(() => {
       if (this.activeTab() === 'home' || this.activeTab() === 'about') {
         this.activeTab.set('videos');
       }
       void this.loadTabPage(true);
-    }, 280);
+    }, 450);
   }
 
   async loadTabPage(refresh: boolean): Promise<void> {
-    if (this.tabLoading() || !this.channelId) return;
+    if (!this.channelId) return;
+    if (!refresh && (this.tabLoading() || !this.hasMore())) return;
+    const reqId = ++this.tabRequestId;
     if (refresh) {
       this.offset = 0;
       this.hasMore.set(true);
     }
-    if (!this.hasMore()) return;
 
     this.tabLoading.set(true);
     try {
       const type = this.activeTab() === 'shorts' ? 'SHORT' : 'VIDEO';
+      const q = this.channelQuery().trim();
+      const effectiveSort =
+        q && !this.userSelectedSort
+          ? 'relevance'
+          : this.activeTab() === 'videos'
+            ? this.sort()
+            : 'latest';
       const batch = await this.videoService.queryVideos({
         channelId: this.channelId,
         type,
-        sort: this.activeTab() === 'videos' ? this.sort() : 'latest',
-        search: this.channelQuery(),
+        sort: effectiveSort,
+        search: q || undefined,
         limit: this.limit,
         offset: this.offset,
       });
+      if (reqId !== this.tabRequestId) return;
       if (refresh) {
         this.items.set(batch);
       } else {
@@ -629,8 +655,14 @@ export class ChannelDetailComponent implements OnInit {
       }
       this.offset += batch.length;
       this.hasMore.set(batch.length >= this.limit);
+    } catch {
+      if (reqId === this.tabRequestId) {
+        this.hasMore.set(false);
+      }
     } finally {
-      this.tabLoading.set(false);
+      if (reqId === this.tabRequestId) {
+        this.tabLoading.set(false);
+      }
     }
   }
 

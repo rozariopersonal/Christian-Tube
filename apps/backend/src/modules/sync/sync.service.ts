@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
 import { CacheService } from '../cache/cache.service';
+import { VideoVectorService } from '../video-vector/video-vector.service';
 import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
 import { AdminAudioProcessorService } from '../admin-audio-processor/admin-audio-processor.service';
 
@@ -24,7 +25,15 @@ export class SyncService implements OnModuleInit {
     private readonly youtubeService: YoutubeService,
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly adminAudioProcessor?: AdminAudioProcessorService,
+    @Optional() private readonly videoVector?: VideoVectorService,
   ) {}
+
+  private queueVectorUpsert(videos: any[]) {
+    if (!this.videoVector || !videos.length) return;
+    this.videoVector.upsertVideos(videos).catch((e: any) => {
+      this.logger.warn(`Upstash video vector upsert warning: ${e?.message || e}`);
+    });
+  }
 
   isSyncEnabled(): boolean {
     if (this.syncEnabledOverride !== null) return this.syncEnabledOverride;
@@ -186,7 +195,7 @@ export class SyncService implements OnModuleInit {
       return { status: 'success', channelCount: channels.length, succeeded, failed };
     } finally {
       this.isSyncing = false;
-      await this.cache?.invalidate('videos', 'channels');
+      await this.cache?.invalidate('videos', 'channels', 'video-search');
     }
   }
 
@@ -247,6 +256,7 @@ export class SyncService implements OnModuleInit {
     let pageToken: string | undefined = (channel as any).syncCursor || undefined;
     let batchesProcessed = 0;
     let totalSyncedInRun = 0;
+    const syncedForVector: any[] = [];
     const maxBatches = 500; // Ingests up to 25,000 videos continuously
 
     while (batchesProcessed < maxBatches) {
@@ -353,7 +363,7 @@ export class SyncService implements OnModuleInit {
             tags,
           });
 
-          await this.prisma.video.upsert({
+          const saved = await this.prisma.video.upsert({
             where: { id: videoId },
             update: {
               type: videoType,
@@ -411,6 +421,7 @@ export class SyncService implements OnModuleInit {
               type: videoType,
             })
             .catch(() => {});
+          syncedForVector.push(saved);
           totalSyncedInRun++;
         } catch (videoErr: any) {
           this.logger.warn(`Skipping video ${videoId} in ${channelId}: ${videoErr.message}`);
@@ -450,6 +461,7 @@ export class SyncService implements OnModuleInit {
       }
     }
 
+    this.queueVectorUpsert(syncedForVector);
     this.logger.log(
       `✅ Synced ${totalSyncedInRun} videos in ${batchesProcessed} batch(es) for ${channel.name} (${channelId})`,
     );
@@ -471,13 +483,14 @@ export class SyncService implements OnModuleInit {
 
     const isIncremental = !options.full && channel.syncStatus === 'COMPLETED' && !channel.syncCursor;
     const maxBatches = options.maxBatches ?? 500;
+    const syncedForVector: any[] = [];
     let syncedCount = 0;
 
     // 1. Initial RSS feed sync (latest 15 videos)
     const rssVideos = await this.youtubeService.scrapeRssFeed(channelId);
     for (const v of rssVideos) {
       try {
-        await this.upsertScrapedVideo(v, channel, defaultCategory);
+        syncedForVector.push(await this.upsertScrapedVideo(v, channel, defaultCategory));
         syncedCount++;
       } catch (err: any) {
         this.logger.warn(`RSS upsert failed for ${v.videoId}: ${err.message}`);
@@ -503,7 +516,7 @@ export class SyncService implements OnModuleInit {
         for (const v of pageVideos) {
           try {
             const payload = overrideType ? { ...v, videoType: overrideType } : v;
-            await this.upsertScrapedVideo(payload, channel, defaultCategory);
+            syncedForVector.push(await this.upsertScrapedVideo(payload, channel, defaultCategory));
             syncedCount++;
           } catch (err: any) {
             this.logger.warn(`Scraped video upsert failed for ${v.videoId}: ${err.message}`);
@@ -537,6 +550,8 @@ export class SyncService implements OnModuleInit {
     const allTabsComplete =
       (videosRes.exhausted || videosRes.stoppedEarly) &&
       (shortsRes.exhausted || shortsRes.stoppedEarly);
+
+    this.queueVectorUpsert(syncedForVector);
 
     await this.prisma.channel.update({
       where: { id: channelId },
@@ -582,7 +597,7 @@ export class SyncService implements OnModuleInit {
       channelTitle: channel.name,
     });
 
-    await this.prisma.video.upsert({
+    const saved = await this.prisma.video.upsert({
       where: { id: v.videoId },
       update: {
         type: finalType,
@@ -613,6 +628,7 @@ export class SyncService implements OnModuleInit {
         metadata: videoMetadata as any,
       },
     });
+    return saved;
   }
 
   /**
@@ -769,8 +785,9 @@ export class SyncService implements OnModuleInit {
           metadata: videoMetadata as any,
         },
       });
+      this.queueVectorUpsert([saved]);
       this.logger.log(`✅ Live synced new video ${videoId} via WebSub push`);
-      await this.cache?.invalidate('videos', 'channels');
+      await this.cache?.invalidate('videos', 'channels', 'video-search');
       this.adminAudioProcessor
         ?.enqueuePendingVideo({
           id: saved.id,
@@ -808,6 +825,7 @@ export class SyncService implements OnModuleInit {
 
       this.logger.log(`Starting metadata backfill for ${videos.length} videos...`);
       const videoIds = videos.map((v) => v.id);
+      const updatedForVector: any[] = [];
 
       for (let i = 0; i < videoIds.length; i += 50) {
         const chunk = videoIds.slice(i, i + 50);
@@ -832,7 +850,7 @@ export class SyncService implements OnModuleInit {
                                (item.snippet?.description || '').toLowerCase().includes('#short');
           const isShort = isSong ? hasShortsTag : (durationSeconds > 0 && durationSeconds <= 180 || hasShortsTag);
 
-          await this.prisma.video.update({
+          const updated = await this.prisma.video.update({
             where: { id },
             data: {
               duration: duration !== '0:00' ? duration : undefined,
@@ -841,11 +859,15 @@ export class SyncService implements OnModuleInit {
               category: isSong ? 'Songs' : undefined,
             },
           });
+          if (isShort || isSong) {
+            updatedForVector.push(updated);
+          }
         }
         await this.sleep(100);
       }
+      this.queueVectorUpsert(updatedForVector);
       this.logger.log(`✅ Metadata backfill completed for ${videos.length} videos.`);
-      await this.cache?.invalidate('videos');
+      await this.cache?.invalidate('videos', 'video-search');
     } catch (e: any) {
       this.logger.warn(`Video metadata backfill error: ${e.message}`);
     }
@@ -965,6 +987,7 @@ export class SyncService implements OnModuleInit {
         clippedAt: parsedMeta ? new Date() : null,
       },
     });
+    this.queueVectorUpsert([saved]);
 
     // Record in ShortCreation table if creator info is present
     if (isShort && (parsedMeta?.creatorUserId || parsedMeta?.creatorEmail)) {

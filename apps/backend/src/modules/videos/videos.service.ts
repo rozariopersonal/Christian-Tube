@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ServiceUnavailableException,
   Logger,
+  OnModuleInit,
   Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -11,6 +12,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { EmbeddingService } from "../embedding/embedding.service";
 import { CacheService } from "../cache/cache.service";
 import { YoutubeService } from "../youtube/youtube.service";
+import { VideoVectorService } from "../video-vector/video-vector.service";
 
 interface VideoQuery {
   category?: string;
@@ -32,9 +34,19 @@ interface BaseFilterSql {
   params: any[];
 }
 
+interface CandidateListCacheEntry {
+  ids: string[];
+  degraded: boolean;
+}
+
+const YOUTUBE_URL_ID_RE =
+  /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
+const RAW_YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
 @Injectable()
-export class VideosService {
+export class VideosService implements OnModuleInit {
   private readonly logger = new Logger(VideosService.name);
+  private inactiveChannelCache: { ids: string[]; expiresAt: number } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,21 +54,112 @@ export class VideosService {
     private readonly embeddingService: EmbeddingService,
     @Optional() private readonly cache?: CacheService,
     @Optional() private readonly youtubeService?: YoutubeService,
+    @Optional() private readonly videoVector?: VideoVectorService,
   ) {}
 
+  async onModuleInit() {
+    if (process.env.NODE_ENV === "test") return;
+    // Install searchVector trigger idempotently and backfill NULL rows in 1k batches without blocking boot.
+    setTimeout(() => {
+      this.ensureSearchVectorTriggerAndBackfill().catch((err: any) => {
+        this.logger.warn(`Search vector bootstrap note: ${err?.message || err}`);
+      });
+    }, 2000);
+  }
+
+  private async ensureSearchVectorTriggerAndBackfill(): Promise<void> {
+    if (typeof (this.prisma as any).$executeRawUnsafe !== "function") return;
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        CREATE OR REPLACE FUNCTION video_search_vector_update() RETURNS trigger AS $$
+        BEGIN
+          NEW."searchVector" :=
+            setweight(to_tsvector('simple', coalesce(NEW.title, '')), 'A') ||
+            setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A') ||
+            setweight(to_tsvector('simple', coalesce(NEW."channelName", '')), 'B') ||
+            setweight(to_tsvector('english', coalesce(left(regexp_replace(coalesce(NEW.description, ''), '<!--.*?-->', ' ', 'gs'), 1000), '')), 'C');
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+
+      await this.prisma.$executeRawUnsafe(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'video_search_vector_trg') THEN
+            CREATE TRIGGER video_search_vector_trg
+            BEFORE INSERT OR UPDATE OF title, "channelName", description
+            ON "Video"
+            FOR EACH ROW
+            EXECUTE FUNCTION video_search_vector_update();
+          END IF;
+        END $$;
+      `);
+
+      // Non-blocking batched backfill of 1,000 rows at a time (prevents 30k-row lock & WAL spike)
+      for (let batch = 0; batch < 100; batch++) {
+        const updated = await this.prisma.$executeRawUnsafe(`
+          UPDATE "Video"
+          SET "searchVector" =
+            setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
+            setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+            setweight(to_tsvector('simple', coalesce("channelName", '')), 'B') ||
+            setweight(to_tsvector('english', coalesce(left(regexp_replace(coalesce(description, ''), '<!--.*?-->', ' ', 'gs'), 1000), '')), 'C')
+          WHERE id IN (
+            SELECT id FROM "Video" WHERE "searchVector" IS NULL LIMIT 1000 FOR UPDATE SKIP LOCKED
+          );
+        `);
+        if (!updated || Number(updated) < 1000) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    } catch (err: any) {
+      this.logger.warn(`searchVector trigger/backfill skipped: ${err?.message || err}`);
+    }
+  }
+
+  private clampLimit(raw?: number): number {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return 50;
+    return Math.max(1, Math.min(100, Math.floor(n)));
+  }
+
+  private clampOffset(raw?: number): number {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.max(0, Math.min(10_000, Math.floor(n)));
+  }
+
+  private parseChannelIds(raw?: string | string[]): string[] {
+    if (!raw) return [];
+    const list = Array.isArray(raw) ? raw : raw.split(",");
+    return list.map((id) => id.trim()).filter(Boolean);
+  }
+
+  private extractDirectYoutubeId(rawSearch: string): string | null {
+    const trimmed = rawSearch.trim();
+    const urlMatch = trimmed.match(YOUTUBE_URL_ID_RE);
+    if (urlMatch) return urlMatch[1];
+    // Only treat bare 11-char tokens as YouTube IDs if they contain a digit, hyphen, or underscore
+    // (avoids mistaking normal 11-letter English words like "forgiveness" for a video ID).
+    if (RAW_YOUTUBE_ID_RE.test(trimmed) && /[0-9_-]/.test(trimmed)) {
+      return trimmed;
+    }
+    return null;
+  }
+
   private buildFeedCacheKey(query: VideoQuery): string {
-    const channelIds = Array.isArray(query.channelIds)
-      ? query.channelIds.join(",")
-      : query.channelIds || "";
-    const limit = query.limit ? Number(query.limit) : 50;
-    const offset = query.offset ? Number(query.offset) : 0;
-    const search = (query.search || "").trim().toLowerCase();
+    const channelIds = this.parseChannelIds(query.channelIds).join(",");
+    const limit = this.clampLimit(query.limit);
+    const offset = this.clampOffset(query.offset);
+    const search = (query.search || "").trim().toLowerCase().replace(/\s+/g, " ");
+    const sort = query.sort || (search ? "relevance" : "latest");
     return [
       `type=${query.type || "VIDEO"}`,
       `sort=${query.sort || "latest"}`,
       `cat=${query.category || "All"}`,
       `ch=${query.channelId || ""}`,
       `chs=${channelIds}`,
+      `sort=${sort}`,
       `q=${search}`,
       `lim=${limit}`,
       `off=${offset}`,
@@ -67,17 +170,47 @@ export class VideosService {
     ].join(":");
   }
 
+  private buildSearchCandidateKey(query: VideoQuery): string {
+    const channelIds = this.parseChannelIds(query.channelIds).join(",");
+    const search = (query.search || "").trim().toLowerCase().replace(/\s+/g, " ");
+    return [
+      `cand`,
+      `type=${query.type || "VIDEO"}`,
+      `cat=${query.category || "All"}`,
+      `ch=${query.channelId || ""}`,
+      `chs=${channelIds}`,
+      `q=${search}`,
+    ].join(":");
+  }
+
   async findAll(query: VideoQuery) {
+    const normalizedSearch = (query.search || "").trim();
+    if (!normalizedSearch) {
+      if (this.cache) {
+        return this.cache.getOrSet(
+          "videos",
+          `feed:${this.buildFeedCacheKey(query)}`,
+          86400,
+          () => this.findAllUncached(query),
+        );
+      }
+      return this.findAllUncached(query);
+    }
+
+    const effectiveSort = query.sort || "relevance";
+    if (effectiveSort === "relevance") {
+      return this.searchByRelevance(query, normalizedSearch);
+    }
+
     if (this.cache) {
-      const ttl = query.search ? 3600 : 86400;
       return this.cache.getOrSet(
-        "videos",
-        `feed:${this.buildFeedCacheKey(query)}`,
-        ttl,
-        () => this.findAllUncached(query),
+        "video-search",
+        `sorted:${this.buildFeedCacheKey(query)}`,
+        6 * 3600,
+        () => this.searchSorted(query, normalizedSearch),
       );
     }
-    return this.findAllUncached(query);
+    return this.searchSorted(query, normalizedSearch);
   }
 
   private async findAllUncached(query: VideoQuery) {
@@ -121,22 +254,260 @@ export class VideosService {
       }
     }
 
-    const limit = query.limit ? Number(query.limit) : 50;
-    const offset = query.offset ? Number(query.offset) : 0;
+    const limit = this.clampLimit(query.limit);
+    const offset = this.clampOffset(query.offset);
+    return this.fetchKeywords(where, limit, offset, query.sort);
+  }
 
-    if (!query.search) {
-      return this.fetchKeywords(where, limit, offset, query.sort);
+  private async searchByRelevance(query: VideoQuery, search: string) {
+    const limit = this.clampLimit(query.limit);
+    const offset = this.clampOffset(query.offset);
+
+    // Cache top-100 fused candidate IDs across pages so infinite scroll = 1 Upstash op total.
+    const loadCandidates = () => this.computeRelevanceCandidates(query, search);
+    const entry: CandidateListCacheEntry = this.cache
+      ? await this.cache.getOrSet(
+          "video-search",
+          this.buildSearchCandidateKey(query),
+          6 * 3600,
+          loadCandidates,
+          { shouldCache: (val) => !val.degraded },
+        )
+      : await loadCandidates();
+
+    if (offset < entry.ids.length) {
+      const pageIds = entry.ids.slice(offset, offset + limit);
+      return this.fetchEnrichedByIds(pageIds, query);
     }
 
-    if (!query.sort || query.sort === "relevance") {
-      const vector = await this.embeddingService.embedQuery(query.search);
-      if (vector) {
-        return this.hybridSearchWithContent(query, vector, limit, offset);
+    // Fall through to Neon lexical pagination past the top-100 fused window.
+    if (entry.ids.length >= 100) {
+      const extraIds = await this.lexicalSearchIds(query, search, limit, offset);
+      const seen = new Set(entry.ids);
+      const filtered = extraIds.filter((id) => !seen.has(id));
+      return this.fetchEnrichedByIds(filtered, query);
+    }
+
+    return [];
+  }
+
+  private async computeRelevanceCandidates(
+    query: VideoQuery,
+    search: string,
+  ): Promise<CandidateListCacheEntry> {
+    const directId = this.extractDirectYoutubeId(search);
+    const channelIds = this.parseChannelIds(query.channelIds);
+    const useUpstash = Boolean(this.videoVector?.isEnabled());
+
+    const excludeChannelIds =
+      useUpstash && !query.channelId ? await this.getInactiveChannelIds() : [];
+
+    const vectorPromise = useUpstash
+      ? this.videoVector!.query(
+          search,
+          {
+            type: query.type || "VIDEO",
+            category: query.category,
+            channelId: query.channelId,
+            channelIds: channelIds.length > 0 ? channelIds : undefined,
+            excludeChannelIds:
+              excludeChannelIds.length > 0 ? excludeChannelIds : undefined,
+          },
+          channelIds.length > 25 ? 200 : 100,
+        )
+      : Promise.resolve({ ids: [] as string[], degraded: false });
+
+    const [vectorRes, lexicalIds] = await Promise.all([
+      vectorPromise,
+      this.lexicalSearchIds(query, search, 100, 0),
+    ]);
+
+    const lists: string[][] = [];
+    if (directId) lists.push([directId]);
+    if (lexicalIds.length > 0) lists.push(lexicalIds);
+    if (vectorRes.ids.length > 0) lists.push(vectorRes.ids);
+
+    let fused = lists.length > 0 ? this.fuseRanks(lists) : [];
+    if (directId) {
+      fused = [directId, ...fused.filter((id) => id !== directId)];
+    }
+
+    return {
+      ids: fused.slice(0, 120),
+      degraded: vectorRes.degraded,
+    };
+  }
+
+  private async searchSorted(query: VideoQuery, search: string) {
+    const limit = this.clampLimit(query.limit);
+    const offset = this.clampOffset(query.offset);
+    const ids = await this.lexicalSearchIds(query, search, limit, offset, query.sort);
+    if (ids.length > 0) {
+      return this.fetchEnrichedByIds(ids, query);
+    }
+    return [];
+  }
+
+  private async getInactiveChannelIds(): Promise<string[]> {
+    if (this.inactiveChannelCache && Date.now() < this.inactiveChannelCache.expiresAt) {
+      return this.inactiveChannelCache.ids;
+    }
+    try {
+      if (typeof (this.prisma as any).channel?.findMany !== "function") return [];
+      const rows = await this.prisma.channel.findMany({
+        where: { isActive: false },
+        select: { id: true },
+        take: 20,
+      });
+      const ids = rows.map((r) => r.id);
+      this.inactiveChannelCache = { ids, expiresAt: Date.now() + 60_000 };
+      return ids;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Lexical + typo-tolerant search using Postgres FTS (searchVector GIN)
+   * UNION ALL word_similarity (pg_trgm GIN) inside a PgBouncer-safe transaction.
+   * Gracefully falls back to Prisma ILIKE if raw SQL / pg_trgm is unavailable.
+   */
+  private async lexicalSearchIds(
+    query: VideoQuery,
+    search: string,
+    limit: number,
+    offset: number,
+    sort?: VideoQuery["sort"],
+  ): Promise<string[]> {
+    const clean = search.trim().slice(0, 200);
+    if (!clean) return [];
+
+    const hasTransaction =
+      typeof (this.prisma as any).$transaction === "function" &&
+      typeof (this.prisma as any).$queryRawUnsafe === "function";
+
+    if (hasTransaction) {
+      try {
+        const filters = this.buildBaseFilterSql(query);
+        const qIdx = filters.params.length + 1;
+        const likeIdx = qIdx + 1;
+        const innerLimIdx = likeIdx + 1;
+        const limIdx = innerLimIdx + 1;
+        const offIdx = limIdx + 1;
+        const escapedLike = clean.toLowerCase().replace(/[\\%_]/g, "\\$&");
+        const innerLimit = Math.min(500, Math.max(100, limit + offset));
+        const params = [
+          ...filters.params,
+          clean,
+          escapedLike,
+          innerLimit,
+          limit,
+          offset,
+        ];
+
+        const innerOrderClause =
+          sort === "popular"
+            ? 'ORDER BY v."viewCount" DESC, v."publishedAt" DESC'
+            : sort === "oldest"
+              ? 'ORDER BY v."publishedAt" ASC'
+              : sort === "latest"
+                ? 'ORDER BY v."publishedAt" DESC'
+                : 'ORDER BY score DESC, v."publishedAt" DESC';
+
+        const outerOrderClause =
+          sort === "popular"
+            ? 'ORDER BY v."viewCount" DESC, v."publishedAt" DESC'
+            : sort === "oldest"
+              ? 'ORDER BY v."publishedAt" ASC'
+              : sort === "latest"
+                ? 'ORDER BY v."publishedAt" DESC'
+                : 'ORDER BY MAX(c.score) DESC, v."publishedAt" DESC';
+
+        const sql = `
+          WITH fts AS (
+            SELECT
+              v.id,
+              (
+                ts_rank_cd(v."searchVector", websearch_to_tsquery('english', $${qIdx})) +
+                ts_rank_cd(v."searchVector", websearch_to_tsquery('simple', $${qIdx})) +
+                CASE WHEN lower(v.title) LIKE $${likeIdx} || '%' ESCAPE '\\' THEN 1.5
+                     WHEN lower(v.title) LIKE '%' || $${likeIdx} || '%' ESCAPE '\\' THEN 0.8
+                     ELSE 0 END
+              ) AS score,
+              v."viewCount",
+              v."publishedAt"
+            FROM "Video" v
+            JOIN "Channel" c ON c.id = v."channelId"
+            WHERE c."isActive" = true
+              ${filters.clause}
+              AND v."searchVector" IS NOT NULL
+              AND (
+                v."searchVector" @@ websearch_to_tsquery('english', $${qIdx})
+                OR v."searchVector" @@ websearch_to_tsquery('simple', $${qIdx})
+              )
+            ${innerOrderClause}
+            LIMIT $${innerLimIdx}
+          ),
+          trgm AS (
+            SELECT
+              v.id,
+              GREATEST(word_similarity($${qIdx}, v.title), word_similarity($${qIdx}, v."channelName")) AS score,
+              v."viewCount",
+              v."publishedAt"
+            FROM "Video" v
+            JOIN "Channel" c ON c.id = v."channelId"
+            WHERE c."isActive" = true
+              ${filters.clause}
+              AND (
+                $${qIdx} <% v.title
+                OR $${qIdx} <% v."channelName"
+              )
+            ${innerOrderClause}
+            LIMIT $${innerLimIdx}
+          ),
+          combined AS (
+            SELECT id, score FROM fts
+            UNION ALL
+            SELECT id, score FROM trgm
+          )
+          SELECT c.id
+          FROM combined c
+          JOIN "Video" v ON v.id = c.id
+          GROUP BY c.id, v."viewCount", v."publishedAt"
+          ${outerOrderClause}
+          LIMIT $${limIdx}
+          OFFSET $${offIdx}
+        `;
+
+        const rows: { id: string }[] = await this.prisma.$transaction(async (tx: any) => {
+          await tx.$executeRawUnsafe(
+            "SET LOCAL pg_trgm.word_similarity_threshold = 0.45",
+          );
+          return tx.$queryRawUnsafe(sql, ...params);
+        });
+        return rows.map((r) => r.id);
+      } catch (err: any) {
+        this.logger.warn(
+          `FTS/trigram query failed, falling back to ILIKE: ${err?.message || err}`,
+        );
       }
     }
 
-    where.OR = this.searchTermClauses(query.search);
-    return this.fetchKeywords(where, limit, offset, query.sort);
+    // Safe Prisma fallback (also used in unit tests without live Postgres)
+    const keywordWhere: any = { channel: { isActive: true } };
+    this.applyVideoTypeFilter(keywordWhere, query.type);
+    this.applyCategoryFilter(keywordWhere, query.category);
+    this.applyChannelFilter(keywordWhere, query.channelId, query.channelIds);
+    keywordWhere.OR = this.searchTermClauses(clean);
+
+    const rows = await this.prisma.video.findMany({
+      where: keywordWhere,
+      select: { id: true },
+      orderBy: this.resolveOrderBy(sort),
+      take: limit,
+      skip: offset,
+    });
+    return rows.map((r) => r.id);
   }
 
   private searchTermClauses(term: string) {
@@ -227,10 +598,18 @@ export class VideosService {
   /**
    * Returns enriched video rows in the given id order.
    */
-  private async fetchEnrichedByIds(ids: string[]) {
+  private async fetchEnrichedByIds(ids: string[], query?: VideoQuery) {
     if (!ids.length) return [];
+    const where: any = {
+      id: { in: ids },
+      channel: { isActive: true },
+    };
+    if (query) {
+      this.applyChannelFilter(where, query.channelId, query.channelIds);
+      this.applyCategoryFilter(where, query.category);
+    }
     const videos = await this.prisma.video.findMany({
-      where: { id: { in: ids } },
+      where,
       include: {
         channel: {
           select: {
@@ -817,7 +1196,12 @@ export class VideosService {
       savedVideo.id,
     );
 
-    await this.cache?.invalidate("videos", "channels");
+    // Fire-and-forget Upstash Vector upsert using the full saved Prisma row
+    this.videoVector?.upsertVideos([savedVideo]).catch((e: any) => {
+      this.logger.warn(`Upstash vector upsert failed for short ${savedVideo.id}: ${e?.message || e}`);
+    });
+
+    await this.cache?.invalidate("videos", "channels", "video-search");
 
     this.logger.log(
       `Short imported and published: ${savedVideo.id} - "${savedVideo.title}"`,

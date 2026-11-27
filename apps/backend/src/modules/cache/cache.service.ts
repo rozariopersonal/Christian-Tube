@@ -4,6 +4,10 @@ import Redis from 'ioredis';
 
 export type CacheProvider = 'upstash-rest' | 'ioredis' | 'none';
 
+export interface CacheGetOrSetOptions<T> {
+  shouldCache?: (value: T) => boolean;
+}
+
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
@@ -14,6 +18,12 @@ export class CacheService implements OnModuleDestroy {
   private readonly upstashRestUrl?: string;
   private readonly upstashRestToken?: string;
   private readonly redisClient?: Redis;
+
+  private readonly versionCache = new Map<string, { value: string; expiresAt: number }>();
+  private readonly versionCacheTtlMs = 10_000;
+  private readonly inflight = new Map<string, Promise<unknown>>();
+  private circuitOpenUntil = 0;
+  private readonly circuitCooldownMs = 30_000;
 
   constructor(private readonly configService: ConfigService) {
     const instanceId = this.configService.get<string>('instanceId') || 'christian_tube';
@@ -92,13 +102,15 @@ export class CacheService implements OnModuleDestroy {
 
   /**
    * Reads from Upstash/Redis by versioned namespace key; on miss (or Redis
-   * error), invokes loader() and populates the cache with ttlSec.
+   * error), invokes loader() with single-flight dedup and populates the cache
+   * with ttlSec unless options.shouldCache returns false.
    */
   async getOrSet<T>(
     namespace: string,
     key: string,
     ttlSec: number | undefined,
     loader: () => Promise<T>,
+    options?: CacheGetOrSetOptions<T>,
   ): Promise<T> {
     if (!this.isEnabled()) {
       return loader();
@@ -108,26 +120,51 @@ export class CacheService implements OnModuleDestroy {
     const version = await this.getNamespaceVersion(namespace);
     const fullKey = `${this.prefix}:${namespace}:v${version}:${key}`;
 
-    try {
-      const cached = await this.getRaw(fullKey);
-      if (cached !== null) {
-        return JSON.parse(cached) as T;
-      }
-    } catch (err: any) {
-      this.logger.warn(`Cache read error (${fullKey}): ${err?.message || err}`);
-    }
-
-    const value = await loader();
-
-    if (value !== undefined && value !== null) {
+    if (!this.isCircuitOpen()) {
+      let raw: string | null = null;
       try {
-        await this.setRaw(fullKey, JSON.stringify(value), effectiveTtl);
+        raw = await this.getRaw(fullKey);
       } catch (err: any) {
-        this.logger.warn(`Cache write error (${fullKey}): ${err?.message || err}`);
+        this.tripCircuit(`Cache read error (${fullKey}): ${err?.message || err}`);
+      }
+      if (raw !== null) {
+        try {
+          return JSON.parse(raw) as T;
+        } catch (parseErr: any) {
+          this.logger.warn(`Corrupted cache entry (${fullKey}), bypassing: ${parseErr?.message || parseErr}`);
+        }
       }
     }
 
-    return value;
+    const existing = this.inflight.get(fullKey) as Promise<T> | undefined;
+    if (existing) {
+      return existing;
+    }
+
+    const promise = (async () => {
+      const value = await loader();
+      const allowCache =
+        value !== undefined &&
+        value !== null &&
+        (!options?.shouldCache || options.shouldCache(value));
+
+      if (allowCache && !this.isCircuitOpen()) {
+        try {
+          await this.setRaw(fullKey, JSON.stringify(value), effectiveTtl);
+        } catch (err: any) {
+          this.tripCircuit(`Cache write error (${fullKey}): ${err?.message || err}`);
+        }
+      }
+
+      return value;
+    })();
+
+    this.inflight.set(fullKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this.inflight.delete(fullKey);
+    }
   }
 
   /**
@@ -139,14 +176,28 @@ export class CacheService implements OnModuleDestroy {
 
     await Promise.all(
       namespaces.map(async (ns) => {
+        this.versionCache.delete(ns);
         const verKey = `${this.prefix}:ver:${ns}`;
         try {
-          await this.incrRaw(verKey);
+          const next = await this.incrRaw(verKey);
+          this.versionCache.set(ns, {
+            value: String(next),
+            expiresAt: Date.now() + this.versionCacheTtlMs,
+          });
         } catch (err: any) {
           this.logger.warn(`Cache invalidation error (${verKey}): ${err?.message || err}`);
         }
       }),
     );
+  }
+
+  private isCircuitOpen(): boolean {
+    return Date.now() < this.circuitOpenUntil;
+  }
+
+  private tripCircuit(reason: string): void {
+    this.circuitOpenUntil = Date.now() + this.circuitCooldownMs;
+    this.logger.warn(`${reason} — opening Redis circuit for ${this.circuitCooldownMs / 1000}s`);
   }
 
   getPrefix(): string {
@@ -369,12 +420,24 @@ export class CacheService implements OnModuleDestroy {
   }
 
   private async getNamespaceVersion(namespace: string): Promise<string> {
+    const cached = this.versionCache.get(namespace);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.value;
+    }
+    if (this.isCircuitOpen()) {
+      return cached?.value ?? '0';
+    }
     const verKey = `${this.prefix}:ver:${namespace}`;
     try {
-      const val = await this.getRaw(verKey);
-      return val || '0';
-    } catch {
-      return '0';
+      const val = (await this.getRaw(verKey)) || '0';
+      this.versionCache.set(namespace, {
+        value: val,
+        expiresAt: Date.now() + this.versionCacheTtlMs,
+      });
+      return val;
+    } catch (err: any) {
+      this.tripCircuit(`Cache version read error (${verKey}): ${err?.message || err}`);
+      return cached?.value ?? '0';
     }
   }
 
