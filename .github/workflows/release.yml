@@ -10,6 +10,7 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'scripts/**'
+      - '!scripts/build-web.sh'
       - '.github/workflows/release.yml'
       - 'releases/**'
       - 'package.json'
@@ -38,6 +39,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/develop' }}
+
 jobs:
   # ============================================================================
   # GATE 1: CODE & UNIT QUALITY GATE
@@ -52,13 +57,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: Set up Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+          fetch-depth: 1
 
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
@@ -75,12 +74,12 @@ jobs:
       - name: Flutter Static Analysis
         run: |
           cd apps/mobile
-          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
 
       - name: Flutter Unit & Widget Tests
         run: |
           cd apps/mobile
-          flutter test
+          flutter test --no-pub -j $(nproc)
 
       - name: Determine Release Matrix
         id: set_matrix
@@ -315,7 +314,7 @@ jobs:
           ls -l /dev/kvm || echo "::warning::KVM not available on this runner; emulator will use software emulation"
 
       - name: 'Gate 3: E2E Quality Gate (Android Emulator Smoke Test)'
-        continue-on-error: true
+        continue-on-error: ${{ github.ref != 'refs/heads/main' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33

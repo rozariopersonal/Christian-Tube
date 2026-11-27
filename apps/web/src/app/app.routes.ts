@@ -44,6 +44,20 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'playlists',
+        loadComponent: () =>
+          import('./features/videos/pages/playlists.component').then(
+            (m) => m.PlaylistsComponent,
+          ),
+      },
+      {
+        path: 'playlists/:id',
+        loadComponent: () =>
+          import('./features/videos/pages/playlist-detail.component').then(
+            (m) => m.PlaylistDetailComponent,
+          ),
+      },
+      {
         path: 'shorts',
         loadComponent: () =>
           import('./features/videos/pages/shorts.component').then(
@@ -146,6 +160,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/articles/pages/article-reader.component').then(
             (m) => m.ArticleReaderComponent,
+          ),
+      },
+      {
+        path: 'library',
+        loadComponent: () =>
+          import('./features/library/pages/library-hub.component').then(
+            (m) => m.LibraryHubComponent,
+          ),
+      },
+      {
+        path: 'songs',
+        loadComponent: () =>
+          import('./features/songs/pages/songs-library.component').then(
+            (m) => m.SongsLibraryComponent,
+          ),
+      },
+      {
+        path: 'song/:id',
+        loadComponent: () =>
+          import('./features/songs/pages/song-reader.component').then(
+            (m) => m.SongReaderComponent,
           ),
       },
       {

@@ -196,7 +196,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen>
     final isDark = theme.brightness == Brightness.dark;
     final tokens = theme.extension<AppTokens>();
     final currentPath = GoRouterState.of(context).uri.path;
-    if (kRootTabs.contains(currentPath)) {
+    final router = GoRouter.of(context);
+    final hasPushedRoute = router.canPop() ||
+        router.routerDelegate.currentConfiguration.matches
+            .any((m) => m is ShellRouteMatch && m.matches.length > 1);
+    if (kRootTabs.contains(currentPath) && !hasPushedRoute) {
       NavigationHistoryService.instance.recordTab(currentPath);
     }
     final selectedIndex = _getSelectedIndex(currentPath);

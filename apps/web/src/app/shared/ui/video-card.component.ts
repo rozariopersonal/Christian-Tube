@@ -6,6 +6,8 @@ import {
   formatViewCount,
 } from '../../features/videos/models/video.model';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { SaveToPlaylistModalService } from './save-to-playlist-modal.service';
+import { ToastService } from './toast.service';
 import { VideoWatchedOverlaysComponent } from './video-watched-overlays.component';
 
 @Component({
@@ -76,6 +78,17 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
             @if (timeLabel()) {
               <span>{{ timeLabel() }}</span>
             }
+            @if (isWatched()) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="watched-status">Watched</span>
+            } @else if (progressPct() > 0) {
+              @if (video().viewCount > 0 || timeLabel()) {
+                <span> · </span>
+              }
+              <span class="progress-status">{{ progressPct() }}% watched</span>
+            }
           </p>
         </div>
 
@@ -100,6 +113,16 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
                   {{ isSaved() ? 'bookmark_remove' : 'watch_later' }}
                 </span>
                 {{ isSaved() ? 'Remove from Watch Later' : 'Save to Watch Later' }}
+              </button>
+              <button type="button" class="card-menu-item" (click)="saveToPlaylist()">
+                <span class="material-symbols-rounded">playlist_add</span>
+                Save to playlist
+              </button>
+              <button type="button" class="card-menu-item" (click)="toggleWatched()">
+                <span class="material-symbols-rounded">
+                  {{ isWatched() ? 'visibility_off' : 'check_circle' }}
+                </span>
+                {{ isWatched() ? 'Mark as unwatched' : 'Mark as watched' }}
               </button>
               <button type="button" class="card-menu-item" (click)="share()">
                 <span class="material-symbols-rounded">share</span>
@@ -172,6 +195,19 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
         font-weight: 700;
       }
 
+      .watched-badge {
+        left: 8px;
+        top: 8px;
+        right: auto;
+        bottom: auto;
+        background-color: rgba(0, 0, 0, 0.82);
+        color: #ffffff;
+      }
+
+      .watched-badge .badge-icon {
+        color: var(--accent);
+      }
+
       .badge-icon {
         font-size: 13px;
       }
@@ -235,6 +271,16 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
 
       .channel-link:hover {
         color: var(--on-surface);
+      }
+
+      .watched-status {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .progress-status {
+        color: var(--on-surface-muted);
+        font-weight: 500;
       }
 
       .card-menu-wrap {
@@ -302,10 +348,17 @@ import { VideoWatchedOverlaysComponent } from './video-watched-overlays.componen
 export class VideoCardComponent {
   readonly video = input.required<Video>();
   private readonly library = inject(VideoLibraryService);
+  private readonly saveModal = inject(SaveToPlaylistModalService);
+  private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
   readonly menuOpen = signal<boolean>(false);
   readonly isSaved = computed(() => this.library.isWatchLater(this.video().id));
+  readonly watchStatus = computed(() => this.library.watchStatus(this.video().id));
+  readonly isWatched = computed(() => this.watchStatus() === 'watched');
+  readonly progressPct = computed(() =>
+    Math.round(this.library.progressFraction(this.video().id) * 100),
+  );
 
   viewsLabel(): string {
     return formatViewCount(this.video().viewCount);
@@ -321,7 +374,26 @@ export class VideoCardComponent {
   }
 
   toggleWatchLater(): void {
-    this.library.toggleWatchLater(this.video());
+    const added = this.library.toggleWatchLater(this.video());
+    this.toast.show(
+      added ? 'Saved to Watch Later' : 'Removed from Watch Later',
+      'success',
+    );
+    this.menuOpen.set(false);
+  }
+
+  saveToPlaylist(): void {
+    this.menuOpen.set(false);
+    this.saveModal.open(this.video());
+  }
+
+  toggleWatched(): void {
+    const v = this.video();
+    if (this.isWatched()) {
+      this.library.markUnwatched(v.id);
+    } else {
+      this.library.markWatched(v);
+    }
     this.menuOpen.set(false);
   }
 

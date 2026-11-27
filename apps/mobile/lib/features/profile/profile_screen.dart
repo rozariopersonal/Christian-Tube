@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_service.dart';
 import '../channels/channel_service.dart';
 import '../engines/scripture/services/saved_scripture_service.dart';
+import '../playlists/services/playlist_service.dart';
+import '../playlists/services/watch_later_service.dart';
 import 'user_service.dart';
 import 'widgets/app_share_dialog.dart';
 import '../feedback/widgets/voice_feedback_sheet.dart';
@@ -109,15 +111,22 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([authService, userService]),
+      animation: Listenable.merge([
+        authService,
+        userService,
+        WatchLaterService.instance,
+        PlaylistService.instance,
+      ]),
       builder: (context, _) {
         final user = authService.currentUser;
         final isAdmin = authService.isAdmin;
         final history = userService.history;
-        final playlists = userService.playlists;
+        final playlists = PlaylistService.instance.playlists;
+        final watchLaterCount = WatchLaterService.instance.count;
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -160,11 +169,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ]
                 : [
-                    IconButton(
-                      icon: const Icon(Icons.cast_outlined),
-                      tooltip: 'Cast',
-                      onPressed: () {},
-                    ),
                     IconButton(
                       icon: const Icon(Icons.notifications_none_outlined),
                       tooltip: 'Notifications',
@@ -474,6 +478,35 @@ class ProfileScreen extends StatelessWidget {
 
                 const Divider(height: 24),
 
+                // Watch Later Section
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.tokens.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.watch_later_rounded,
+                        color: context.tokens.accent),
+                  ),
+                  title: const Text('Watch Later',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  subtitle: Text(
+                    watchLaterCount == 1
+                        ? '1 video saved'
+                        : '$watchLaterCount videos saved',
+                    style: TextStyle(
+                        color: context.tokens.onSurfaceMuted, fontSize: 13),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    context.push('/watch-later');
+                  },
+                ),
+
                 // Saved Scriptures & Verses Section
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -535,14 +568,14 @@ class ProfileScreen extends StatelessWidget {
 
                 const Divider(height: 24),
 
-                // Playlists & Watch Plans Section Header
+                // Playlists Section Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
                       const Expanded(
                         child: Text(
-                          'Playlists & Watch Plans',
+                          'Playlists',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -556,9 +589,9 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          context.push('/watch-plans');
+                          context.push('/playlists');
                         },
-                        child: const Text('Watch Plans',
+                        child: const Text('View all',
                             style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ],
@@ -576,7 +609,7 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   )
                 else
-                  ...playlists.map(
+                  ...playlists.take(5).map(
                     (p) => ListTile(
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 16),
@@ -588,12 +621,15 @@ class ProfileScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.playlist_play,
-                            color: Theme.of(context).colorScheme.error),
+                            color: context.tokens.accent),
                       ),
                       title: Text(p.title,
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 14)),
-                      subtitle: Text('${p.videoCount} videos',
+                      subtitle: Text(
+                          p.videoCount == 1
+                              ? '1 video'
+                              : '${p.videoCount} videos',
                           style: TextStyle(
                               color: context.tokens.onSurfaceMuted,
                               fontSize: 13)),
@@ -603,6 +639,19 @@ class ProfileScreen extends StatelessWidget {
                       },
                     ),
                   ),
+
+                // Daily Watch Plans (kept separate from personal playlists)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: const Icon(Icons.alarm_rounded),
+                  title: const Text('Daily Watch Plans',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    context.push('/watch-plans');
+                  },
+                ),
 
                 const Divider(height: 24),
 
@@ -723,7 +772,7 @@ class ProfileScreen extends StatelessWidget {
                       child: Text(
                         video.duration!,
                         style: TextStyle(
-                            color: context.tokens.onSurface,
+                            color: context.tokens.onScrim,
                             fontSize: 11,
                             fontWeight: FontWeight.bold),
                       ),
@@ -768,10 +817,11 @@ class ProfileScreen extends StatelessWidget {
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              if (titleController.text.trim().isNotEmpty) {
-                userService.createPlaylist(titleController.text.trim(), null);
-                Navigator.pop(ctx);
+            onPressed: () async {
+              final title = titleController.text.trim();
+              if (title.isNotEmpty) {
+                await PlaylistService.instance.createPlaylist(title);
+                if (ctx.mounted) Navigator.pop(ctx);
               }
             },
             child: const Text('Create'),

@@ -6,6 +6,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../features/engines/scripture/models/bible_version_meta.dart';
 import '../../features/engines/scripture/services/bible_download_manager.dart';
 import '../../features/engines/scripture/services/bible_recent_versions_service.dart';
+import '../../features/engines/scripture/services/online_bible_service.dart';
 import 'bible_version_native_names.dart';
 
 /// Global adaptive bottom sheet for picking a Bible translation.
@@ -444,10 +445,14 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
                     final meta = quickChips[index];
                     final isSelected = meta.id.toUpperCase() ==
                         widget.activeVersionId.toUpperCase();
+                    final isRateLimited =
+                        OnlineBibleService.isRateLimited(meta.id);
                     return _QuickRecentChip(
                       meta: meta,
                       isSelected: isSelected,
-                      onTap: () => _handleSelectVersion(meta.id),
+                      onTap: isRateLimited
+                          ? null
+                          : () => _handleSelectVersion(meta.id),
                     );
                   },
                 ),
@@ -636,12 +641,13 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
       language: meta.language,
       languageCode: meta.languageCode,
     );
+    final isRateLimited = OnlineBibleService.isRateLimited(meta.id);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => _handleSelectVersion(meta.id),
+        onTap: isRateLimited ? null : () => _handleSelectVersion(meta.id),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(
@@ -651,22 +657,24 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
                 constraints: const BoxConstraints(minWidth: 62),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isSelected
+                  color: isSelected && !isRateLimited
                       ? tokens.accent.withValues(alpha: 0.14)
                       : tokens.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isSelected
+                    color: isSelected && !isRateLimited
                         ? tokens.accent
                         : tokens.surfaceBorder,
-                    width: isSelected ? 1.2 : 1.0,
+                    width: isSelected && !isRateLimited ? 1.2 : 1.0,
                   ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   meta.id,
                   style: TextStyle(
-                    color: isSelected ? tokens.accent : tokens.onSurface,
+                    color: isRateLimited
+                        ? tokens.onSurfaceDisabled
+                        : (isSelected ? tokens.accent : tokens.onSurface),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.3,
@@ -685,7 +693,9 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
                     Text(
                       meta.name,
                       style: TextStyle(
-                        color: isSelected ? tokens.accent : tokens.onSurface,
+                        color: isRateLimited
+                            ? tokens.onSurfaceDisabled
+                            : (isSelected ? tokens.accent : tokens.onSurface),
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
                         fontSize: 14,
@@ -702,15 +712,37 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
                                 ? '${meta.language} ($nativeScript) • ${meta.sizeDisplay}'
                                 : '${meta.language} • ${meta.sizeDisplay}',
                             style: TextStyle(
-                              color: isSelected
-                                  ? tokens.accent.withValues(alpha: 0.8)
-                                  : tokens.onSurfaceMuted,
+                              color: isRateLimited
+                                  ? tokens.onSurfaceDisabled
+                                  : (isSelected
+                                      ? tokens.accent.withValues(alpha: 0.8)
+                                      : tokens.onSurfaceMuted),
                               fontSize: 11.5,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (isRateLimited) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: tokens.surfaceVariant,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: tokens.surfaceBorder),
+                            ),
+                            child: Text(
+                              'API limit reached',
+                              style: TextStyle(
+                                color: tokens.onSurfaceDisabled,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (isInstalled && !meta.isOnlineOnly) ...[
                           const SizedBox(width: 6),
                           Icon(
@@ -801,7 +833,7 @@ class _BibleVersionPickerSheetState extends State<BibleVersionPickerSheet> {
 class _QuickRecentChip extends StatelessWidget {
   final BibleVersionMeta meta;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _QuickRecentChip({
     required this.meta,

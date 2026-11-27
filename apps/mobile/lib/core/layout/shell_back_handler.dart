@@ -82,6 +82,14 @@ class ShellBackHandler extends StatelessWidget {
       context.go('/bible');
       return;
     }
+    if (path.startsWith('/watch-later') || path.startsWith('/watch-plans')) {
+      context.go('/profile');
+      return;
+    }
+    if (path.startsWith('/playlists/')) {
+      context.go('/playlists');
+      return;
+    }
     if (path.startsWith('/channels') ||
         path.startsWith('/search') ||
         path.startsWith('/watch')) {

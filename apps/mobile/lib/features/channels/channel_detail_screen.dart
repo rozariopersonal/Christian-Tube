@@ -60,6 +60,7 @@ class _ChannelDetailScreenState extends State<ChannelDetailScreen>
     try {
       final response = await _apiClient.dio.get('/api/videos', queryParameters: {
         'channelId': widget.channelId,
+        'type': 'ALL',
         'limit': 200, // fetch a good batch initially
       });
       if (response.statusCode == 200 && response.data != null) {

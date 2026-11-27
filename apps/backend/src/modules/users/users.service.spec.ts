@@ -334,6 +334,49 @@ describe('UsersService', () => {
       expect(state.likedShorts).toHaveLength(1);
       expect(state.likedShorts[0].video.type).toBe('SHORT');
       expect(state.videoPlayheads['v-wl']).toEqual({ positionSeconds: 12, updatedAt: 4000 });
+      expect(state.playlists).toEqual([]);
+      expect(state.playlistTombstones).toEqual({});
+    });
+
+    it('includes playlists and playlistTombstones from UserPlaylistsService in getSyncState', async () => {
+      const playlistSlice = {
+        playlists: [
+          {
+            id: 'pl-1',
+            title: 'Favorites',
+            description: null,
+            thumbnailUrl: null,
+            videoCount: 0,
+            videos: [],
+            createdAt: '2026-11-27T00:00:00.000Z',
+            updatedAt: '2026-11-27T00:00:00.000Z',
+            clientUpdatedAt: 8000,
+          },
+        ],
+        playlistTombstones: { 'pl-old': 9000 },
+      };
+      const userPlaylistsService = {
+        getPlaylistsSyncSlice: jest.fn().mockResolvedValue(playlistSlice),
+      };
+      const serviceWithPlaylists = new UsersService(
+        prisma,
+        configService,
+        undefined,
+        userPlaylistsService as any,
+      );
+
+      prisma.userPreference.findUnique.mockResolvedValue({ userId: 'u1', languages: ['en'] });
+      prisma.channelSubscription.findMany.mockResolvedValue([]);
+      prisma.userWatchItem.findMany.mockResolvedValue([]);
+      prisma.userWatchItem.findFirst.mockResolvedValue(null);
+
+      const state = await serviceWithPlaylists.getSyncState('u1', 'u1@example.com');
+      expect(userPlaylistsService.getPlaylistsSyncSlice).toHaveBeenCalledWith(
+        'u1',
+        expect.any(Map),
+      );
+      expect(state.playlists).toEqual(playlistSlice.playlists);
+      expect(state.playlistTombstones).toEqual({ 'pl-old': 9000 });
     });
   });
 });

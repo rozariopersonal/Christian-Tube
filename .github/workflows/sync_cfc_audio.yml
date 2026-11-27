@@ -45,7 +45,6 @@ jobs:
       - name: Commit and Push Releases Updates
         env:
           RELEASES_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
-          MAIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           # Global identity so BOTH the releases submodule and the outer repo
@@ -78,11 +77,9 @@ jobs:
             }
 
             cd ..
-            git add releases
-            if [ -n "$(git status --porcelain releases)" ]; then
-              git commit -m "chore(releases): update data submodule pointer [skip ci]"
-              push_head "${MAIN_TOKEN}"
-            fi
+            # Do not commit the releases/ submodule pointer back to Christian-Tube main:
+            # clients stream data live from Christian-Tube-Releases@main via CDN, and
+            # pushing submodule commits to main causes main/develop gitlink conflicts.
 
             # Purge jsDelivr edge CDN cache so mobile apps receive updates instantly
             echo "Purging jsDelivr edge cache for manifests..."

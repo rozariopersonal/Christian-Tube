@@ -9,7 +9,7 @@ import '../../features/auth/auth_service.dart';
 class SyncOp {
   final String opId;
   final String userId;
-  final String kind; // 'watch_item' | 'subscription' | 'preference'
+  final String kind; // 'watch_item' | 'subscription' | 'preference' | 'playlist_op'
   final String? itemType;
   final String itemId;
   final int? positionSeconds;
@@ -73,6 +73,7 @@ class SyncOp {
 class UserSyncService extends ChangeNotifier {
   static const String likedVideoType = 'liked_video';
   static const String likedShortType = 'liked_short';
+  static const String watchLaterType = 'watch_later';
   static final UserSyncService instance = UserSyncService._internal();
   factory UserSyncService() => instance;
 
@@ -99,6 +100,12 @@ class UserSyncService extends ChangeNotifier {
   void setActiveUserForTesting(String userId) {
     _activeUserId = userId;
     _authPaused = false;
+  }
+
+  @visibleForTesting
+  void setRemoteStateForTesting(Map<String, dynamic>? state) {
+    _remoteState = state;
+    notifyListeners();
   }
 
   static const String _keyClockOffset = 'mobile_clock_offset_v1';
@@ -245,7 +252,10 @@ class UserSyncService extends ChangeNotifier {
       }
       final allKeys = prefs.getKeys().toList();
       for (final k in allKeys) {
-        if (k.startsWith(_keyPendingPrefix) || k.startsWith('video_playhead_')) {
+        if (k.startsWith(_keyPendingPrefix) ||
+            k.startsWith('video_playhead_') ||
+            k.startsWith('watch_later_v1_') ||
+            k.startsWith('playlists_v1_')) {
           await prefs.remove(k);
         }
       }
@@ -363,6 +373,38 @@ class UserSyncService extends ChangeNotifier {
     unawaited(flushOutbox());
   }
 
+  /// Returns true if there is at least one pending `playlist_op` targeting [playlistId].
+  bool hasPendingPlaylistOps(String playlistId) {
+    if (playlistId.isEmpty) return false;
+    return _pendingOps.values.any(
+      (op) => op.kind == 'playlist_op' && op.itemId == playlistId,
+    );
+  }
+
+  /// Enqueues an ordered playlist mutation (`create`, `update`, `delete`,
+  /// `add_item`, `remove_item`, `reorder`) to be flushed strictly FIFO.
+  Future<void> enqueuePlaylistOp({
+    required String opType,
+    required String playlistId,
+    Map<String, dynamic>? payload,
+  }) async {
+    final userId = _activeUserId;
+    if (userId == null || userId.isEmpty || playlistId.isEmpty) return;
+    final seq = (_operationSequence++).toString().padLeft(6, '0');
+    final key = 'playlist_op:${DateTime.now().microsecondsSinceEpoch}:$seq';
+    final op = SyncOp(
+      opId: key,
+      userId: userId,
+      kind: 'playlist_op',
+      itemType: opType,
+      itemId: playlistId,
+      payloadJson: payload != null ? jsonEncode(payload) : null,
+      clientUpdatedAt: nowServerAligned(),
+    );
+    await _saveOp(userId, key, op);
+    unawaited(flushOutbox());
+  }
+
   Future<void> pullAndFlush({bool force = false}) async {
     final userId = _activeUserId;
     if (userId == null || userId.isEmpty || !_canSync) return;
@@ -376,6 +418,9 @@ class UserSyncService extends ChangeNotifier {
     if (_inFlightSync != null) return _inFlightSync!;
 
     _lastPullAt = now;
+    if (force && _canSync) {
+      _authPaused = false;
+    }
     final future = () async {
       try {
         await flushOutbox();
@@ -437,12 +482,14 @@ class UserSyncService extends ChangeNotifier {
     final watchOps = <MapEntry<String, SyncOp>>[];
     final prefOps = <MapEntry<String, SyncOp>>[];
     final subOps = <MapEntry<String, SyncOp>>[];
+    final playlistOps = <MapEntry<String, SyncOp>>[];
 
     for (final entry in currentMap.entries) {
       if (entry.value.userId != userId) continue;
       if (entry.value.kind == 'watch_item') watchOps.add(entry);
       if (entry.value.kind == 'preference') prefOps.add(entry);
       if (entry.value.kind == 'subscription') subOps.add(entry);
+      if (entry.value.kind == 'playlist_op') playlistOps.add(entry);
     }
 
     final keysToRemove = <String>{};
@@ -559,6 +606,80 @@ class UserSyncService extends ChangeNotifier {
           keysToRemove.add(entry.key);
         } else {
           shouldRetry = true;
+        }
+      }
+    }
+
+    // Flush playlist mutations strictly sequentially (FIFO).
+    for (final entry in playlistOps) {
+      if (_activeUserId != userId) return;
+      try {
+        final op = entry.value;
+        final payload = op.payloadJson != null && op.payloadJson!.isNotEmpty
+            ? Map<String, dynamic>.from(jsonDecode(op.payloadJson!) as Map)
+            : <String, dynamic>{};
+        switch (op.itemType) {
+          case 'create':
+            await _dio.post('/api/user/playlists', data: {
+              'id': op.itemId,
+              'title': payload['title'],
+              if (payload['description'] != null)
+                'description': payload['description'],
+              'clientUpdatedAt': op.clientUpdatedAt,
+            });
+            break;
+          case 'update':
+            await _dio.patch('/api/user/playlists/${op.itemId}', data: {
+              if (payload['title'] != null) 'title': payload['title'],
+              if (payload.containsKey('description'))
+                'description': payload['description'],
+              'clientUpdatedAt': op.clientUpdatedAt,
+            });
+            break;
+          case 'delete':
+            await _dio.delete(
+              '/api/user/playlists/${op.itemId}',
+              queryParameters: {'clientUpdatedAt': op.clientUpdatedAt},
+            );
+            break;
+          case 'add_item':
+            await _dio.post('/api/user/playlists/${op.itemId}/items', data: {
+              'videoId': payload['videoId'],
+              'clientUpdatedAt': op.clientUpdatedAt,
+            });
+            break;
+          case 'remove_item':
+            await _dio.delete(
+              '/api/user/playlists/${op.itemId}/items/${payload['videoId']}',
+              queryParameters: {'clientUpdatedAt': op.clientUpdatedAt},
+            );
+            break;
+          case 'reorder':
+            await _dio.put(
+              '/api/user/playlists/${op.itemId}/items/reorder',
+              data: {
+                'videoIds': payload['videoIds'],
+                'clientUpdatedAt': op.clientUpdatedAt,
+              },
+            );
+            break;
+          default:
+            break;
+        }
+        keysToRemove.add(entry.key);
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status == 401) {
+          _authPaused = true;
+          break;
+        }
+        if (_isPermanentClientError(status)) {
+          keysToRemove.add(entry.key);
+        } else {
+          // Transient error (5xx, 429, timeout/network): stop FIFO loop so
+          // subsequent dependent ops wait behind this one.
+          shouldRetry = true;
+          break;
         }
       }
     }

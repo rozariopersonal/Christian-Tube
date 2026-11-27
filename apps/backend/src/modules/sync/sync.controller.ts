@@ -105,6 +105,7 @@ export class SyncController {
   async triggerSync(
     @Headers('x-job-secret') secret?: string,
     @Query('force') force?: string,
+    @Query('full') full?: string,
   ) {
     const internalSecret = this.configService.get<string>('internalJobSecret');
     if (internalSecret && secret && secret !== internalSecret) {
@@ -112,6 +113,7 @@ export class SyncController {
     }
 
     const isForced = force === 'true';
+    const isFull = full === 'true' || full === '1';
     if (!isForced && !this.syncService.isSyncEnabled()) {
       return {
         status: 'disabled',
@@ -120,13 +122,14 @@ export class SyncController {
       };
     }
 
-    this.logger.log('Manual channel sync triggered via API endpoint.');
-    this.syncService.syncAllChannels(true).catch((e) => {
+    this.logger.log(`Manual channel sync triggered via API endpoint (full=${isFull}).`);
+    this.syncService.syncAllChannels(true, isFull).catch((e) => {
       this.logger.error(`Manual sync error: ${e.message}`);
     });
 
     return {
       status: 'accepted',
+      full: isFull,
       message: 'Channel sync process initiated in background',
       timestamp: new Date().toISOString(),
     };
@@ -136,8 +139,13 @@ export class SyncController {
    * Manual trigger to sync a single channel
    */
   @Post('channel/:id')
-  async triggerChannelSync(@Param('id') id: string, @Query('force') force?: string) {
+  async triggerChannelSync(
+    @Param('id') id: string,
+    @Query('force') force?: string,
+    @Query('full') full?: string,
+  ) {
     const isForced = force === 'true';
+    const isFull = full === 'true' || full === '1';
     if (!isForced && !this.syncService.isSyncEnabled()) {
       return {
         status: 'disabled',
@@ -146,13 +154,14 @@ export class SyncController {
       };
     }
 
-    this.logger.log(`Manual sync triggered for channel: ${id}`);
-    this.syncService.syncChannel(id, undefined, true).catch((e) => {
+    this.logger.log(`Manual sync triggered for channel: ${id} (full=${isFull})`);
+    this.syncService.syncChannel(id, undefined, true, { full: isFull }).catch((e) => {
       this.logger.error(`Single channel sync error: ${e.message}`);
     });
 
     return {
       status: 'accepted',
+      full: isFull,
       message: `Sync process initiated for channel ${id}`,
       timestamp: new Date().toISOString(),
     };

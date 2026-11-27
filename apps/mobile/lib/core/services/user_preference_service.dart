@@ -281,6 +281,7 @@ class UserPreferenceService extends ChangeNotifier {
       final updated = _preferences.copyWith(
         videoChannelIds: videoList,
         shortsChannelIds: shortsList,
+        channelSelectionsConfigured: true,
       );
       await savePreferences(updated, auth: auth, applyRuntime: false);
     }

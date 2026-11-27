@@ -18,12 +18,16 @@ import { combineLatest } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { NoteEditorModalComponent } from '../../../shared/ui/note-editor-modal.component';
+import { SaveToPlaylistModalService } from '../../../shared/ui/save-to-playlist-modal.service';
+import { ToastService } from '../../../shared/ui/toast.service';
 import { ChannelService } from '../../channels/services/channel.service';
 import {
   Video,
   formatTimeAgo,
   formatViewCount,
+  parseDurationSeconds,
 } from '../models/video.model';
+import { PlaylistService } from '../services/playlist.service';
 import { VideoLibraryService } from '../services/video-library.service';
 import { VideoNotesService } from '../services/video-notes.service';
 import { VideoPlayerService } from '../services/video-player.service';
@@ -124,7 +128,8 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   playsinline
                   (loadedmetadata)="onVideoLoaded($event)"
                   (timeupdate)="onNativeTimeUpdate($event)"
-                  (ended)="onPlaybackEnded()"
+                  (pause)="saveCurrentProgress()"
+                  (ended)="markCurrentVideoCompleted(); onPlaybackEnded()"
                 ></video>
               } @else {
                 <div #ytHost class="yt-host"></div>
@@ -182,26 +187,29 @@ function ensureYouTubeIframeApi(): Promise<void> {
                     <span class="material-symbols-rounded" [class.filled]="isLiked()">favorite</span>
                     {{ isLiked() ? 'Liked' : 'Like' }}
                   </button>
-                  <button
-                    type="button"
-                    class="pill-chip"
-                    [class.active]="isLiked()"
-                    (click)="toggleLike()"
-                  >
-                    <span class="material-symbols-rounded">thumb_up</span>
-                    {{ isLiked() ? 'Liked' : 'Like' }}
-                  </button>
 
                   <button
                     type="button"
                     class="pill-chip"
                     [class.active]="isWatchLater()"
-                    (click)="library.toggleWatchLater(video()!)"
+                    (click)="toggleWatchLater()"
                   >
                     <span class="material-symbols-rounded">
                       {{ isWatchLater() ? 'bookmark_added' : 'watch_later' }}
                     </span>
                     {{ isWatchLater() ? 'Saved' : 'Watch Later' }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="pill-chip"
+                    [class.active]="isSavedAnywhere()"
+                    (click)="openSaveModal()"
+                  >
+                    <span class="material-symbols-rounded">
+                      {{ isSavedAnywhere() ? 'playlist_add_check' : 'playlist_add' }}
+                    </span>
+                    Save
                   </button>
 
                   <button
@@ -255,6 +263,12 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   @if (video()!.category) {
                     <span class="cat-badge">{{ video()!.category }}</span>
                   }
+                  @if (library.isWatched(video()!.id)) {
+                    <span class="watched-pill">
+                      <span class="material-symbols-rounded watched-pill-icon">check_circle</span>
+                      Watched
+                    </span>
+                  }
                 </div>
 
                 @if (video()!.description) {
@@ -286,6 +300,48 @@ function ensureYouTubeIframeApi(): Promise<void> {
           </div>
 
           <aside class="sidebar-col">
+            @if (activePlaylist(); as pl) {
+              <div class="queue-box playlist-box">
+                <div class="queue-head">
+                  <a class="section-heading playlist-link" [routerLink]="['/playlists', pl.id]">
+                    {{ pl.title }}
+                  </a>
+                  <span class="playlist-progress">
+                    {{ playlistTrackIndex() >= 0 ? playlistTrackIndex() + 1 : '-' }}/{{ pl.videos.length }}
+                  </span>
+                </div>
+                <div class="related-list playlist-tracks">
+                  @for (track of pl.videos; track track.id; let idx = $index) {
+                    <a
+                      class="related-row"
+                      [class.now-playing]="track.id === video()!.id"
+                      [routerLink]="['/watch', track.id]"
+                      [queryParams]="{ playlist: pl.id }"
+                    >
+                      <span class="pl-idx">{{ idx + 1 }}</span>
+                      <div class="rel-thumb-wrap">
+                        <img
+                          class="rel-thumb"
+                          [src]="track.thumbnailUrl"
+                          [alt]="track.title"
+                          loading="lazy"
+                        />
+                        @if (track.id === video()!.id) {
+                          <span class="rel-playing">Playing</span>
+                        } @else if (track.duration && track.duration !== '0:00') {
+                          <span class="rel-dur">{{ track.duration }}</span>
+                        }
+                      </div>
+                      <div class="rel-meta">
+                        <span class="rel-title">{{ track.title }}</span>
+                        <span class="rel-sub">{{ track.channelTitle }}</span>
+                      </div>
+                    </a>
+                  }
+                </div>
+              </div>
+            }
+
             @if (library.queue().length > 0) {
               <div class="queue-box">
                 <div class="queue-head">
@@ -636,6 +692,21 @@ function ensureYouTubeIframeApi(): Promise<void> {
         font-size: 11px;
       }
 
+      .watched-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+      }
+
+      .watched-pill-icon {
+        font-size: 13px;
+      }
+
       .desc-text {
         margin: 0;
         font-size: 13px;
@@ -678,6 +749,38 @@ function ensureYouTubeIframeApi(): Promise<void> {
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-md);
         padding: 12px;
+      }
+
+      .playlist-box {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .playlist-link:hover {
+        color: var(--accent);
+      }
+
+      .playlist-progress {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+        flex-shrink: 0;
+      }
+
+      .playlist-tracks {
+        max-height: 360px;
+        overflow-y: auto;
+      }
+
+      .pl-idx {
+        width: 18px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+        text-align: center;
+        flex-shrink: 0;
+        align-self: center;
       }
 
       .queue-head,
@@ -895,6 +998,9 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   readonly channels = inject(ChannelService);
   readonly screen = inject(ScreenClassService);
   readonly library = inject(VideoLibraryService);
+  readonly playlistService = inject(PlaylistService);
+  private readonly saveModal = inject(SaveToPlaylistModalService);
+  private readonly toast = inject(ToastService);
   readonly notes = inject(VideoNotesService);
   readonly userSync = inject(UserSyncService);
   private readonly playerService = inject(VideoPlayerService);
@@ -968,6 +1074,23 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   @ViewChild('playerContainer') playerContainerRef?: ElementRef<HTMLDivElement>;
 
   readonly video = signal<Video | null>(null);
+  readonly activePlaylistId = signal<string | null>(null);
+  readonly activePlaylist = computed(() => {
+    const id = this.activePlaylistId();
+    return id ? this.playlistService.playlistById(id) : null;
+  });
+  readonly playlistTrackIndex = computed(() => {
+    const pl = this.activePlaylist();
+    const vid = this.video()?.id;
+    if (!pl || !vid) return -1;
+    return pl.videos.findIndex((item) => item.id === vid);
+  });
+  readonly nextPlaylistTrack = computed<Video | null>(() => {
+    const pl = this.activePlaylist();
+    const idx = this.playlistTrackIndex();
+    if (!pl || idx < 0 || idx + 1 >= pl.videos.length) return null;
+    return pl.videos[idx + 1];
+  });
   readonly related = signal<Video[]>([]);
   readonly previousVideos = signal<Video[]>([]);
   readonly previousVideosAvailable = signal(false);
@@ -1010,6 +1133,28 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     return id ? this.library.isWatchLater(id) : false;
   });
 
+  readonly isSavedAnywhere = computed(() => {
+    const id = this.video()?.id;
+    if (!id) return false;
+    return this.isWatchLater() || this.playlistService.isInAnyPlaylist(id);
+  });
+
+  toggleWatchLater(): void {
+    const v = this.video();
+    if (!v) return;
+    const added = this.library.toggleWatchLater(v);
+    this.toast.show(
+      added ? 'Saved to Watch Later' : 'Removed from Watch Later',
+      'success',
+    );
+  }
+
+  openSaveModal(): void {
+    const v = this.video();
+    if (!v) return;
+    this.saveModal.open(v);
+  }
+
   readonly isLiked = computed(() => {
     const v = this.video();
     if (!v) return false;
@@ -1046,6 +1191,8 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   }
 
   readonly nextUpVideo = computed<Video | null>(() => {
+    const nextFromPlaylist = this.nextPlaylistTrack();
+    if (nextFromPlaylist) return nextFromPlaylist;
     const currentId = this.video()?.id;
     const queued = this.library.queue().find((item) => item.id !== currentId);
     return queued ?? this.related()[0] ?? null;
@@ -1091,6 +1238,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(
       async ([params, qp]) => {
         const id = params.get('id');
+        this.activePlaylistId.set(qp.get('playlist'));
         if (!id) return;
         const tParam = Number(qp.get('t') || '0');
         await this.loadVideo(id, Number.isFinite(tParam) ? tParam : 0);
@@ -1186,7 +1334,11 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     this.initialStartSeconds =
       queryStartSeconds > 0 ? queryStartSeconds : this.library.resumeSeconds(v.id);
 
-    this.library.recordProgress(v, this.initialStartSeconds, 0);
+    this.library.recordProgress(
+      v,
+      this.initialStartSeconds,
+      parseDurationSeconds(v.duration),
+    );
 
     this.previousCursor = v;
     this.recommendationsCursor = v;
@@ -1197,6 +1349,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
         videoId: v.id,
         startSeconds: this.initialStartSeconds > 0 ? this.initialStartSeconds : 0,
       });
+      this.startProgressPolling();
     }
     if (v.channelId) void this.loadChannelPageCounts(v, generation);
   }
@@ -1236,7 +1389,13 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
           this.startProgressPolling();
         },
         onStateChange: (ev) => {
-          if (ev.data === window.YT?.PlayerState?.ENDED) {
+          const state = window.YT?.PlayerState;
+          if (ev.data === state?.PLAYING && !this.progressTimer) {
+            this.startProgressPolling();
+          } else if (ev.data === state?.PAUSED) {
+            this.saveCurrentProgress();
+          } else if (ev.data === state?.ENDED) {
+            this.markCurrentVideoCompleted();
             this.onPlaybackEnded();
           }
         },
@@ -1247,6 +1406,18 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   private startProgressPolling(): void {
     if (this.progressTimer) clearInterval(this.progressTimer);
     this.progressTimer = setInterval(() => this.saveCurrentProgress(), 5000);
+  }
+
+  markCurrentVideoCompleted(): void {
+    const v = this.video();
+    if (!v) return;
+    let dur = 0;
+    if (this.ytPlayer) {
+      dur = this.ytPlayer.getDuration?.() ?? 0;
+    } else if (this.nativeVideoRef?.nativeElement) {
+      dur = this.nativeVideoRef.nativeElement.duration || 0;
+    }
+    this.library.markWatched(v, dur > 0 ? dur : parseDurationSeconds(v.duration));
   }
 
   private saveCurrentProgress(): void {
@@ -1334,6 +1505,14 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
 
   playNextNow(): void {
     this.cancelCountdown();
+    const pl = this.activePlaylist();
+    const nextTrack = this.nextPlaylistTrack();
+    if (pl && nextTrack) {
+      void this.router.navigate(['/watch', nextTrack.id], {
+        queryParams: { playlist: pl.id },
+      });
+      return;
+    }
     const currentId = this.video()?.id;
     let queued = this.library.consumeNextInQueue();
     while (queued?.id === currentId) {

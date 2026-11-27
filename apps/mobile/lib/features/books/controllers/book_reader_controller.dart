@@ -110,6 +110,7 @@ class BookReaderController extends ChangeNotifier {
   final BookService _bookService;
   final String _bookId;
   final int? _requestedStartLine;
+  final bool _hasExplicitTarget;
 
   /// Page loading / caching, independent of widget lifecycle.
   final PageLoader pageLoader;
@@ -166,6 +167,9 @@ class BookReaderController extends ChangeNotifier {
     int? highlightStartLine,
     this.useContinuous = false,
   })  : _requestedStartLine = initialLine ?? highlightStartLine,
+        _hasExplicitTarget = initialPage != null ||
+            initialLine != null ||
+            highlightStartLine != null,
         pageLoader = PageLoader(_bookService, _bookId),
         appearance = ReaderAppearance(),
         continuousStream = BookChapterStream(_bookService, _bookId) {
@@ -216,7 +220,7 @@ class BookReaderController extends ChangeNotifier {
     var initialLine = _requestedStartLine ?? 1;
     var lastPercent = _state.lastPercent;
 
-    final wantsResume = initialPage == 1 && _requestedStartLine == null;
+    final wantsResume = !_hasExplicitTarget;
     if (wantsResume) {
       final saved = await _bookService.getProgress(_bookId);
       if (saved != null) {

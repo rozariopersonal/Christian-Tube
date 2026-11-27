@@ -100,7 +100,7 @@ class _AudioSeriesCardState extends State<AudioSeriesCard>
                           stops: const [0.4, 1.0],
                           colors: [
                             Colors.transparent,
-                            Colors.black.withValues(alpha: 0.80),
+                            tokens.scrim.withValues(alpha: 0.80),
                           ],
                         ),
                       ),
@@ -119,10 +119,10 @@ class _AudioSeriesCardState extends State<AudioSeriesCard>
                           color: theme.colorScheme.primary,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.equalizer_rounded,
                           size: 13,
-                          color: Colors.white,
+                          color: tokens.onScrim,
                         ),
                       ),
                     ),
@@ -142,10 +142,10 @@ class _AudioSeriesCardState extends State<AudioSeriesCard>
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: tokens.onScrim,
                             height: 1.3,
-                            shadows: const [
-                              Shadow(blurRadius: 6, color: Colors.black54),
+                            shadows: [
+                              Shadow(blurRadius: 6, color: tokens.scrim.withValues(alpha: 0.54)),
                             ],
                           ),
                         ),
@@ -155,7 +155,7 @@ class _AudioSeriesCardState extends State<AudioSeriesCard>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white70,
+                            color: tokens.onScrimMuted,
                           ),
                         ),
                       ],

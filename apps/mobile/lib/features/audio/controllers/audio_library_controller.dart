@@ -436,12 +436,12 @@ class AudioLibraryController extends ChangeNotifier {
   Future<void> _performAsyncSearch(String query) async {
     try {
       final results = await _catalogService.search(query);
-      if (_disposed || _state.searchQuery != query) return;
+      if (_disposed || _state.searchQuery.trim() != query) return;
       _state = _state.copyWith(asyncSearchResults: results);
       notifyListeners();
     } catch (_) {
       // Clear async search results on error so old query results don't linger
-      if (!_disposed && _state.searchQuery == query) {
+      if (!_disposed && _state.searchQuery.trim() == query) {
         _state = _state.copyWith(clearAsyncSearchResults: true);
         notifyListeners();
       }

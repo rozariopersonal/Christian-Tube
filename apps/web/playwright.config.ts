@@ -4,11 +4,17 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   retries: 0,
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+  ],
   use: {
     baseURL: 'http://127.0.0.1:4311',
     channel: process.env['CI'] ? undefined : 'chrome',
     headless: true,
-    trace: 'on-first-retry',
+    screenshot: 'on',
+    video: 'on',
+    trace: 'retain-on-failure',
   },
   webServer: {
     command: 'npx ng serve --host 127.0.0.1 --port 4311',
