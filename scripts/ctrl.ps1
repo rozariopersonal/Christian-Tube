@@ -3,7 +3,7 @@ param(
     [ValidateSet("processor", "embedder", "stack", "run", "status", "stop-retired-transcriber")]
     [string]$Command,
     [Parameter(Position = 1)]
-    [ValidateSet("start", "stop", "status", "up", "down", "logs", "restart", "build")]
+    [ValidateSet("start", "stop", "status", "up", "down", "logs", "restart", "build", "sync")]
     [string]$Action = "status",
     [string]$VideoId,
     [switch]$Redo
@@ -47,7 +47,8 @@ function Invoke-Processor {
         "restart" { & $docker compose -f $Compose restart youtube-processor; break }
         "build"   { & $docker compose -f $Compose build youtube-processor; break }
         "logs"    { & $docker compose -f $Compose logs -f --tail=200 youtube-processor; break }
-        default   { Write-Error "processor action must be up|down|restart|build|logs" }
+        "sync"    { & $docker compose -f $Compose exec -T youtube-processor python -u worker.py --sync-now; break }
+        default   { Write-Error "processor action must be up|down|restart|build|logs|sync" }
     }
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
@@ -94,9 +95,11 @@ function Stop-RetiredTranscriber {
 }
 
 function Show-Status {
-    Write-Host "== ChristianApp YouTube Video Processor ==" -ForegroundColor Cyan
+    Write-Host "== ChristianApp Local Database ==" -ForegroundColor Cyan
     $docker = Resolve-Docker
     if ($docker) {
+        & $docker compose -f $Compose ps db
+        Write-Host "`n== ChristianApp YouTube Video Processor ==" -ForegroundColor Cyan
         & $docker compose -f $Compose ps youtube-processor
         Write-Host "`n== ChristianApp Embedding Worker ==" -ForegroundColor Cyan
         & $docker compose -f $Compose ps embedder

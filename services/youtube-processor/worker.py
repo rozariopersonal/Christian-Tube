@@ -12,10 +12,12 @@ so the DB-first mobile app picks them up on its next query.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import logging
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -82,19 +84,106 @@ def is_permanent_failure(error_text: str) -> bool:
 # --------------------------------------------------------------------------- #
 # Configuration
 # --------------------------------------------------------------------------- #
-def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+def _tz(tz_name: str = "Asia/Kolkata"):
     try:
         from zoneinfo import ZoneInfo
-        tz = ZoneInfo(tz_name)
+        return ZoneInfo(tz_name)
     except Exception:
-        import datetime
-        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-    import datetime
+        return datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+
+def seconds_until_daily_run(target_hour: int = 12, target_minute: int = 0, tz_name: str = "Asia/Kolkata") -> int:
+    tz = _tz(tz_name)
     now = datetime.datetime.now(tz)
     target = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
     if target <= now:
         target += datetime.timedelta(days=1)
     return max(1, int((target - now).total_seconds()))
+
+
+def is_recent_video(published_at: Any, days: int = 7, now: datetime.datetime | None = None) -> bool:
+    """Returns True when published_at is within the last ``days`` days."""
+    if not published_at:
+        return False
+    dt: datetime.datetime | None = None
+    if isinstance(published_at, datetime.datetime):
+        dt = published_at
+    elif isinstance(published_at, str):
+        try:
+            dt = datetime.datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if dt is None:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    ref = now or datetime.datetime.now(datetime.timezone.utc)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=datetime.timezone.utc)
+    return (ref - dt) <= datetime.timedelta(days=days)
+
+
+def should_run_daily_sync(
+    last_sync_at: datetime.datetime | None,
+    daily_hour: int = 12,
+    daily_minute: int = 0,
+    tz_name: str = "Asia/Kolkata",
+    now: datetime.datetime | None = None,
+) -> bool:
+    """True when the once-per-calendar-day Neon sync is due.
+
+    Designed for an intermittently powered PC:
+    - Never synced yet -> True
+    - Synced on an earlier calendar date (in tz_name) AND either we are at/past
+      daily_hour:daily_minute today OR >= 24h have elapsed since last_sync_at -> True
+    - Already synced today -> False
+    """
+    if last_sync_at is None:
+        return True
+    tz = _tz(tz_name)
+    ref = (now or datetime.datetime.now(tz)).astimezone(tz)
+    last_local = (
+        last_sync_at.replace(tzinfo=datetime.timezone.utc).astimezone(tz)
+        if last_sync_at.tzinfo is None
+        else last_sync_at.astimezone(tz)
+    )
+    if last_local.date() >= ref.date():
+        return False
+    today_target = ref.replace(hour=daily_hour, minute=daily_minute, second=0, microsecond=0)
+    if ref >= today_target:
+        return True
+    return (ref - last_local) >= datetime.timedelta(hours=24)
+
+
+def sweep_stale_work_dirs(work_dir: Path) -> int:
+    """Removes orphaned proc_* temp directories left behind by abrupt shutdowns."""
+    removed = 0
+    if not work_dir.exists():
+        return 0
+    for entry in work_dir.iterdir():
+        if entry.is_dir() and entry.name.startswith("proc_"):
+            try:
+                shutil.rmtree(entry, ignore_errors=True)
+                removed += 1
+            except Exception as e:
+                log.warning("Could not remove stale work dir %s: %s", entry, e)
+    if removed:
+        log.info("Swept %d stale proc_* temp director(y/ies) from %s", removed, work_dir)
+    return removed
+
+
+def maybe_auto_update_ytdlp(enabled: bool = False) -> None:
+    """Optionally self-updates yt-dlp on startup (non-fatal)."""
+    if not enabled:
+        return
+    try:
+        res = subprocess.run(["yt-dlp", "-U"], capture_output=True, text=True, timeout=60)
+        if res.returncode == 0:
+            log.info("yt-dlp update check: %s", (res.stdout or "").strip().splitlines()[-1] if res.stdout else "ok")
+        else:
+            log.warning("yt-dlp update warning: %s", (res.stderr or res.stdout or "").strip()[:200])
+    except Exception as e:
+        log.warning("yt-dlp auto-update skipped: %s", e)
 
 
 class Config:
@@ -117,8 +206,15 @@ class Config:
         daily_run_minute: int = 0,
         timezone: str = "Asia/Kolkata",
         run_on_boot: bool = False,
+        neon_database_url: str | None = None,
+        video_pace_seconds: int = 90,
+        daily_process_cap: int = 80,
+        local_idle_poll_seconds: int = 600,
+        sync_now: bool = False,
+        auto_update_ytdlp: bool = False,
     ):
         self.database_url = database_url
+        self.neon_database_url = neon_database_url
         self.audio_com_token = audio_com_token
         self.work_dir = work_dir
         self.poll_interval = poll_interval
@@ -135,6 +231,11 @@ class Config:
         self.daily_run_minute = daily_run_minute
         self.timezone = timezone
         self.run_on_boot = run_on_boot
+        self.video_pace_seconds = video_pace_seconds
+        self.daily_process_cap = daily_process_cap
+        self.local_idle_poll_seconds = local_idle_poll_seconds
+        self.sync_now = sync_now
+        self.auto_update_ytdlp = auto_update_ytdlp
 
 
 def load_config(args: argparse.Namespace) -> Config:
@@ -157,11 +258,19 @@ def load_config(args: argparse.Namespace) -> Config:
     def _env(name: str, default: str = "") -> str:
         return os.environ.get(name, default).strip()
 
-    db_url = _env("DATABASE_URL")
+    local_db_url = _env("LOCAL_DATABASE_URL")
+    remote_db_url = _env("NEON_DATABASE_URL") or _env("DATABASE_URL")
     audio_token = _env("AUDIO_COM_TOKEN")
 
-    if not db_url:
-        log.error("DATABASE_URL is required in environment.")
+    if local_db_url:
+        working_db_url = local_db_url
+        neon_db_url = remote_db_url if (remote_db_url and remote_db_url != local_db_url) else None
+    else:
+        working_db_url = remote_db_url
+        neon_db_url = None
+
+    if not working_db_url:
+        log.error("DATABASE_URL (or LOCAL_DATABASE_URL) is required in environment.")
         sys.exit(1)
 
     if not audio_token:
@@ -184,7 +293,8 @@ def load_config(args: argparse.Namespace) -> Config:
         priority_channel_ids = [c.strip() for c in raw_priority.split(",") if c.strip()]
 
     return Config(
-        database_url=db_url,
+        database_url=working_db_url,
+        neon_database_url=neon_db_url,
         audio_com_token=audio_token,
         work_dir=work_dir,
         poll_interval=int(_env("POLL_INTERVAL", "300")),
@@ -196,10 +306,16 @@ def load_config(args: argparse.Namespace) -> Config:
         video_id=args.video_id or None,
         channel_filters=channel_filters,
         priority_channel_ids=priority_channel_ids,
+        purge_audiocom=getattr(args, "purge_audiocom", False),
         daily_run_hour=int(_env("DAILY_RUN_HOUR", "12")),
         daily_run_minute=int(_env("DAILY_RUN_MINUTE", "0")),
         timezone=_env("TIMEZONE", "Asia/Kolkata"),
         run_on_boot=_env("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes"),
+        video_pace_seconds=int(_env("VIDEO_PACE_SECONDS", "90")),
+        daily_process_cap=int(_env("DAILY_PROCESS_CAP", "80")),
+        local_idle_poll_seconds=int(_env("LOCAL_IDLE_POLL_SECONDS", "600")),
+        sync_now=getattr(args, "sync_now", False),
+        auto_update_ytdlp=_env("AUTO_UPDATE_YTDLP", "false").lower() in ("1", "true", "yes"),
     )
 
 
@@ -247,14 +363,36 @@ class Database:
             raise RuntimeError(f"Could not read eligible-videos SQL from {path}: {e}")
 
     def _ensure_schema(self) -> None:
-        """Ensure the shared pipeline status table and the audio catalog tables exist.
+        """Ensure the shared pipeline status table, audio catalog tables, and
+        local sync tracking tables exist.
 
-        The audio catalog is authored directly in PostgreSQL by this worker, so
-        it ensures AudioSeries/AudioTrack are present even on a database that
-        has not run Prisma migrations yet. Table bodies mirror prisma/schema.prisma.
+        On a fresh local Postgres container (before Prisma migrations), also
+        ensures minimal Channel/Video tables exist so cold-start seeding works.
         """
         try:
             self.cur.execute("""
+                CREATE TABLE IF NOT EXISTS "Channel" (
+                  "id" TEXT PRIMARY KEY,
+                  "name" TEXT NOT NULL,
+                  "language" TEXT,
+                  "isActive" BOOLEAN DEFAULT TRUE,
+                  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS "Video" (
+                  "id" TEXT PRIMARY KEY,
+                  "type" TEXT NOT NULL DEFAULT 'VIDEO',
+                  "title" TEXT NOT NULL,
+                  "description" TEXT NOT NULL DEFAULT '',
+                  "thumbnail" TEXT NOT NULL DEFAULT '',
+                  "channelId" TEXT NOT NULL,
+                  "channelName" TEXT NOT NULL DEFAULT '',
+                  "publishedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  "duration" TEXT NOT NULL DEFAULT '',
+                  "audioUrl" TEXT,
+                  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
                 ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "audioUrl" TEXT;
                 CREATE TABLE IF NOT EXISTS "VideoPipelineStatus" (
                   "videoId" TEXT NOT NULL PRIMARY KEY,
@@ -268,6 +406,17 @@ class Database:
                   CONSTRAINT "VideoPipelineStatus_videoId_fkey"
                     FOREIGN KEY ("videoId") REFERENCES "Video"("id")
                     ON DELETE CASCADE ON UPDATE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS "processor_sync_state" (
+                  "id" INTEGER PRIMARY KEY DEFAULT 1,
+                  "last_pull_at" TIMESTAMPTZ,
+                  "last_push_at" TIMESTAMPTZ,
+                  "last_sync_at" TIMESTAMPTZ
+                );
+                CREATE TABLE IF NOT EXISTS "local_dirty_videos" (
+                  "video_id" TEXT PRIMARY KEY,
+                  "is_rescue" BOOLEAN NOT NULL DEFAULT FALSE,
+                  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
             """)
             self.cur.execute("""
@@ -407,6 +556,7 @@ class Database:
         )
 
     def mark_completed(self, video_id: str, audio_url: str) -> None:
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.cur.execute(
             """UPDATE "Video" SET "audioUrl"=%s WHERE "id"=%s""",
             (audio_url, video_id),
@@ -417,13 +567,24 @@ class Database:
                ON CONFLICT ("videoId") DO UPDATE SET
                  "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
                  "updatedAt" = CURRENT_TIMESTAMP""",
-            (video_id, json.dumps({"status": "completed", "retryCount": 0, "lastRetryAt": None, "lastError": None})),
+            (
+                video_id,
+                json.dumps({
+                    "status": "completed",
+                    "retryCount": 0,
+                    "lastRetryAt": None,
+                    "lastError": None,
+                    "processedBy": "desktop",
+                    "processedAt": now_iso,
+                }),
+            ),
         )
 
     def batch_mark_completed(self, items: list[tuple[str, str]]) -> None:
         if not items:
             return
         from psycopg2.extras import execute_values
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         execute_values(
             self.cur,
             """UPDATE "Video" AS v
@@ -433,7 +594,17 @@ class Database:
             items,
         )
         status_items = [
-            (video_id, json.dumps({"status": "completed", "retryCount": 0, "lastRetryAt": None, "lastError": None}))
+            (
+                video_id,
+                json.dumps({
+                    "status": "completed",
+                    "retryCount": 0,
+                    "lastRetryAt": None,
+                    "lastError": None,
+                    "processedBy": "desktop",
+                    "processedAt": now_iso,
+                }),
+            )
             for video_id, _ in items
         ]
         execute_values(
@@ -458,6 +629,7 @@ class Database:
                           'status', %s,
                           'lastError', %s,
                           'lastRetryAt', NOW()::text,
+                          'processedBy', 'desktop',
                           'retryCount', 1),
                        CURRENT_TIMESTAMP)
                ON CONFLICT ("videoId") DO UPDATE SET
@@ -465,12 +637,63 @@ class Database:
                    'status', %s,
                    'lastError', %s,
                    'lastRetryAt', NOW()::text,
+                   'processedBy', 'desktop',
                    'retryCount', CASE
                      WHEN NULLIF("VideoPipelineStatus"."ingest"->>'lastRetryAt', '')::date < CURRENT_DATE THEN 1
                      ELSE COALESCE(NULLIF("VideoPipelineStatus"."ingest"->>'retryCount', '')::integer, 0) + 1
                    END),
                  "updatedAt" = CURRENT_TIMESTAMP""",
             (video_id, status, error[:2000], status, error[:2000]),
+        )
+
+    def mark_dirty(self, video_id: str, is_rescue: bool = False) -> None:
+        """Records a video as modified locally so the next Neon sync pushes it."""
+        self.cur.execute(
+            """INSERT INTO "local_dirty_videos" ("video_id", "is_rescue", "updated_at")
+               VALUES (%s, %s, NOW())
+               ON CONFLICT ("video_id") DO UPDATE SET
+                 "is_rescue" = "local_dirty_videos"."is_rescue" OR EXCLUDED."is_rescue",
+                 "updated_at" = NOW()""",
+            (video_id, is_rescue),
+        )
+
+    def get_dirty_video_ids(self) -> list[str]:
+        self.cur.execute("""SELECT "video_id" FROM "local_dirty_videos" ORDER BY "updated_at" ASC""")
+        return [r[0] for r in self.cur.fetchall()]
+
+    def clear_dirty_video_ids(self, video_ids: list[str]) -> None:
+        if not video_ids:
+            return
+        self.cur.execute(
+            """DELETE FROM "local_dirty_videos" WHERE "video_id" = ANY(%s::text[])""",
+            (video_ids,),
+        )
+
+    def get_sync_state(self) -> dict[str, Any]:
+        self.cur.execute(
+            """SELECT "last_pull_at", "last_push_at", "last_sync_at"
+               FROM "processor_sync_state" WHERE "id" = 1"""
+        )
+        row = self.cur.fetchone()
+        if not row:
+            return {"last_pull_at": None, "last_push_at": None, "last_sync_at": None}
+        return {"last_pull_at": row[0], "last_push_at": row[1], "last_sync_at": row[2]}
+
+    def update_sync_state(
+        self,
+        *,
+        last_pull_at: Any = None,
+        last_push_at: Any = None,
+        last_sync_at: Any = None,
+    ) -> None:
+        self.cur.execute(
+            """INSERT INTO "processor_sync_state" ("id", "last_pull_at", "last_push_at", "last_sync_at")
+               VALUES (1, %s, %s, %s)
+               ON CONFLICT ("id") DO UPDATE SET
+                 "last_pull_at" = COALESCE(EXCLUDED."last_pull_at", "processor_sync_state"."last_pull_at"),
+                 "last_push_at" = COALESCE(EXCLUDED."last_push_at", "processor_sync_state"."last_push_at"),
+                 "last_sync_at" = COALESCE(EXCLUDED."last_sync_at", "processor_sync_state"."last_sync_at")""",
+            (last_pull_at, last_push_at, last_sync_at),
         )
 
     def find_audio_track(self, series_id: str, youtube_video_id: str) -> dict | None:
@@ -906,20 +1129,37 @@ class AudioComClient:
         # here at creation time.
         desc = (metadata.get("description") or "")[:500]
         tags = clean_audiocom_tags(metadata.get("tags"))
+        payload = {
+            "title": title,
+            "category": "podcast",
+            "mime": mime,
+            "size": file_size,
+            "description": desc,
+            "tags": tags,
+            "is_listed": True,
+        }
         resp = self._requests.post(
             f"{self.api}/audio/create",
             headers=self.headers,
-            json={
-                "title": title,
-                "category": "podcast",
-                "mime": mime,
-                "size": file_size,
-                "description": desc,
-                "tags": tags,
-                "is_listed": True,
-            },
+            json=payload,
             timeout=30,
         )
+        # If 401, check Upstash Redis for a refreshed token (rotated by backend)
+        # and retry once before flagging an auth error.
+        if resp.status_code == 401:
+            fresh_token = get_audiocom_token_from_redis()
+            if fresh_token and fresh_token != self.token:
+                log.info("  loaded refreshed AUDIO_COM_TOKEN from Redis; retrying create...")
+                self.token = fresh_token
+                self.headers["Authorization"] = f"Bearer {fresh_token}"
+                resp = self._requests.post(
+                    f"{self.api}/audio/create",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=30,
+                )
+            if resp.status_code == 401:
+                report_audiocom_auth_error(f"Audio.com returned 401 Unauthorized: {resp.text[:200]}")
         if resp.status_code not in (200, 201):
             raise RuntimeError(f"Audio.com create failed: {resp.status_code} {resp.text[:300]}")
 
@@ -1770,31 +2010,425 @@ def handle_signal(sig, frame):
     _running = False
 
 
-def invalidate_upstash_cache(*namespaces: str) -> None:
-    """Bumps Upstash Redis namespace version counters after Neon DB updates."""
+def _upstash_command(cmd: list[Any], timeout: int = 3) -> Any:
+    """Executes a single Redis command via Upstash REST if configured."""
     rest_url = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
     rest_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
-    if not rest_url or not rest_token or not namespaces:
-        return
+    if not rest_url or not rest_token:
+        return None
     import urllib.request
 
+    req = urllib.request.Request(
+        rest_url,
+        data=json.dumps(cmd).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {rest_token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            return body.get("result")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Upstash command %s failed: %s", cmd[0] if cmd else "?", e)
+        return None
+
+
+def _redis_prefix() -> str:
     instance_id = os.environ.get("INSTANCE_ID", "christian_tube").strip() or "christian_tube"
+    return f"ct:{instance_id}"
+
+
+def get_audiocom_token_from_redis() -> str | None:
+    """Reads the latest rotated Audio.com access token from Upstash Redis."""
+    raw = _upstash_command(["GET", f"{_redis_prefix()}:audio_proc:audiocom_tokens"])
+    if not raw or not isinstance(raw, str):
+        return None
+    try:
+        parsed = json.loads(raw)
+        tok = (parsed.get("accessToken") or "").strip()
+        return tok or None
+    except Exception:
+        return None
+
+
+def report_audiocom_auth_error(message: str) -> None:
+    """Records an Audio.com 401 auth error in Upstash Redis for the Report Page."""
+    payload = json.dumps({
+        "error": message[:300],
+        "source": "desktop",
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    })
+    _upstash_command(["SET", f"{_redis_prefix()}:audio_proc:auth_error", payload, "EX", "86400"])
+
+
+def write_desktop_sync_telemetry(pushed_count: int, pulled_count: int) -> None:
+    """Writes desktop sync metadata to Upstash Redis for the Mobile Report Page."""
+    payload = json.dumps({
+        "lastDesktopSyncAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "pushedCount": pushed_count,
+        "pulledCount": pulled_count,
+    })
+    _upstash_command(["SET", f"{_redis_prefix()}:audio_proc:desktop_sync", payload])
+
+
+def invalidate_upstash_cache(*namespaces: str) -> None:
+    """Bumps Upstash Redis namespace version counters after Neon DB updates."""
+    if not namespaces:
+        return
+    prefix = _redis_prefix()
     for ns in namespaces:
-        ver_key = f"ct:{instance_id}:ver:{ns}"
-        req = urllib.request.Request(
-            rest_url,
-            data=json.dumps(["INCR", ver_key]).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {rest_token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=3):
-                pass
-        except Exception as e:  # noqa: BLE001
-            log.warning("Upstash cache invalidation failed (%s): %s", ver_key, e)
+        _upstash_command(["INCR", f"{prefix}:ver:{ns}"])
+
+
+def _interruptible_sleep(seconds: int) -> None:
+    for _ in range(max(0, int(seconds))):
+        if not _running:
+            break
+        time.sleep(1)
+
+
+# --------------------------------------------------------------------------- #
+# Two-Way Neon Sync (Local Postgres <-> Neon Postgres)
+# --------------------------------------------------------------------------- #
+def sync_with_neon(
+    local_db: Database,
+    neon_url: str,
+    cfg: Config,
+    rescue_video_ids: list[str] | None = None,
+) -> dict[str, int]:
+    """Synchronizes Local Postgres with Neon Postgres.
+
+    - When ``rescue_video_ids`` is provided: pushes ONLY those recently rescued
+      (<=7d) videos to Neon immediately, without running a full daily pull.
+    - When ``rescue_video_ids`` is None: runs a full 2-way daily sync (Push all
+      dirty local rows -> Neon, then Pull new Channels/Videos/externally
+      completed tracks Neon -> Local).
+    """
+    from psycopg2.extras import execute_values
+
+    is_rescue_only = rescue_video_ids is not None
+    dirty_ids = list(rescue_video_ids) if is_rescue_only else local_db.get_dirty_video_ids()
+    pushed_count = 0
+    pulled_count = 0
+
+    log.info(
+        "=== Starting Neon sync (%s, %d dirty video(s)) ===",
+        "rescue-flush" if is_rescue_only else "daily-2way",
+        len(dirty_ids),
+    )
+
+    neon_db = Database(neon_url)
+    try:
+        # 1. PUSH (Local -> Neon)
+        if dirty_ids:
+            # 1a. Push Video.audioUrl & Video.type='SHORT'
+            local_db.cur.execute(
+                """SELECT "id", "type", "audioUrl" FROM "Video" WHERE "id" = ANY(%s::text[])""",
+                (dirty_ids,),
+            )
+            vid_rows = local_db.cur.fetchall()
+            for vid, vtype, audio_url in vid_rows:
+                if audio_url:
+                    neon_db.cur.execute(
+                        """UPDATE "Video" SET "audioUrl" = COALESCE("audioUrl", %s) WHERE "id" = %s""",
+                        (audio_url, vid),
+                    )
+                if vtype == "SHORT":
+                    neon_db.cur.execute(
+                        """UPDATE "Video" SET "type" = 'SHORT' WHERE "id" = %s AND "audioUrl" IS NULL""",
+                        (vid,),
+                    )
+
+            # 1b. Push touched AudioSeries (never overwriting trackCount/latestPublishedAt)
+            local_db.cur.execute(
+                """SELECT DISTINCT s."id", s."title", s."description", s."speaker", s."category",
+                                   s."language", s."coverUrl", s."channelId", s."latestPublishedAt"
+                   FROM "AudioSeries" s
+                   JOIN "AudioTrack" t ON t."seriesId" = s."id"
+                   WHERE t."youtubeVideoId" = ANY(%s::text[])""",
+                (dirty_ids,),
+            )
+            series_rows = local_db.cur.fetchall()
+            touched_series_ids = [r[0] for r in series_rows]
+            if series_rows:
+                execute_values(
+                    neon_db.cur,
+                    """INSERT INTO "AudioSeries"
+                         ("id","title","description","speaker","category","language",
+                          "coverUrl","channelId","trackCount","latestPublishedAt","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "title"=EXCLUDED."title",
+                         "description"=EXCLUDED."description",
+                         "speaker"=COALESCE("AudioSeries"."speaker", EXCLUDED."speaker"),
+                         "category"=EXCLUDED."category",
+                         "language"=EXCLUDED."language",
+                         "coverUrl"=COALESCE("AudioSeries"."coverUrl", EXCLUDED."coverUrl"),
+                         "channelId"=EXCLUDED."channelId",
+                         "updatedAt"=NOW()""",
+                    series_rows,
+                    template="(%s,%s,%s,%s,%s,%s,%s,%s,0,%s,NOW(),NOW())",
+                )
+
+            # 1c. Push AudioTrack rows (preserve any track already in Neon)
+            local_db.cur.execute(
+                """SELECT "id","seriesId","title","speaker","durationSeconds",
+                          "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId","publishedAt"
+                   FROM "AudioTrack"
+                   WHERE "youtubeVideoId" = ANY(%s::text[])""",
+                (dirty_ids,),
+            )
+            track_rows = local_db.cur.fetchall()
+            if track_rows:
+                execute_values(
+                    neon_db.cur,
+                    """INSERT INTO "AudioTrack"
+                         ("id","seriesId","title","speaker","durationSeconds",
+                          "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId",
+                          "publishedAt","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "streamUrl"=COALESCE("AudioTrack"."streamUrl", EXCLUDED."streamUrl"),
+                         "updatedAt"=NOW()""",
+                    track_rows,
+                    template="(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())",
+                )
+
+            # 1d. Recompute AudioSeries counts ON NEON (never overwrite with local counts)
+            for sid in touched_series_ids:
+                neon_db.cur.execute(
+                    """UPDATE "AudioSeries" SET
+                         "trackCount"=(SELECT COUNT(*) FROM "AudioTrack" WHERE "seriesId"=%s),
+                         "latestPublishedAt"=(SELECT MAX("publishedAt") FROM "AudioTrack" WHERE "seriesId"=%s),
+                         "updatedAt"=NOW()
+                       WHERE "id"=%s""",
+                    (sid, sid, sid),
+                )
+
+            # 1e. Push VideoPipelineStatus with FK guard (deleted private videos) & conflict guard
+            local_db.cur.execute(
+                """SELECT "videoId", "ingest"::text
+                   FROM "VideoPipelineStatus"
+                   WHERE "videoId" = ANY(%s::text[])""",
+                (dirty_ids,),
+            )
+            status_rows = local_db.cur.fetchall()
+            if status_rows:
+                execute_values(
+                    neon_db.cur,
+                    """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+                       SELECT data.video_id, data.ingest::jsonb, CURRENT_TIMESTAMP
+                       FROM (VALUES %s) AS data(video_id, ingest)
+                       WHERE EXISTS (SELECT 1 FROM "Video" v WHERE v."id" = data.video_id)
+                       ON CONFLICT ("videoId") DO UPDATE SET
+                         "ingest" = CASE
+                           WHEN COALESCE("VideoPipelineStatus"."ingest"->>'status', '') IN ('completed', 'ignored')
+                             THEN "VideoPipelineStatus"."ingest"
+                           ELSE COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest"
+                         END,
+                         "updatedAt" = CURRENT_TIMESTAMP""",
+                    status_rows,
+                )
+
+            local_db.clear_dirty_video_ids(dirty_ids)
+            pushed_count = len(dirty_ids)
+            log.info("  pushed %d dirty video(s) to Neon (%d series recomputed)", pushed_count, len(touched_series_ids))
+
+        # 2. PULL (Neon -> Local) on daily sync / cold-start seed
+        if not is_rescue_only:
+            sync_state = local_db.get_sync_state()
+            last_pull_at = sync_state["last_pull_at"]
+            neon_db.cur.execute("SELECT NOW()")
+            neon_now = neon_db.cur.fetchone()[0]
+
+            # 2a. Pull ALL Channels (small table; catches isActive toggles immediately)
+            neon_db.cur.execute(
+                """SELECT "id", "name", "language", "isActive", "updatedAt", "createdAt" FROM "Channel" """
+            )
+            ch_rows = neon_db.cur.fetchall()
+            if ch_rows:
+                execute_values(
+                    local_db.cur,
+                    """INSERT INTO "Channel" ("id","name","language","isActive","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "name"=EXCLUDED."name",
+                         "language"=EXCLUDED."language",
+                         "isActive"=EXCLUDED."isActive",
+                         "updatedAt"=EXCLUDED."updatedAt" """,
+                    ch_rows,
+                )
+
+            # 2b. Pull Videos (full seed if cold-start, else updatedAt >= last_pull_at - 5m)
+            if last_pull_at is None:
+                log.info("  cold-start seed: pulling all Videos from Neon...")
+                neon_db.cur.execute(
+                    """SELECT "id","type"::text,"title","description","thumbnail","channelId",
+                              "channelName","publishedAt","duration","audioUrl","updatedAt","createdAt"
+                       FROM "Video" """
+                )
+            else:
+                neon_db.cur.execute(
+                    """SELECT "id","type"::text,"title","description","thumbnail","channelId",
+                              "channelName","publishedAt","duration","audioUrl","updatedAt","createdAt"
+                       FROM "Video"
+                       WHERE "updatedAt" >= %s - INTERVAL '5 minutes'""",
+                    (last_pull_at,),
+                )
+            video_rows = neon_db.cur.fetchall()
+            for i in range(0, len(video_rows), 500):
+                chunk = video_rows[i : i + 500]
+                execute_values(
+                    local_db.cur,
+                    """INSERT INTO "Video"
+                         ("id","type","title","description","thumbnail","channelId",
+                          "channelName","publishedAt","duration","audioUrl","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "type"=EXCLUDED."type",
+                         "title"=EXCLUDED."title",
+                         "description"=EXCLUDED."description",
+                         "thumbnail"=EXCLUDED."thumbnail",
+                         "channelId"=EXCLUDED."channelId",
+                         "channelName"=EXCLUDED."channelName",
+                         "publishedAt"=EXCLUDED."publishedAt",
+                         "duration"=EXCLUDED."duration",
+                         "audioUrl"=COALESCE(EXCLUDED."audioUrl", "Video"."audioUrl"),
+                         "updatedAt"=EXCLUDED."updatedAt" """,
+                    chunk,
+                )
+            pulled_count = len(video_rows)
+
+            # 2c. Pull AudioSeries & AudioTrack (captures mobile-processed tracks)
+            if last_pull_at is None:
+                neon_db.cur.execute(
+                    """SELECT "id","title","description","speaker","category","language",
+                              "coverUrl","channelId","trackCount","latestPublishedAt","updatedAt","createdAt"
+                       FROM "AudioSeries" """
+                )
+            else:
+                neon_db.cur.execute(
+                    """SELECT "id","title","description","speaker","category","language",
+                              "coverUrl","channelId","trackCount","latestPublishedAt","updatedAt","createdAt"
+                       FROM "AudioSeries"
+                       WHERE "updatedAt" >= %s - INTERVAL '5 minutes'""",
+                    (last_pull_at,),
+                )
+            s_rows = neon_db.cur.fetchall()
+            if s_rows:
+                execute_values(
+                    local_db.cur,
+                    """INSERT INTO "AudioSeries"
+                         ("id","title","description","speaker","category","language",
+                          "coverUrl","channelId","trackCount","latestPublishedAt","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "title"=EXCLUDED."title",
+                         "description"=EXCLUDED."description",
+                         "speaker"=EXCLUDED."speaker",
+                         "category"=EXCLUDED."category",
+                         "language"=EXCLUDED."language",
+                         "coverUrl"=EXCLUDED."coverUrl",
+                         "channelId"=EXCLUDED."channelId",
+                         "trackCount"=EXCLUDED."trackCount",
+                         "latestPublishedAt"=EXCLUDED."latestPublishedAt",
+                         "updatedAt"=EXCLUDED."updatedAt" """,
+                    s_rows,
+                )
+
+            if last_pull_at is None:
+                neon_db.cur.execute(
+                    """SELECT "id","seriesId","title","speaker","durationSeconds",
+                              "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId","publishedAt","updatedAt","createdAt"
+                       FROM "AudioTrack" """
+                )
+            else:
+                neon_db.cur.execute(
+                    """SELECT "id","seriesId","title","speaker","durationSeconds",
+                              "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId","publishedAt","updatedAt","createdAt"
+                       FROM "AudioTrack"
+                       WHERE "updatedAt" >= %s - INTERVAL '5 minutes'""",
+                    (last_pull_at,),
+                )
+            t_rows = neon_db.cur.fetchall()
+            for i in range(0, len(t_rows), 500):
+                chunk = t_rows[i : i + 500]
+                execute_values(
+                    local_db.cur,
+                    """INSERT INTO "AudioTrack"
+                         ("id","seriesId","title","speaker","durationSeconds",
+                          "audioUrl","streamUrl","thumbnailUrl","youtubeVideoId","publishedAt","updatedAt","createdAt")
+                       VALUES %s
+                       ON CONFLICT ("id") DO UPDATE SET
+                         "seriesId"=EXCLUDED."seriesId",
+                         "title"=EXCLUDED."title",
+                         "speaker"=EXCLUDED."speaker",
+                         "durationSeconds"=EXCLUDED."durationSeconds",
+                         "audioUrl"=EXCLUDED."audioUrl",
+                         "streamUrl"=EXCLUDED."streamUrl",
+                         "thumbnailUrl"=EXCLUDED."thumbnailUrl",
+                         "youtubeVideoId"=EXCLUDED."youtubeVideoId",
+                         "publishedAt"=EXCLUDED."publishedAt",
+                         "updatedAt"=EXCLUDED."updatedAt" """,
+                    chunk,
+                )
+
+            # 2d. Pull VideoPipelineStatus (so mobile-completed/ignored videos are skipped locally)
+            if last_pull_at is None:
+                neon_db.cur.execute(
+                    """SELECT "videoId", "ingest"::text FROM "VideoPipelineStatus" """
+                )
+            else:
+                neon_db.cur.execute(
+                    """SELECT "videoId", "ingest"::text FROM "VideoPipelineStatus"
+                       WHERE "updatedAt" >= %s - INTERVAL '5 minutes'""",
+                    (last_pull_at,),
+                )
+            ps_rows = neon_db.cur.fetchall()
+            externally_done_ids: list[str] = []
+            for i in range(0, len(ps_rows), 500):
+                chunk = ps_rows[i : i + 500]
+                execute_values(
+                    local_db.cur,
+                    """INSERT INTO "VideoPipelineStatus" ("videoId", "ingest", "updatedAt")
+                       SELECT data.video_id, data.ingest::jsonb, CURRENT_TIMESTAMP
+                       FROM (VALUES %s) AS data(video_id, ingest)
+                       WHERE EXISTS (SELECT 1 FROM "Video" v WHERE v."id" = data.video_id)
+                       ON CONFLICT ("videoId") DO UPDATE SET
+                         "ingest" = COALESCE("VideoPipelineStatus"."ingest", '{}'::jsonb) || EXCLUDED."ingest",
+                         "updatedAt" = CURRENT_TIMESTAMP""",
+                    chunk,
+                )
+                for vid, ing_str in chunk:
+                    try:
+                        st = json.loads(ing_str or "{}").get("status")
+                        if st in ("completed", "ignored"):
+                            externally_done_ids.append(vid)
+                    except Exception:
+                        pass
+            if externally_done_ids:
+                local_db.clear_dirty_video_ids(externally_done_ids)
+
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            local_db.update_sync_state(
+                last_pull_at=neon_now,
+                last_push_at=now_utc if pushed_count else None,
+                last_sync_at=now_utc,
+            )
+            log.info("  pulled %d channel(s), %d video(s), %d track(s) from Neon", len(ch_rows), pulled_count, len(t_rows))
+
+        if pushed_count > 0:
+            invalidate_upstash_cache("videos", "channels", "audio")
+        if not is_rescue_only:
+            write_desktop_sync_telemetry(pushed_count, pulled_count)
+
+        log.info("=== Neon sync complete (pushed=%d, pulled=%d) ===", pushed_count, pulled_count)
+        return {"pushed": pushed_count, "pulled": pulled_count}
+    finally:
+        neon_db.close()
 
 
 def main():
@@ -1806,6 +2440,7 @@ def main():
     parser.add_argument("--limit", type=int, help="Override batch limit")
     parser.add_argument("--channels", type=str, help="Comma-separated channel name filter (ILIKE match, e.g. 'CFC,NCCF')")
     parser.add_argument("--purge-audiocom", action="store_true", help="Delete ALL existing Audio.com uploads before processing")
+    parser.add_argument("--sync-now", action="store_true", help="Run a 2-way Local <-> Neon sync immediately and exit")
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, handle_signal)
@@ -1813,13 +2448,31 @@ def main():
 
     cfg = load_config(args)
 
+    sweep_stale_work_dirs(cfg.work_dir)
+    maybe_auto_update_ytdlp(cfg.auto_update_ytdlp)
+
     if cfg.channel_filters:
         log.info("Starting YouTube Video Processor (channels: %s)...", cfg.channel_filters)
     else:
-        log.info("Starting YouTube Video Processor service...")
+        log.info(
+            "Starting YouTube Video Processor service (mode: %s)...",
+            "dual-db always-on" if cfg.neon_database_url else "single-db",
+        )
 
     db = Database(cfg.database_url)
     audiocom = AudioComClient(cfg.audio_com_token)
+
+    # Manual --sync-now mode
+    if cfg.sync_now:
+        if not cfg.neon_database_url:
+            log.error("--sync-now requires both LOCAL_DATABASE_URL and NEON_DATABASE_URL/DATABASE_URL.")
+            db.close()
+            sys.exit(1)
+        try:
+            sync_with_neon(db, cfg.neon_database_url, cfg)
+        finally:
+            db.close()
+        return
 
     # Purge all Audio.com uploads if requested
     if cfg.purge_audiocom:
@@ -1834,11 +2487,15 @@ def main():
     def flush_batch():
         if not completed_buffer:
             return
-        log.info("Flushing batch: %d video(s) to Neon DB...", len(completed_buffer))
+        log.info("Flushing batch: %d video(s) to DB...", len(completed_buffer))
         db.batch_mark_completed(completed_buffer)
+        if cfg.neon_database_url:
+            for vid, _ in completed_buffer:
+                db.mark_dirty(vid)
         log.info("Batch of %d video(s) successfully marked completed in DB.", len(completed_buffer))
         completed_buffer.clear()
-        invalidate_upstash_cache("videos", "channels", "audio")
+        if not cfg.neon_database_url:
+            invalidate_upstash_cache("videos", "channels", "audio")
 
     # Single video mode
     if cfg.video_id:
@@ -1849,22 +2506,110 @@ def main():
         res = process_video(db, audiocom, cfg, row)
         if res:
             db.mark_completed(res[0], res[1])
-        invalidate_upstash_cache("videos", "channels", "audio")
+            if cfg.neon_database_url:
+                db.mark_dirty(res[0])
+                sync_with_neon(db, cfg.neon_database_url, cfg, rescue_video_ids=[res[0]])
+        if not cfg.neon_database_url:
+            invalidate_upstash_cache("videos", "channels", "audio")
         return
 
-    # Daytime schedule: wait until next 12:00 PM IST unless run_on_boot is explicitly enabled
+    # ----------------------------------------------------------------------- #
+    # Dual-DB Always-On Mode (Local Postgres + Once-a-Day Neon Sync)
+    # ----------------------------------------------------------------------- #
+    if cfg.neon_database_url:
+        daily_count = 0
+        daily_date = datetime.datetime.now(_tz(cfg.timezone)).date()
+        try:
+            while _running:
+                today = datetime.datetime.now(_tz(cfg.timezone)).date()
+                if today != daily_date:
+                    daily_date = today
+                    daily_count = 0
+
+                # 1. Cold-start seed OR once-per-calendar-day Neon sync
+                sync_state = db.get_sync_state()
+                if sync_state["last_pull_at"] is None or should_run_daily_sync(
+                    sync_state["last_sync_at"],
+                    cfg.daily_run_hour,
+                    cfg.daily_run_minute,
+                    cfg.timezone,
+                ):
+                    try:
+                        sync_with_neon(db, cfg.neon_database_url, cfg)
+                    except Exception as e:
+                        log.error("Daily Neon sync failed (will retry on next tick): %s", e)
+
+                # 2. Enforce daily processing cap (still allows daily sync above)
+                if daily_count >= cfg.daily_process_cap:
+                    log.info(
+                        "Daily processing cap (%d/%d) reached. Sleeping %ds...",
+                        daily_count, cfg.daily_process_cap, cfg.local_idle_poll_seconds,
+                    )
+                    if cfg.once:
+                        break
+                    _interruptible_sleep(cfg.local_idle_poll_seconds)
+                    continue
+
+                # 3. Fetch next eligible video(s) from Local Postgres (7d rescue first, then oldest-first)
+                orig_limit = cfg.batch_limit
+                cfg.batch_limit = 1 if not cfg.once else min(cfg.batch_limit, max(1, cfg.daily_process_cap - daily_count))
+                try:
+                    videos = db.fetch_eligible_videos(cfg)
+                finally:
+                    cfg.batch_limit = orig_limit
+
+                if not videos:
+                    if cfg.once:
+                        log.info("No eligible videos found in local DB, exiting (--once).")
+                        break
+                    log.info("Local queue empty. Sleeping %ds...", cfg.local_idle_poll_seconds)
+                    _interruptible_sleep(cfg.local_idle_poll_seconds)
+                    continue
+
+                for row in videos:
+                    if not _running:
+                        break
+                    video_id = row[0]
+                    published_at = row[3]
+                    rescue = is_recent_video(published_at, days=7)
+                    res = process_video(db, audiocom, cfg, row)
+                    if res:
+                        db.mark_completed(res[0], res[1])
+                        db.mark_dirty(res[0], is_rescue=rescue)
+                        daily_count += 1
+                        if rescue:
+                            try:
+                                sync_with_neon(db, cfg.neon_database_url, cfg, rescue_video_ids=[res[0]])
+                            except Exception as e:
+                                log.error("Rescue Neon flush failed for %s: %s", res[0], e)
+                    else:
+                        # Short or failed — still mark dirty so Neon learns about Shorts/dead videos
+                        db.mark_dirty(video_id, is_rescue=rescue)
+
+                    if not cfg.once and _running and cfg.video_pace_seconds > 0:
+                        _interruptible_sleep(cfg.video_pace_seconds)
+
+                if cfg.once:
+                    break
+        finally:
+            flush_batch()
+            db.close()
+            log.info("YouTube Video Processor stopped.")
+        return
+
+    # ----------------------------------------------------------------------- #
+    # Legacy Single-DB Mode (Direct to DATABASE_URL on Daily Schedule)
+    # ----------------------------------------------------------------------- #
     if not cfg.run_on_boot and not cfg.once and not cfg.video_id:
         wait_sec = seconds_until_daily_run(cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone)
         log.info(
             "Daytime schedule: waiting %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
             wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
         )
-        for _ in range(wait_sec):
-            if not _running:
-                return
-            time.sleep(1)
+        _interruptible_sleep(wait_sec)
+        if not _running:
+            return
 
-    # Continuous polling loop
     try:
         while _running:
             videos = db.fetch_eligible_videos(cfg)
@@ -1878,10 +2623,7 @@ def main():
                     "No pending videos from ChristianApp channels. Sleeping %ds (%.2f hours) until %02d:%02d (%s)...",
                     wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
                 )
-                for _ in range(wait_sec):
-                    if not _running:
-                        break
-                    time.sleep(1)
+                _interruptible_sleep(wait_sec)
                 continue
 
             log.info("Found %d video(s) to process.", len(videos))
@@ -1904,10 +2646,7 @@ def main():
                 "Daily batch finished. Sleeping %ds (%.2f hours) until next daily run at %02d:%02d (%s)...",
                 wait_sec, wait_sec / 3600, cfg.daily_run_hour, cfg.daily_run_minute, cfg.timezone,
             )
-            for _ in range(wait_sec):
-                if not _running:
-                    break
-                time.sleep(1)
+            _interruptible_sleep(wait_sec)
     finally:
         flush_batch()
         db.close()
