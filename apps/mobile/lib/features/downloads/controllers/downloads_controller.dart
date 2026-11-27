@@ -508,7 +508,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'ta',
       name: 'Tamil Pack',
       nativeName: 'தமிழ் பேக்',
-      bibleId: 'taobvsi',
+      bibleId: 'TAOBVSI',
       dictId: 'ta_glossary',
       artLang: 'ta',
       includeSongs: true,
@@ -518,7 +518,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'hi',
       name: 'Hindi Pack',
       nativeName: 'हिन्दी पैक',
-      bibleId: 'hin_irv',
+      bibleId: 'HIN_IRV',
       dictId: 'hi',
       artLang: 'hi',
       includeSongs: false,
@@ -528,7 +528,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'en',
       name: 'English Study Pack',
       nativeName: 'English Pack',
-      bibleId: 'kjv',
+      bibleId: 'KJV',
       dictId: 'eastons',
       artLang: 'en',
       includeSongs: true,
@@ -538,7 +538,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'te',
       name: 'Telugu Pack',
       nativeName: 'తెలుగు ప్యాక్',
-      bibleId: 'tel_irv',
+      bibleId: 'TEL_IRV',
       dictId: 'te',
       artLang: 'te',
       includeSongs: false,
@@ -548,7 +548,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'ml',
       name: 'Malayalam Pack',
       nativeName: 'മലയാളം പായ്ക്ക്',
-      bibleId: 'mal_irv',
+      bibleId: 'MAL_IRV',
       dictId: 'ml',
       artLang: 'ml',
       includeSongs: true,
@@ -558,7 +558,7 @@ class DownloadsController extends ChangeNotifier {
       code: 'de',
       name: 'German Pack',
       nativeName: 'Deutsch-Paket',
-      bibleId: 'elberfelder',
+      bibleId: 'ELBERFELDER',
       dictId: 'de',
       artLang: 'de',
       includeSongs: false,
@@ -568,7 +568,8 @@ class DownloadsController extends ChangeNotifier {
 
   bool isLanguagePackInstalled(String langCode) {
     final pack = languagePacks.firstWhere((p) => p.code == langCode, orElse: () => languagePacks.first);
-    final bibleInstalled = _bibleManager.isInstalled(pack.bibleId);
+    final canonicalBibleId = BibleDownloadManager.getMeta(pack.bibleId).id;
+    final bibleInstalled = _bibleManager.isInstalled(canonicalBibleId);
     final dictInstalled = pack.dictId == null || _dictManager.isInstalled(pack.dictId!);
     final artInstalled = pack.artLang == null || _articlesManager.isInstalled(pack.artLang!);
     return bibleInstalled && dictInstalled && artInstalled;
@@ -576,7 +577,8 @@ class DownloadsController extends ChangeNotifier {
 
   bool isLanguagePackDownloading(String langCode) {
     final pack = languagePacks.firstWhere((p) => p.code == langCode, orElse: () => languagePacks.first);
-    if (_bibleManager.isDownloading(pack.bibleId)) return true;
+    final canonicalBibleId = BibleDownloadManager.getMeta(pack.bibleId).id;
+    if (_bibleManager.isDownloading(canonicalBibleId)) return true;
     if (pack.dictId != null && _dictManager.isDownloading(pack.dictId!)) return true;
     if (pack.artLang != null && _articlesManager.isDownloading(pack.artLang!)) return true;
     return false;

@@ -112,6 +112,19 @@ import { AuthService } from './auth.service';
             }
 
             <div class="popover-actions">
+              <a class="menu-link" routerLink="/watch-later" (click)="close()">
+                <span class="material-symbols-rounded">watch_later</span>
+                <span>Watch Later</span>
+              </a>
+              <a class="menu-link" routerLink="/playlists" (click)="close()">
+                <span class="material-symbols-rounded">playlist_play</span>
+                <span>Playlists</span>
+              </a>
+              <a class="menu-link" routerLink="/history" (click)="close()">
+                <span class="material-symbols-rounded">history</span>
+                <span>History</span>
+              </a>
+              <div class="menu-divider"></div>
               <a class="menu-link" routerLink="/settings" (click)="close()">
                 <span class="material-symbols-rounded">tune</span>
                 <span>Settings</span>
@@ -182,6 +195,26 @@ import { AuthService } from './auth.service';
             </div>
 
             <div class="popover-actions">
+              <a class="menu-link" routerLink="/settings" (click)="close()">
+                <span class="material-symbols-rounded">tune</span>
+                <span>Settings</span>
+              </a>
+            </div>
+
+            <div class="popover-actions">
+              <div class="menu-divider"></div>
+              <a class="menu-link" routerLink="/watch-later" (click)="close()">
+                <span class="material-symbols-rounded">watch_later</span>
+                <span>Watch Later</span>
+              </a>
+              <a class="menu-link" routerLink="/playlists" (click)="close()">
+                <span class="material-symbols-rounded">playlist_play</span>
+                <span>Playlists</span>
+              </a>
+              <a class="menu-link" routerLink="/history" (click)="close()">
+                <span class="material-symbols-rounded">history</span>
+                <span>History</span>
+              </a>
               <a class="menu-link" routerLink="/settings" (click)="close()">
                 <span class="material-symbols-rounded">tune</span>
                 <span>Settings</span>

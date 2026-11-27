@@ -52,7 +52,9 @@ class Short {
   });
 
   bool get isClippedSermon =>
-      sourceVideoId != null && sourceVideoId!.trim().isNotEmpty;
+      sourceVideoId != null &&
+      sourceVideoId!.trim().isNotEmpty &&
+      playableVideoId == sourceVideoId;
 
   String get playableVideoId {
     if (sourceVideoId != null && sourceVideoId!.isNotEmpty) {
@@ -64,6 +66,7 @@ class Short {
   }
 
   int get playableStartSeconds {
+    if (!isClippedSermon) return 0;
     if (clipStartTime != null && clipStartTime! > 0) {
       return clipStartTime!.toInt();
     }
@@ -71,6 +74,7 @@ class Short {
   }
 
   int? get playableEndSeconds {
+    if (!isClippedSermon) return null;
     if (clipEndTime != null && clipEndTime! > 0) {
       return clipEndTime!.toInt();
     }

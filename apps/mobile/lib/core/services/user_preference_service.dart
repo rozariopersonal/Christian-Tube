@@ -232,6 +232,7 @@ class UserPreferenceService extends ChangeNotifier {
     await savePreferences(updated, auth: auth, syncWithBackend: syncWithBackend);
   }
 
+
   /// Propagates saved preferences to the app's specialized controllers.
   Future<void> applyToRuntimeControllers(UserPreference pref) async {
     // 1. Library and audio content languages

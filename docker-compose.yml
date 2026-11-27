@@ -56,15 +56,18 @@ services:
       context: ./services/youtube-processor
     container_name: christianapp-youtube-processor
     restart: always
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - envs/common.env
       - ${ENV_FILE:-envs/neon.env}
+    environment:
+      LOCAL_DATABASE_URL: postgresql://postgres:postgres@db:5432/christiantube?schema=public
     volumes:
       - processor-work:/work
       - ./services/youtube-processor/worker.py:/app/worker.py
       - ./services/youtube-processor/eligible_videos.sql:/app/eligible_videos.sql:ro
-      - ./releases:/app/releases
-      - ./.git/modules/releases:/app/.git/modules/releases
 
   embedder:
     build:

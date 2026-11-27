@@ -100,10 +100,13 @@ class ChannelService extends ChangeNotifier {
   }
 
   bool get _isAuthenticated => _authService?.isAuthenticated ?? false;
+  bool get _isAdmin => _authService?.isAdmin ?? false;
   List<Channel> _channels = [];
   List<Map<String, dynamic>> _channelRequests = [];
   bool _isLoading = false;
   bool _isLoadingRequests = false;
+  String? _lastRequestError;
+  String? _lastSearchError;
   Set<String> _subscribedIds = {};
   final Map<String, String> _channelNamesById = {};
   int _subscriptionMutationVersion = 0;
@@ -115,6 +118,8 @@ class ChannelService extends ChangeNotifier {
   List<Map<String, dynamic>> get channelRequests => _channelRequests;
   bool get isLoading => _isLoading;
   bool get isLoadingRequests => _isLoadingRequests;
+  String? get lastRequestError => _lastRequestError;
+  String? get lastSearchError => _lastSearchError;
   Set<String> get subscribedChannelIds => _subscribedIds;
   Set<String> get followedChannelIds => _subscribedIds;
 
@@ -320,12 +325,48 @@ class ChannelService extends ChangeNotifier {
     }
   }
 
+  Future<Response<dynamic>> _with404Fallback(
+    Future<Response<dynamic>> Function(String prefix) call,
+  ) async {
+    try {
+      return await call('/api');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return await call('');
+      }
+      rethrow;
+    }
+  }
+
+  String _extractDioError(Object e, String fallback) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final msg = data['message'];
+        if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+        if (msg is List && msg.isNotEmpty) return msg.first.toString();
+      } else if (data is String && data.trim().isNotEmpty) {
+        return data.trim();
+      }
+    }
+    return fallback;
+  }
+
   Future<void> fetchRequests() async {
+    if (_authService != null && !_isAdmin) {
+      if (_channelRequests.isNotEmpty) {
+        _channelRequests = [];
+        notifyListeners();
+      }
+      return;
+    }
     _isLoadingRequests = true;
     notifyListeners();
 
     try {
-      final response = await _dio.get('/channels/requests');
+      final response = await _with404Fallback(
+        (prefix) => _dio.get('$prefix/channels/requests'),
+      );
       if (response.statusCode == 200 && response.data != null) {
         final List<dynamic> list = response.data is List ? response.data : [];
         _channelRequests = list.whereType<Map<String, dynamic>>().toList();
@@ -359,21 +400,17 @@ class ChannelService extends ChangeNotifier {
   }
 
   Future<List<Map<String, dynamic>>> searchYouTubeChannels(String query) async {
-    if (query.trim().isEmpty) return [];
+    final trimmed = query.trim();
+    _lastSearchError = null;
+    if (trimmed.length < 2) return [];
 
     try {
-      dynamic response;
-      try {
-        response = await _dio.get(
-          '/api/channels/search-youtube',
-          queryParameters: {'q': query},
-        );
-      } catch (_) {
-        response = await _dio.get(
-          '/channels/search-youtube',
-          queryParameters: {'q': query},
-        );
-      }
+      final response = await _with404Fallback(
+        (prefix) => _dio.get(
+          '$prefix/channels/search-youtube',
+          queryParameters: {'q': trimmed},
+        ),
+      );
 
       if (response.statusCode == 200 && response.data != null) {
         final dynamic list = response.data is List ? response.data : [];
@@ -381,6 +418,10 @@ class ChannelService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error searching YouTube channels: $e');
+      _lastSearchError = _extractDioError(
+        e,
+        'Could not search YouTube right now. Try pasting the channel URL directly.',
+      );
     }
     return [];
   }
@@ -392,6 +433,7 @@ class ChannelService extends ChangeNotifier {
     String? language,
     String? adminEmail,
   }) async {
+    _lastRequestError = null;
     try {
       final data = {
         'channelUrl': channelUrl,
@@ -409,11 +451,16 @@ class ChannelService extends ChangeNotifier {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchChannels();
+        if (_isAdmin) {
+          await fetchAdminChannels();
+        } else {
+          await fetchChannels();
+        }
         return true;
       }
     } catch (e) {
       debugPrint('Error adding channel: $e');
+      _lastRequestError = _extractDioError(e, 'Failed to add channel');
     }
     return false;
   }
@@ -472,7 +519,9 @@ class ChannelService extends ChangeNotifier {
 
   Future<bool> removeChannel(String channelId) async {
     try {
-      final response = await _dio.delete('/channels/$channelId');
+      final response = await _with404Fallback(
+        (prefix) => _dio.delete('$prefix/channels/$channelId'),
+      );
       if (response.statusCode == 200 || response.statusCode == 204) {
         _channels.removeWhere((c) => c.id == channelId);
         _subscribedIds.remove(channelId);
@@ -488,43 +537,56 @@ class ChannelService extends ChangeNotifier {
   }
 
   Future<bool> submitChannelRequest(ChannelRequest request) async {
+    _lastRequestError = null;
     try {
-      final response = await _dio.post(
-        '/channels/request',
-        data: request.toJson(),
+      final response = await _with404Fallback(
+        (prefix) => _dio.post(
+          '$prefix/channels/request',
+          data: request.toJson(),
+        ),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchRequests();
+        if (_isAdmin) {
+          await fetchRequests();
+        }
         return true;
       }
     } catch (e) {
       debugPrint('Error submitting channel request: $e');
+      _lastRequestError = _extractDioError(e, 'Failed to submit request');
     }
     return false;
   }
 
   Future<bool> approveRequest(String requestId, [String? adminEmail]) async {
+    _lastRequestError = null;
     try {
-      final response = await _dio.post(
-        '/channels/requests/$requestId/approve',
-        data: {'adminEmail': adminEmail},
+      final response = await _with404Fallback(
+        (prefix) => _dio.post(
+          '$prefix/channels/requests/$requestId/approve',
+          data: {'adminEmail': adminEmail},
+        ),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchChannels();
+        await fetchAdminChannels();
         await fetchRequests();
         return true;
       }
     } catch (e) {
       debugPrint('Error approving channel request: $e');
+      _lastRequestError = _extractDioError(e, 'Approval failed');
     }
     return false;
   }
 
   Future<bool> rejectRequest(String requestId, [String? reason]) async {
+    _lastRequestError = null;
     try {
-      final response = await _dio.post(
-        '/channels/requests/$requestId/reject',
-        data: {'reason': reason},
+      final response = await _with404Fallback(
+        (prefix) => _dio.post(
+          '$prefix/channels/requests/$requestId/reject',
+          data: {'reason': reason},
+        ),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchRequests();
@@ -532,6 +594,7 @@ class ChannelService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error rejecting channel request: $e');
+      _lastRequestError = _extractDioError(e, 'Rejection failed');
     }
     return false;
   }

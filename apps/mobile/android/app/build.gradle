@@ -98,6 +98,12 @@ flutter {
     source '../..'
 }
 
+// Conditionally apply Google Services only when google-services.json is present
+// so multi-instance builds without Firebase (e.g. CentumAcademy) never fail.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }

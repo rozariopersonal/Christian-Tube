@@ -19,6 +19,10 @@ from worker import (
     norm_title,
     parse_duration_seconds,
     is_permanent_failure,
+    is_recent_video,
+    should_run_daily_sync,
+    sweep_stale_work_dirs,
+    sync_with_neon,
     process_video,
     AudioComClient,
     Config,
@@ -632,6 +636,120 @@ class TestFetchEligiblePriority(unittest.TestCase):
             cfg.priority_channel_ids,
             ["UCpZG4Vl2tqg5cIfGMocI2Ag", "UC_OTHER"],
         )
+
+
+class TestDualDbAndSync(unittest.TestCase):
+    def test_eligible_sql_has_7day_rescue_and_oldest_first(self):
+        db, cur = _make_db()
+        cfg = Config(database_url="x", audio_com_token="x", work_dir=Path("."))
+        db.fetch_eligible_videos(cfg)
+        sql = cur.execute.call_args[0][0]
+        self.assertIn("INTERVAL '7 days'", sql)
+        self.assertIn('v."publishedAt" ASC', sql)
+        self.assertNotIn('v."publishedAt" DESC', sql)
+
+    def test_is_recent_video(self):
+        import datetime
+        now = datetime.datetime(2026, 11, 27, 12, 0, tzinfo=datetime.timezone.utc)
+        self.assertTrue(is_recent_video("2026-11-25T10:00:00Z", days=7, now=now))
+        self.assertFalse(is_recent_video("2026-11-10T10:00:00Z", days=7, now=now))
+        self.assertFalse(is_recent_video(None, days=7, now=now))
+
+    def test_should_run_daily_sync_intermittent_pc(self):
+        import datetime
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        # Never synced -> True
+        self.assertTrue(should_run_daily_sync(None))
+        # Already synced today at 12:05 IST -> False at 20:00 IST
+        synced_today = datetime.datetime(2026, 11, 27, 12, 5, tzinfo=tz)
+        evening_today = datetime.datetime(2026, 11, 27, 20, 0, tzinfo=tz)
+        self.assertFalse(should_run_daily_sync(synced_today, 12, 0, "Asia/Kolkata", now=evening_today))
+        # Synced yesterday at 12:05 IST, PC boots today at 20:00 IST (missed noon) -> True
+        synced_yesterday = datetime.datetime(2026, 11, 26, 12, 5, tzinfo=tz)
+        self.assertTrue(should_run_daily_sync(synced_yesterday, 12, 0, "Asia/Kolkata", now=evening_today))
+        # Synced 2 days ago, PC boots at 09:00 IST (before noon, >24h elapsed) -> True
+        synced_two_days_ago = datetime.datetime(2026, 11, 25, 20, 0, tzinfo=tz)
+        morning_today = datetime.datetime(2026, 11, 27, 9, 0, tzinfo=tz)
+        self.assertTrue(should_run_daily_sync(synced_two_days_ago, 12, 0, "Asia/Kolkata", now=morning_today))
+        # Synced yesterday at 20:00 IST, now 09:00 IST (<24h and before noon) -> False
+        synced_last_night = datetime.datetime(2026, 11, 26, 20, 0, tzinfo=tz)
+        self.assertFalse(should_run_daily_sync(synced_last_night, 12, 0, "Asia/Kolkata", now=morning_today))
+
+    def test_sweep_stale_work_dirs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "proc_old1").mkdir()
+            (root / "proc_old1" / "a.mp3").write_bytes(b"123")
+            (root / "keep_me").mkdir()
+            removed = sweep_stale_work_dirs(root)
+            self.assertEqual(removed, 1)
+            self.assertFalse((root / "proc_old1").exists())
+            self.assertTrue((root / "keep_me").exists())
+
+    def test_load_config_dual_db_mode(self):
+        args = MagicMock()
+        args.channels = None
+        args.limit = None
+        args.redo = False
+        args.retry_failed = False
+        args.once = False
+        args.video_id = None
+        args.purge_audiocom = False
+        args.sync_now = False
+        with patch(
+            "os.environ",
+            {
+                "LOCAL_DATABASE_URL": "postgresql://postgres:postgres@db:5432/christiantube",
+                "DATABASE_URL": "postgresql://neon_user:pass@neon/db",
+                "AUDIO_COM_TOKEN": "aud",
+                "VIDEO_PACE_SECONDS": "45",
+                "DAILY_PROCESS_CAP": "250",
+                "NEON_PUSH_BATCH_SIZE": "100",
+            },
+        ):
+            cfg = load_config(args)
+        self.assertEqual(cfg.database_url, "postgresql://postgres:postgres@db:5432/christiantube")
+        self.assertEqual(cfg.neon_database_url, "postgresql://neon_user:pass@neon/db")
+        self.assertEqual(cfg.video_pace_seconds, 45)
+        self.assertEqual(cfg.daily_process_cap, 250)
+        self.assertEqual(cfg.neon_push_batch_size, 100)
+
+    def test_audiocom_401_retries_with_redis_token(self):
+        client = AudioComClient("old_token")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.write(b"fake_mp3")
+        tmp.close()
+        try:
+            resp_401 = MagicMock(status_code=401, text="Unauthorized")
+            resp_201 = MagicMock(status_code=201)
+            resp_201.json.return_value = {"url": "https://upload/1", "audio": {"id": "777"}}
+            put_ok = MagicMock(status_code=200)
+            client._requests.post = MagicMock(side_effect=[resp_401, resp_201])
+            client._requests.put = MagicMock(return_value=put_ok)
+            client.find_existing_title_ids = MagicMock(return_value=[])
+            client._resolve_stream_url = MagicMock(return_value="https://cdn/777.mp3")
+
+            with patch("worker.get_audiocom_token_from_redis", return_value="fresh_token"):
+                audio_url, stream_url = client.upload_audio(Path(tmp.name), {"title": "Test"})
+
+            self.assertEqual(audio_url, "https://audio.com/777")
+            self.assertEqual(stream_url, "https://cdn/777.mp3")
+            self.assertEqual(client.token, "fresh_token")
+        finally:
+            os.unlink(tmp.name)
+
+    def test_collection_rollover_on_1000_item_limit(self):
+        client = AudioComClient("test_token")
+        client.get_or_create_collection = MagicMock(side_effect=["col_p1", "col_p2"])
+        full_resp = MagicMock(status_code=422, text='{"errors":{"audio":"There can be maximum 1000 items in this collection"}}')
+        ok_resp = MagicMock(status_code=204, text="")
+        client._requests.post = MagicMock(side_effect=[full_resp, ok_resp])
+
+        col_id = client.add_to_channel_collection("CFC India", "audio_1001")
+        self.assertEqual(col_id, "col_p2")
+        client.get_or_create_collection.assert_any_call("CFC India")
+        client.get_or_create_collection.assert_any_call("CFC India (Part 2)")
+        self.assertEqual(client._active_part_cache["cfc india"], 2)
 
 
 if __name__ == "__main__":

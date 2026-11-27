@@ -95,6 +95,33 @@ if (fs.existsSync(buildGradlePath)) {
   console.log(`✅ Updated Android applicationId to: ${config.applicationId}`);
 }
 
+// 4b. Sync google-services.json only if present AND matching config.applicationId
+const gsSrc = path.join(instanceDir, 'google-services.json');
+const gsTarget = path.join(rootDir, 'apps', 'mobile', 'android', 'app', 'google-services.json');
+let gsCopied = false;
+if (fs.existsSync(gsSrc)) {
+  try {
+    const gsData = JSON.parse(fs.readFileSync(gsSrc, 'utf8'));
+    const clients = Array.isArray(gsData.client) ? gsData.client : [];
+    const matchesAppId = clients.some(
+      (c) => c?.client_info?.android_client_info?.package_name === config.applicationId
+    );
+    if (matchesAppId) {
+      fs.copyFileSync(gsSrc, gsTarget);
+      gsCopied = true;
+      console.log(`✅ Synced google-services.json for ${config.applicationId}`);
+    } else {
+      console.log(`⚠️ google-services.json does not include ${config.applicationId}; skipping`);
+    }
+  } catch (err) {
+    console.log(`⚠️ Could not parse google-services.json: ${err.message}`);
+  }
+}
+if (!gsCopied && fs.existsSync(gsTarget)) {
+  fs.unlinkSync(gsTarget);
+  console.log(`🧹 Removed non-matching google-services.json from Android app dir`);
+}
+
 // 5. Update AndroidManifest.xml label
 const manifestPath = path.join(rootDir, 'apps', 'mobile', 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(manifestPath)) {

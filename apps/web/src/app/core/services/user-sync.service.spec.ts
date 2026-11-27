@@ -281,4 +281,168 @@ describe('UserSyncService', () => {
 
     httpMock.match((r) => r.url.includes('manifest.json')).forEach((r) => r.flush({}));
   });
+
+  it('flushes playlist_op entries strictly sequentially (FIFO) across all actions', async () => {
+    authService.currentUser.set({
+      id: 'user-pl',
+      email: 'pl@example.com',
+      displayName: 'PL',
+    });
+    TestBed.flushEffects();
+    await Promise.resolve();
+    httpMock
+      .expectOne((r) => r.url.endsWith('/api/user/state'))
+      .flush({ serverTime: Date.now() });
+    await Promise.resolve();
+
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'create',
+      payload: { id: 'pl-1', title: 'Sermons', description: 'Notes' },
+      clientUpdatedAt: 1000,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'add_item',
+      payload: { videoId: 'v1' },
+      clientUpdatedAt: 1001,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'update',
+      payload: { title: 'Sermons Updated', description: null },
+      clientUpdatedAt: 1002,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'reorder',
+      payload: { videoIds: ['v1'] },
+      clientUpdatedAt: 1003,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'remove_item',
+      payload: { videoId: 'v1' },
+      clientUpdatedAt: 1004,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-1',
+      action: 'delete',
+      clientUpdatedAt: 1005,
+    });
+
+    expect(userSync.hasPendingPlaylistOps('pl-1')).toBe(true);
+    expect(userSync.hasPendingPlaylistOps('other')).toBe(false);
+
+    // Only the first op should be in flight at a time
+    const req1 = httpMock.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists'),
+    );
+    expect(req1.request.body).toMatchObject({ id: 'pl-1', title: 'Sermons' });
+    req1.flush({ id: 'pl-1' });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req2 = httpMock.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists/pl-1/items'),
+    );
+    expect(req2.request.body).toMatchObject({ videoId: 'v1' });
+    req2.flush({ ok: true });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req3 = httpMock.expectOne(
+      (r) => r.method === 'PATCH' && r.url.endsWith('/api/user/playlists/pl-1'),
+    );
+    expect(req3.request.body).toMatchObject({ title: 'Sermons Updated' });
+    req3.flush({ id: 'pl-1' });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req4 = httpMock.expectOne(
+      (r) => r.method === 'PUT' && r.url.endsWith('/api/user/playlists/pl-1/items/reorder'),
+    );
+    expect(req4.request.body).toMatchObject({ videoIds: ['v1'] });
+    req4.flush({ ok: true });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req5 = httpMock.expectOne(
+      (r) =>
+        r.method === 'DELETE' &&
+        r.url.includes('/api/user/playlists/pl-1/items/v1?clientUpdatedAt='),
+    );
+    req5.flush({ ok: true });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const req6 = httpMock.expectOne(
+      (r) =>
+        r.method === 'DELETE' &&
+        r.url.includes('/api/user/playlists/pl-1?clientUpdatedAt='),
+    );
+    req6.flush({ ok: true });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(userSync.hasPendingPlaylistOps('pl-1')).toBe(false);
+  });
+
+  it('drops permanent 400/404 playlist ops but stops FIFO and retains ops on 5xx or 401', async () => {
+    authService.currentUser.set({
+      id: 'user-err',
+      email: 'err@example.com',
+      displayName: 'Err',
+    });
+    TestBed.flushEffects();
+    await Promise.resolve();
+    httpMock
+      .expectOne((r) => r.url.endsWith('/api/user/state'))
+      .flush({ serverTime: Date.now() });
+    await Promise.resolve();
+
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-404',
+      action: 'update',
+      payload: { title: 'Missing' },
+      clientUpdatedAt: 2000,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-500',
+      action: 'create',
+      payload: { title: 'Retry Me' },
+      clientUpdatedAt: 2001,
+    });
+    userSync.enqueuePlaylistOp({
+      playlistId: 'pl-500',
+      action: 'add_item',
+      payload: { videoId: 'v9' },
+      clientUpdatedAt: 2002,
+    });
+
+    // 404 is dropped so queue proceeds to next op
+    const r404 = httpMock.expectOne(
+      (r) => r.method === 'PATCH' && r.url.endsWith('/api/user/playlists/pl-404'),
+    );
+    r404.flush({ message: 'Not found' }, { status: 404, statusText: 'Not Found' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(userSync.hasPendingPlaylistOps('pl-404')).toBe(false);
+
+    // 503 stops FIFO loop — add_item is NOT sent yet, both ops retained
+    const r503 = httpMock.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists'),
+    );
+    r503.flush(null, { status: 503, statusText: 'Unavailable' });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(userSync.hasPendingPlaylistOps('pl-500')).toBe(true);
+    const remaining = Object.values(userSync.pendingOps()).filter(
+      (op) => op.kind === 'playlist_op',
+    );
+    expect(remaining.map((o) => o.playlistAction)).toEqual(['create', 'add_item']);
+
+    // Manual flush with 401 pauses auth and retains ops
+    void userSync.flushOutbox();
+    await Promise.resolve();
+    const r401 = httpMock.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/api/user/playlists'),
+    );
+    r401.flush(null, { status: 401, statusText: 'Unauthorized' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(userSync.hasPendingPlaylistOps('pl-500')).toBe(true);
+  });
 });

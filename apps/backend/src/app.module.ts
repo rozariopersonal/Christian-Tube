@@ -18,6 +18,7 @@ import { WordsModule } from './modules/words/words.module';
 import { ShortsModule } from './modules/shorts/shorts.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { AdminReleaseModule } from './modules/admin-release/admin-release.module';
+import { AdminAudioProcessorModule } from './modules/admin-audio-processor/admin-audio-processor.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { BibleModule } from './modules/bible/bible.module';
 
@@ -44,6 +45,7 @@ import { BibleModule } from './modules/bible/bible.module';
     ShortsModule,
     FeedbackModule,
     AdminReleaseModule,
+    AdminAudioProcessorModule,
     AudioModule,
     BibleModule,
   ],

@@ -26,12 +26,12 @@ WHERE (c."isActive" = true OR c."isActive" IS NULL)
   AND (COALESCE(s.ingest->>'status', 'pending') IS NULL OR COALESCE(s.ingest->>'status', 'pending') IN ({status_ph}))
   {retry_clause}
   {channel_clause}
-ORDER BY{priority_clause}
+ORDER BY CASE WHEN v."publishedAt" >= NOW() - INTERVAL '7 days' THEN 0 ELSE 1 END,{priority_clause}
          CASE c.language
            WHEN 'Tamil' THEN 0
            WHEN 'English' THEN 1
            ELSE 2
          END,
          vc.video_count DESC,
-         v."publishedAt" DESC
+         v."publishedAt" ASC
 LIMIT %s

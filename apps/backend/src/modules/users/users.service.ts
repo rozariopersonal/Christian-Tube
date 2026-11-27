@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
+import { UserPlaylistsService } from './user-playlists.service';
 
 export type WatchItemType =
   | 'watch_later'
@@ -58,6 +59,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly userPlaylistsService?: UserPlaylistsService,
   ) {}
 
   isAdmin(email?: string): boolean {
@@ -647,6 +649,10 @@ export class UsersService {
       }
     }
 
+    const playlistSlice = this.userPlaylistsService
+      ? await this.userPlaylistsService.getPlaylistsSyncSlice(userId, videoMap)
+      : { playlists: [], playlistTombstones: {} };
+
     return {
       serverTime,
       preferences,
@@ -654,6 +660,8 @@ export class UsersService {
       subscriptionTombstones,
       watchLater,
       watchLaterTombstones,
+      playlists: playlistSlice.playlists,
+      playlistTombstones: playlistSlice.playlistTombstones,
       videoHistory,
       videoHistoryTombstones,
       likedVideos,

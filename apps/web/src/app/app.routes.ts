@@ -44,6 +44,20 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'playlists',
+        loadComponent: () =>
+          import('./features/videos/pages/playlists.component').then(
+            (m) => m.PlaylistsComponent,
+          ),
+      },
+      {
+        path: 'playlists/:id',
+        loadComponent: () =>
+          import('./features/videos/pages/playlist-detail.component').then(
+            (m) => m.PlaylistDetailComponent,
+          ),
+      },
+      {
         path: 'shorts',
         loadComponent: () =>
           import('./features/videos/pages/shorts.component').then(

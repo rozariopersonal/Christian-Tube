@@ -6,6 +6,8 @@ import '../../core/api/api_client.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/video.dart';
 import '../../core/services/user_sync_service.dart';
+import '../playlists/services/playlist_service.dart';
+import '../playlists/services/watch_later_service.dart';
 
 class UserService extends ChangeNotifier {
   static final UserService _instance = UserService._internal();
@@ -119,6 +121,8 @@ class UserService extends ChangeNotifier {
 
   Future<void> _onSyncStateChanged() async {
     if (UserSyncService.instance.activeUserId == null) {
+      unawaited(WatchLaterService.instance.clearLocalState());
+      unawaited(PlaylistService.instance.clearLocalState());
       if (_history.isNotEmpty || _playheads.isNotEmpty) {
         _history = [];
         _playheads = {};
@@ -251,6 +255,7 @@ class UserService extends ChangeNotifier {
   }
 
   Future<void> clearHistory() async {
+    final idsToDelete = _history.map((v) => v.id).where((id) => id.isNotEmpty).toList();
     _history.clear();
     notifyListeners();
 
@@ -261,9 +266,13 @@ class UserService extends ChangeNotifier {
       debugPrint('Error clearing watch history: $e');
     }
 
-    try {
-      await _apiClient.dio.delete('/user/history');
-    } catch (_) {}
+    for (final videoId in idsToDelete) {
+      await UserSyncService.instance.enqueueWatchItem(
+        itemType: 'video_history',
+        itemId: videoId,
+        isDeleted: true,
+      );
+    }
   }
 
   Future<void> fetchUserData() async {

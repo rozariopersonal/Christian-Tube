@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { YoutubeService, ExtractedVideo } from '../youtube/youtube.service';
 import { CacheService } from '../cache/cache.service';
 import { extractVideoMetadata, isSongChannel } from './metadata-extractor';
+import { AdminAudioProcessorService } from '../admin-audio-processor/admin-audio-processor.service';
 
 function isActiveOrUpcomingBroadcast(video: any): boolean {
   const broadcastState = video?.snippet?.liveBroadcastContent;
@@ -22,6 +23,7 @@ export class SyncService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly youtubeService: YoutubeService,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly adminAudioProcessor?: AdminAudioProcessorService,
   ) {}
 
   isSyncEnabled(): boolean {
@@ -110,6 +112,18 @@ export class SyncService implements OnModuleInit {
     }
     this.logger.log('⏰ Triggering daily daytime scheduled channel sync sweep at 12:00 PM (IST)...');
     return this.syncAllChannels();
+  }
+
+  /**
+   * Renew Google WebSub leases every 3 days (leases expire after ~5 days).
+   */
+  @Cron('0 30 11 */3 * *', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+  })
+  async scheduledWebSubRenewal() {
+    if (!this.isSyncEnabled()) return;
+    this.logger.log('Renewing Google WebSub channel subscriptions (3-day schedule)...');
+    await this.renewAllWebSubSubscriptions();
   }
 
   /**
@@ -385,6 +399,18 @@ export class SyncService implements OnModuleInit {
               clippedAt: parsedMeta ? new Date() : null,
             },
           });
+          this.adminAudioProcessor
+            ?.enqueuePendingVideo({
+              id: videoId,
+              title,
+              channelName: snippet?.channelTitle || channel.name,
+              channelId,
+              publishedAt,
+              duration,
+              thumbnail: thumb,
+              type: videoType,
+            })
+            .catch(() => {});
           totalSyncedInRun++;
         } catch (videoErr: any) {
           this.logger.warn(`Skipping video ${videoId} in ${channelId}: ${videoErr.message}`);
@@ -712,7 +738,7 @@ export class SyncService implements OnModuleInit {
         channelTitle: snippet?.channelTitle || channelName,
       });
 
-      await this.prisma.video.upsert({
+      const saved = await this.prisma.video.upsert({
         where: { id: videoId },
         update: {
           type: videoType,
@@ -745,6 +771,19 @@ export class SyncService implements OnModuleInit {
       });
       this.logger.log(`✅ Live synced new video ${videoId} via WebSub push`);
       await this.cache?.invalidate('videos', 'channels');
+      this.adminAudioProcessor
+        ?.enqueuePendingVideo({
+          id: saved.id,
+          title: saved.title,
+          channelName: saved.channelName,
+          channelId: saved.channelId,
+          publishedAt: saved.publishedAt,
+          duration: saved.duration,
+          thumbnail: saved.thumbnail,
+          audioUrl: saved.audioUrl,
+          type: saved.type,
+        })
+        .catch(() => {});
     } catch (err: any) {
       this.logger.error(`Error handling WebSub push notification payload: ${err.message}`);
     }

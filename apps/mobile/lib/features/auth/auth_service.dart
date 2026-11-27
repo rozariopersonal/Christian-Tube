@@ -403,7 +403,8 @@ class AuthService extends ChangeNotifier {
           '/user/sync',
           data: user.toJson(),
         );
-        if (response.statusCode == 200 && response.data != null) {
+        if ((response.statusCode == 200 || response.statusCode == 201) &&
+            response.data != null) {
           final prefData = response.data['preference'];
           if (prefData != null && prefData is Map) {
             final cloudPref = UserPreference.fromJson(

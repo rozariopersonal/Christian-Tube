@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/video.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/formatters.dart';
+import 'video_options_bottom_sheet.dart';
 import 'video_thumbnail_overlays.dart';
 
 class SearchVideoCard extends StatelessWidget {
@@ -90,10 +91,20 @@ class SearchVideoCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${Formatters.formatViews(video.viewCount)} views • ${Formatters.formatTimeAgo(video.publishedAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(color: tokens.onSurfaceMuted, fontSize: 13),
                   ),
                 ],
               ),
+            ),
+            IconButton(
+              icon: Icon(Icons.more_vert, size: 18, color: tokens.onSurfaceMuted),
+              tooltip: 'More options',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => VideoOptionsBottomSheet.show(context, video: video),
             ),
           ],
         ),

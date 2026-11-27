@@ -149,6 +149,225 @@ export class CacheService implements OnModuleDestroy {
     );
   }
 
+  getPrefix(): string {
+    return this.prefix;
+  }
+
+  async getString(key: string): Promise<string | null> {
+    if (!this.isEnabled()) return null;
+    try {
+      return await this.getRaw(key);
+    } catch (err: any) {
+      this.logger.warn(`Redis GET error (${key}): ${err?.message || err}`);
+      return null;
+    }
+  }
+
+  async mgetStrings(keys: string[]): Promise<(string | null)[]> {
+    if (!this.isEnabled() || keys.length === 0) return keys.map(() => null);
+    try {
+      if (this.provider === 'upstash-rest') {
+        const res = await this.upstashCommand<(string | null)[]>(['MGET', ...keys]);
+        return Array.isArray(res) ? res : keys.map(() => null);
+      }
+      if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        return await this.redisClient.mget(...keys);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis MGET error: ${err?.message || err}`);
+    }
+    return keys.map(() => null);
+  }
+
+  async setString(key: string, value: string, ttlSec?: number): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (ttlSec && ttlSec > 0) {
+        await this.setRaw(key, value, ttlSec);
+        return;
+      }
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['SET', key, value]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.set(key, value);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis SET error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async setNxEx(key: string, value: string, ttlSec: number): Promise<boolean> {
+    if (!this.isEnabled()) return true;
+    const ttl = Math.max(1, Math.floor(ttlSec));
+    try {
+      if (this.provider === 'upstash-rest') {
+        const res = await this.upstashCommand<string | null>(['SET', key, value, 'EX', ttl, 'NX']);
+        return res === 'OK';
+      }
+      if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        const res = await this.redisClient.set(key, value, 'EX', ttl, 'NX');
+        return res === 'OK';
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis SET NX error (${key}): ${err?.message || err}`);
+    }
+    return false;
+  }
+
+  async delKey(...keys: string[]): Promise<void> {
+    if (!this.isEnabled() || keys.length === 0) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['DEL', ...keys]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.del(...keys);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis DEL error: ${err?.message || err}`);
+    }
+  }
+
+  async zadd(key: string, score: number, member: string): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['ZADD', key, score, member]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.zadd(key, score, member);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis ZADD error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    if (!this.isEnabled()) return [];
+    try {
+      if (this.provider === 'upstash-rest') {
+        const res = await this.upstashCommand<string[]>(['ZRANGE', key, start, stop]);
+        return Array.isArray(res) ? res : [];
+      }
+      if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        return await this.redisClient.zrange(key, start, stop);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis ZRANGE error (${key}): ${err?.message || err}`);
+    }
+    return [];
+  }
+
+  async zrem(key: string, ...members: string[]): Promise<void> {
+    if (!this.isEnabled() || members.length === 0) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['ZREM', key, ...members]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.zrem(key, ...members);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis ZREM error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async zremrangebyscore(key: string, min: number | string, max: number | string): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['ZREMRANGEBYSCORE', key, min, max]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.zremrangebyscore(key, min, max);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis ZREMRANGEBYSCORE error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async lpushTrim(key: string, value: string, maxLen: number): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['LPUSH', key, value]);
+        await this.upstashCommand(['LTRIM', key, 0, Math.max(0, maxLen - 1)]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.lpush(key, value);
+        await this.redisClient.ltrim(key, 0, Math.max(0, maxLen - 1));
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis LPUSH/LTRIM error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    if (!this.isEnabled()) return [];
+    try {
+      if (this.provider === 'upstash-rest') {
+        const res = await this.upstashCommand<string[]>(['LRANGE', key, start, stop]);
+        return Array.isArray(res) ? res : [];
+      }
+      if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        return await this.redisClient.lrange(key, start, stop);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis LRANGE error (${key}): ${err?.message || err}`);
+    }
+    return [];
+  }
+
+  async sadd(key: string, member: string): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['SADD', key, member]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.sadd(key, member);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis SADD error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async srem(key: string, member: string): Promise<void> {
+    if (!this.isEnabled()) return;
+    try {
+      if (this.provider === 'upstash-rest') {
+        await this.upstashCommand(['SREM', key, member]);
+      } else if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        await this.redisClient.srem(key, member);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis SREM error (${key}): ${err?.message || err}`);
+    }
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    if (!this.isEnabled()) return [];
+    try {
+      if (this.provider === 'upstash-rest') {
+        const res = await this.upstashCommand<string[]>(['SMEMBERS', key]);
+        return Array.isArray(res) ? res : [];
+      }
+      if (this.provider === 'ioredis' && this.redisClient) {
+        if (this.redisClient.status === 'wait') await this.redisClient.connect();
+        return await this.redisClient.smembers(key);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis SMEMBERS error (${key}): ${err?.message || err}`);
+    }
+    return [];
+  }
+
   private async getNamespaceVersion(namespace: string): Promise<string> {
     const verKey = `${this.prefix}:ver:${namespace}`;
     try {

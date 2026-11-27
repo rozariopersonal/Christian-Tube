@@ -6,8 +6,12 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { UserSyncService } from '../../../core/services/user-sync.service';
 import {
   Channel,
+  ChannelActionResult,
   ChannelRequest,
+  YouTubeChannelResult,
   normalizeChannel,
+  normalizeChannelRequest,
+  normalizeYouTubeChannelResult,
 } from '../models/channel.model';
 
 const KEY_SUBSCRIPTIONS = 'subscribed_channel_ids';
@@ -22,6 +26,7 @@ export class ChannelService {
   readonly subscribedIds = signal<string[]>(this.readLocalSubscriptions());
   readonly channelRequests = signal<ChannelRequest[]>([]);
   readonly isLoading = signal<boolean>(false);
+  readonly isLoadingRequests = signal<boolean>(false);
 
   private syncedUserId: string | null | undefined = undefined;
   private inFlightSubscriptionsSync: Promise<void> | null = null;
@@ -47,6 +52,7 @@ export class ChannelService {
             }
             if (!needsSignIn) void this.loadSubscriptions();
           } else {
+            this.channelRequests.set([]);
             const ids = this.readLocalSubscriptions();
             const followed = new Set(ids);
             this.subscribedIds.set(ids);
@@ -219,35 +225,79 @@ export class ChannelService {
     }
   }
 
+  async searchYouTubeChannels(query: string): Promise<YouTubeChannelResult[]> {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const res = await firstValueFrom(
+      this.api.get<unknown>('/api/channels/search-youtube', { q }),
+    );
+    if (!Array.isArray(res)) return [];
+    return res
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+      .map((item) => normalizeYouTubeChannelResult(item));
+  }
+
+  async addChannel(payload: {
+    channelUrl: string;
+    name?: string;
+    category?: string;
+    language?: string;
+  }): Promise<ChannelActionResult> {
+    try {
+      await firstValueFrom(this.api.post('/api/channels', payload));
+      await this.fetchAdminChannels();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: this.extractErrorMessage(error, 'Failed to add channel') };
+    }
+  }
+
   async fetchRequests(): Promise<void> {
+    if (!this.auth.isAdmin()) {
+      this.channelRequests.set([]);
+      return;
+    }
+    this.isLoadingRequests.set(true);
     try {
       const res = await firstValueFrom(
-        this.api.get<ChannelRequest[]>('/api/channels/requests'),
+        this.api.get<unknown>('/api/channels/requests'),
       );
       if (Array.isArray(res)) {
-        this.channelRequests.set(res);
+        this.channelRequests.set(
+          res
+            .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+            .map((item) => normalizeChannelRequest(item)),
+        );
       }
     } catch {
-      // ignore
+      // keep existing requests on transient failure
+    } finally {
+      this.isLoadingRequests.set(false);
     }
   }
 
   async submitRequest(
     channelName: string,
     channelUrl: string,
-    reason?: string,
-  ): Promise<boolean> {
+    notes?: string,
+  ): Promise<ChannelActionResult> {
     try {
       await firstValueFrom(
         this.api.post('/api/channels/request', {
-          channelUrl,
-          notes: reason ? `${channelName} — ${reason}` : channelName,
+          channelUrl: channelUrl.trim(),
+          channelName: channelName.trim() || undefined,
+          notes: notes?.trim() || undefined,
         }),
       );
-      await this.fetchRequests();
-      return true;
-    } catch {
-      return false;
+      if (this.auth.isAdmin()) {
+        await this.fetchRequests();
+      }
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.extractErrorMessage(error, 'Failed to submit channel request'),
+      };
     }
   }
 
@@ -278,28 +328,52 @@ export class ChannelService {
     }
   }
 
-  async approveRequest(requestId: string): Promise<boolean> {
+  async approveRequest(requestId: string): Promise<ChannelActionResult> {
     try {
       await firstValueFrom(
         this.api.post(`/api/channels/requests/${requestId}/approve`, {}),
       );
       await Promise.all([this.fetchRequests(), this.fetchAdminChannels()]);
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.extractErrorMessage(error, 'Failed to approve request'),
+      };
     }
   }
 
-  async rejectRequest(requestId: string): Promise<boolean> {
+  async rejectRequest(
+    requestId: string,
+    reason?: string,
+  ): Promise<ChannelActionResult> {
     try {
       await firstValueFrom(
-        this.api.post(`/api/channels/requests/${requestId}/reject`, {}),
+        this.api.post(`/api/channels/requests/${requestId}/reject`, {
+          reason: reason?.trim() || undefined,
+        }),
       );
       await this.fetchRequests();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: this.extractErrorMessage(error, 'Failed to reject request'),
+      };
     }
+  }
+
+  private extractErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error;
+      if (typeof body === 'string' && body.trim()) return body.trim();
+      if (body && typeof body === 'object') {
+        const msg = (body as Record<string, unknown>)['message'];
+        if (typeof msg === 'string' && msg.trim()) return msg.trim();
+        if (Array.isArray(msg) && msg.length > 0) return String(msg[0]);
+      }
+    }
+    return fallback;
   }
 
   private extractSubscriptionIds(res: unknown): string[] | null {

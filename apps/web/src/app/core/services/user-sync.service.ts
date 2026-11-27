@@ -12,10 +12,18 @@ export type SyncWatchItemType =
   | 'liked_video'
   | 'liked_short';
 
+export type PlaylistSyncAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'add_item'
+  | 'remove_item'
+  | 'reorder';
+
 export interface SyncOp {
   opId: string;
   userId: string;
-  kind: 'watch_item' | 'subscription' | 'preference';
+  kind: 'watch_item' | 'subscription' | 'preference' | 'playlist_op';
   itemType?: SyncWatchItemType;
   itemId: string;
   positionSeconds?: number;
@@ -25,6 +33,10 @@ export interface SyncOp {
   isActive?: boolean;
   prefField?: string;
   prefValue?: unknown;
+  playlistId?: string;
+  playlistAction?: PlaylistSyncAction;
+  playlistPayload?: Record<string, unknown>;
+  sequence?: number;
   clientUpdatedAt: number;
 }
 
@@ -43,6 +55,8 @@ export interface RemoteSyncState {
   subscriptionTombstones?: Record<string, number>;
   watchLater?: Array<{ video: Record<string, unknown>; updatedAt: number }>;
   watchLaterTombstones?: Record<string, number>;
+  playlists?: unknown[];
+  playlistTombstones?: Record<string, number>;
   videoHistory?: Array<{
     video: Record<string, unknown>;
     progressSeconds: number;
@@ -89,6 +103,8 @@ export class UserSyncService {
   private syncAllowed = false;
   private lastPullAt = 0;
   private inFlightSync: Promise<void> | null = null;
+  private inFlightPlaylistFlush: Promise<void> | null = null;
+  private playlistFlushRequested = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryDelayMs = 2000;
 
@@ -232,6 +248,41 @@ export class UserSyncService {
     void this.flushOutbox();
   }
 
+  enqueuePlaylistOp(input: {
+    playlistId: string;
+    action: PlaylistSyncAction;
+    payload?: Record<string, unknown>;
+    clientUpdatedAt?: number;
+  }): void {
+    const userId = this.auth.currentUser()?.id;
+    if (!userId || !input.playlistId) return;
+    const seq = ++this.operationSequence;
+    const ts = input.clientUpdatedAt ?? this.nowServerAligned();
+    const key = `playlist_op:${String(ts).padStart(15, '0')}:${String(seq).padStart(6, '0')}:${input.playlistId}:${input.action}`;
+    const op: SyncOp = {
+      opId: `${key}:${Date.now()}`,
+      userId,
+      kind: 'playlist_op',
+      itemId: input.playlistId,
+      playlistId: input.playlistId,
+      playlistAction: input.action,
+      playlistPayload: input.payload,
+      sequence: seq,
+      clientUpdatedAt: ts,
+    };
+    this.saveOp(userId, key, op);
+    void this.flushOutbox();
+  }
+
+  hasPendingPlaylistOps(playlistId: string): boolean {
+    if (!playlistId) return false;
+    return Object.values(this.pendingOps()).some(
+      (op) =>
+        op.kind === 'playlist_op' &&
+        (op.playlistId === playlistId || op.itemId === playlistId),
+    );
+  }
+
   likedItems(itemType: 'liked_video' | 'liked_short'): Array<Record<string, unknown>> {
     const state = this.remoteState();
     const items = itemType === 'liked_video' ? state?.likedVideos : state?.likedShorts;
@@ -331,12 +382,14 @@ export class UserSyncService {
     const watchOps: Array<[string, SyncOp]> = [];
     const prefOps: Array<[string, SyncOp]> = [];
     const subOps: Array<[string, SyncOp]> = [];
+    const playlistOps: Array<[string, SyncOp]> = [];
 
     for (const entry of entries) {
       if (entry[1].userId !== userId) continue;
       if (entry[1].kind === 'watch_item') watchOps.push(entry);
       else if (entry[1].kind === 'preference') prefOps.push(entry);
       else if (entry[1].kind === 'subscription') subOps.push(entry);
+      else if (entry[1].kind === 'playlist_op') playlistOps.push(entry);
     }
 
     const keysToRemove = new Set<string>();
@@ -494,7 +547,151 @@ export class UserSyncService {
     if (shouldRetry) {
       this.scheduleRetry();
     }
+
+    // 4. Playlist operations (strictly sequential FIFO)
+    if (playlistOps.length > 0 && !this.authPaused) {
+      await this.flushPlaylistOps(userId);
+    }
   }
+
+  private async flushPlaylistOps(userId: string): Promise<void> {
+    if (this.inFlightPlaylistFlush) {
+      this.playlistFlushRequested = true;
+      return this.inFlightPlaylistFlush;
+    }
+
+    this.inFlightPlaylistFlush = (async () => {
+      do {
+        this.playlistFlushRequested = false;
+        if (this.authPaused || this.auth.currentUser()?.id !== userId || !this.auth.canSync()) {
+          return;
+        }
+        const currentMap = this.readPendingMap(userId);
+        const playlistOps = Object.entries(currentMap)
+          .filter(([, op]) => op.userId === userId && op.kind === 'playlist_op')
+          .sort(
+            ([ka, a], [kb, b]) =>
+              a.clientUpdatedAt - b.clientUpdatedAt ||
+              (a.sequence ?? 0) - (b.sequence ?? 0) ||
+              ka.localeCompare(kb),
+          );
+        if (playlistOps.length === 0) return;
+
+        let shouldRetry = false;
+        for (const [key, op] of playlistOps) {
+          if (this.auth.currentUser()?.id !== userId) return;
+          try {
+            await this.sendPlaylistOp(op);
+            this.removePendingOpIfMatching(userId, key, op.opId);
+          } catch (err) {
+            if (this.isAuthError(err)) {
+              this.authPaused = true;
+              this.auth.markSessionRejected();
+              return;
+            }
+            if (this.isPermanentClientError(err)) {
+              // Drop permanent 400/404/422 op so queue never deadlocks
+              this.removePendingOpIfMatching(userId, key, op.opId);
+              continue;
+            }
+            // Transient error (5xx, 429, network/0): stop FIFO loop and retain op + subsequent ops
+            shouldRetry = true;
+            break;
+          }
+        }
+
+        if (shouldRetry) {
+          this.scheduleRetry();
+          return;
+        }
+      } while (this.playlistFlushRequested);
+    })().finally(() => {
+      this.inFlightPlaylistFlush = null;
+    });
+
+    return this.inFlightPlaylistFlush;
+  }
+
+  private async sendPlaylistOp(op: SyncOp): Promise<void> {
+    const playlistId = op.playlistId ?? op.itemId;
+    const payload = op.playlistPayload ?? {};
+    const ts = op.clientUpdatedAt;
+
+    switch (op.playlistAction) {
+      case 'create':
+        await firstValueFrom(
+          this.api.post('/api/user/playlists', {
+            id: playlistId,
+            title: payload['title'],
+            description: payload['description'] ?? null,
+            clientUpdatedAt: ts,
+          }),
+        );
+        return;
+      case 'update':
+        await firstValueFrom(
+          this.api.patch(`/api/user/playlists/${encodeURIComponent(playlistId)}`, {
+            title: payload['title'],
+            description: payload['description'] ?? null,
+            clientUpdatedAt: ts,
+          }),
+        );
+        return;
+      case 'delete':
+        await firstValueFrom(
+          this.api.delete(
+            `/api/user/playlists/${encodeURIComponent(playlistId)}?clientUpdatedAt=${ts}`,
+          ),
+        );
+        return;
+      case 'add_item':
+        await firstValueFrom(
+          this.api.post(
+            `/api/user/playlists/${encodeURIComponent(playlistId)}/items`,
+            {
+              videoId: payload['videoId'],
+              clientUpdatedAt: ts,
+            },
+          ),
+        );
+        return;
+      case 'remove_item': {
+        const videoId = String(payload['videoId'] ?? '');
+        await firstValueFrom(
+          this.api.delete(
+            `/api/user/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(videoId)}?clientUpdatedAt=${ts}`,
+          ),
+        );
+        return;
+      }
+      case 'reorder':
+        await firstValueFrom(
+          this.api.put(
+            `/api/user/playlists/${encodeURIComponent(playlistId)}/items/reorder`,
+            {
+              videoIds: Array.isArray(payload['videoIds'])
+                ? payload['videoIds']
+                : [],
+              clientUpdatedAt: ts,
+            },
+          ),
+        );
+        return;
+    }
+  }
+
+  private removePendingOpIfMatching(
+    userId: string,
+    key: string,
+    opId: string,
+  ): void {
+    const latestMap = this.readPendingMap(userId);
+    if (!latestMap[key] || latestMap[key].opId === opId) {
+      delete latestMap[key];
+      this.writePendingMap(userId, latestMap);
+    }
+  }
+
 
   private saveOp(userId: string, key: string, op: SyncOp): void {
     const map = this.readPendingMap(userId);

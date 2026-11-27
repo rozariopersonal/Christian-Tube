@@ -23,8 +23,15 @@ import 'features/engines/scripture/screens/scripture_screensaver_app.dart';
 import 'features/feed/video_feed_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
+import 'features/playlists/screens/playlist_detail_screen.dart';
+import 'features/playlists/screens/playlists_screen.dart';
+import 'features/playlists/screens/watch_later_screen.dart';
+import 'features/playlists/services/playlist_service.dart';
+import 'features/playlists/services/watch_later_service.dart';
 import 'features/profile/admin_users_screen.dart';
-import 'features/profile/playlist_detail_screen.dart';
+import 'features/admin/screens/audio_processor_report_screen.dart';
+import 'features/admin/services/admin_audio_background_coordinator.dart';
+import 'features/admin/services/admin_fcm_service.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/settings_screen.dart';
 import 'features/profile/screens/content_preferences_screen.dart';
@@ -86,6 +93,8 @@ void main() async {
   LockScreenWordFeedService.instance.initialize().catchError((e) => debugPrint('LockScreenWordFeedService init error: $e'));
   LockScreenScreensaverService.instance.initialize().catchError((e) => debugPrint('LockScreenScreensaverService init error: $e'));
   NoteService.instance.initialize().catchError((e) => debugPrint('NoteService init error: $e'));
+  WatchLaterService.instance.init().catchError((e) => debugPrint('WatchLaterService init error: $e'));
+  PlaylistService.instance.init().catchError((e) => debugPrint('PlaylistService init error: $e'));
   if (kMicroFeedEnabled) {
     try {
       final engine = createActiveFeedEngine();
@@ -448,15 +457,22 @@ class _ChristianAppState extends State<ChristianApp> {
               builder: (context, state) => const SavedScripturesScreen(),
             ),
             GoRoute(
+              path: '/watch-later',
+              builder: (context, state) => const WatchLaterScreen(),
+            ),
+            GoRoute(
+              path: '/playlists',
+              builder: (context, state) => const PlaylistsScreen(),
+            ),
+            GoRoute(
               path: '/playlists/:id',
               builder: (context, state) {
+                final playlistId = state.pathParameters['id'] ?? '';
                 final playlist = state.extra is Playlist ? state.extra as Playlist : null;
-                if (playlist == null) {
-                  return const Scaffold(
-                    body: Center(child: Text('Playlist not found')),
-                  );
-                }
-                return PlaylistDetailScreen(playlist: playlist);
+                return PlaylistDetailScreen(
+                  playlistId: playlistId,
+                  initialPlaylist: playlist,
+                );
               },
             ),
             GoRoute(
@@ -471,6 +487,12 @@ class _ChristianAppState extends State<ChristianApp> {
                 return WatchPlanDetailScreen(plan: plan);
               },
             ),
+            GoRoute(
+              path: '/admin/audio-processor',
+              redirect: (context, state) =>
+                  AuthService().isAdmin ? null : '/profile',
+              builder: (context, state) => const AudioProcessorReportScreen(),
+            ),
           ],
         ),
       ],
@@ -480,6 +502,11 @@ class _ChristianAppState extends State<ChristianApp> {
     NotificationService.onNotificationPayload = (payload) {
       _router.push(payload);
     };
+    // Initialize admin background audio processor & FCM push when signed in as Admin
+    if (AuthService().isAdmin) {
+      AdminAudioBackgroundCoordinator.instance.initializeForAdmin();
+      AdminFcmService.instance.initializeForAdmin();
+    }
     NotificationService().plugin.getNotificationAppLaunchDetails().then((details) {
       final response = details?.notificationResponse;
       final payload = response?.payload;

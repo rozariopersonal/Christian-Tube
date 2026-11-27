@@ -15,6 +15,7 @@ class VideoActionBar extends StatelessWidget {
   final bool hasNote;
   final VoidCallback onShare;
   final VoidCallback onSave;
+  final bool isSaved;
   final VoidCallback onOpenYouTube;
 
   const VideoActionBar({
@@ -28,6 +29,7 @@ class VideoActionBar extends StatelessWidget {
     this.hasNote = false,
     required this.onShare,
     required this.onSave,
+    this.isSaved = false,
     required this.onOpenYouTube,
   });
 
@@ -72,8 +74,9 @@ class VideoActionBar extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         _ActionPill(
-          icon: Icons.bookmark_add_outlined,
-          label: 'Save',
+          icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_add_outlined,
+          label: isSaved ? 'Saved' : 'Save',
+          highlighted: isSaved,
           onTap: onSave,
         ),
         const SizedBox(width: 8),
@@ -166,26 +169,36 @@ class _HeartLikePill extends StatelessWidget {
 class _ActionPill extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool highlighted;
   final VoidCallback onTap;
 
   const _ActionPill({
     required this.icon,
     required this.label,
+    this.highlighted = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final fg = highlighted ? context.accent : tokens.onSurface;
     final labelStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: tokens.onSurface,
+          color: fg,
         );
 
     return Material(
-      color: tokens.surfaceVariant,
-      borderRadius: BorderRadius.circular(20),
+      color: highlighted
+          ? context.accent.withValues(alpha: 0.14)
+          : tokens.surfaceVariant,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: highlighted
+            ? BorderSide(color: context.accent.withValues(alpha: 0.5))
+            : BorderSide.none,
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -196,7 +209,7 @@ class _ActionPill extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 17, color: tokens.onSurface),
+                Icon(icon, size: 17, color: fg),
                 const SizedBox(width: 6),
                 Text(label, style: labelStyle),
               ],

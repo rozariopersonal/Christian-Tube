@@ -32,6 +32,24 @@ async function bootstrap() {
     }),
   );
 
+  // Tighter rate limits for channel requests & YouTube search (quota protection)
+  app.use(
+    ['/channels/request', '/api/channels/request'],
+    rateLimit({
+      windowMs: 60 * 1000,
+      max: 15,
+      message: { message: 'Too many channel requests. Please try again in a minute.' },
+    }),
+  );
+  app.use(
+    ['/channels/search-youtube', '/api/channels/search-youtube'],
+    rateLimit({
+      windowMs: 60 * 1000,
+      max: 30,
+      message: { message: 'Too many YouTube search requests. Please slow down.' },
+    }),
+  );
+
   // Global Validation
   app.useGlobalPipes(
     new ValidationPipe({
