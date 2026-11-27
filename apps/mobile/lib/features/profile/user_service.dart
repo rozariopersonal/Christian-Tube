@@ -6,6 +6,8 @@ import '../../core/api/api_client.dart';
 import '../../core/models/playlist.dart';
 import '../../core/models/video.dart';
 import '../../core/services/user_sync_service.dart';
+import '../playlists/services/playlist_service.dart';
+import '../playlists/services/watch_later_service.dart';
 
 class UserService extends ChangeNotifier {
   static final UserService _instance = UserService._internal();
@@ -119,6 +121,8 @@ class UserService extends ChangeNotifier {
 
   Future<void> _onSyncStateChanged() async {
     if (UserSyncService.instance.activeUserId == null) {
+      unawaited(WatchLaterService.instance.clearLocalState());
+      unawaited(PlaylistService.instance.clearLocalState());
       if (_history.isNotEmpty || _playheads.isNotEmpty) {
         _history = [];
         _playheads = {};

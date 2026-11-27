@@ -22,6 +22,8 @@ import { VideoMiniPlayerComponent } from '../../features/videos/components/video
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
 import { ScreenClassService } from './screen-class.service';
 import { ReaderFullscreenService } from '../services/reader-fullscreen.service';
+import { SaveToPlaylistModalComponent } from '../../shared/ui/save-to-playlist-modal.component';
+import { ToastHostComponent } from '../../shared/ui/toast-host.component';
 
 interface NavDestination {
   label: string;
@@ -38,6 +40,7 @@ const YOU_NAV: readonly NavDestination[] = [
   { label: 'Subscriptions', route: '/subscriptions', icon: 'subscriptions' },
   { label: 'History', route: '/history', icon: 'history' },
   { label: 'Watch Later', route: '/watch-later', icon: 'watch_later' },
+  { label: 'Playlists', route: '/playlists', icon: 'playlist_play' },
 ];
 
 const STUDY_NAV: readonly NavDestination[] = [
@@ -67,6 +70,7 @@ const COMPACT_SUBPAGE_PREFIXES = [
   '/song/',
   '/audio/series/',
   '/channels/',
+  '/playlists/',
 ];
 
 @Component({
@@ -81,6 +85,8 @@ const COMPACT_SUBPAGE_PREFIXES = [
     MiniPlayerComponent,
     VideoMiniPlayerComponent,
     AccountAvatarMenuComponent,
+    SaveToPlaylistModalComponent,
+    ToastHostComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -329,6 +335,8 @@ const COMPACT_SUBPAGE_PREFIXES = [
       @if (isAudioPage()) {
         <app-mini-player />
       }
+      <app-save-to-playlist-modal />
+      <app-toast-host />
 
       @if (showBottomBar()) {
         <nav class="bottom-nav" aria-label="Primary navigation">

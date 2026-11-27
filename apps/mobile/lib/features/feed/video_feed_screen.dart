@@ -210,11 +210,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   ]
                 : [
                     IconButton(
-                      icon: const Icon(Icons.cast_outlined),
-                      tooltip: 'Cast',
-                      onPressed: () {},
-                    ),
-                    IconButton(
                       icon: const Icon(Icons.notifications_none_outlined),
                       tooltip: 'Notifications',
                       onPressed: () {},

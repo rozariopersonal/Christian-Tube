@@ -4,6 +4,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Video, parseDurationSeconds } from '../../features/videos/models/video.model';
 import { VideoLibraryService } from '../../features/videos/services/video-library.service';
+import { SaveToPlaylistModalService } from './save-to-playlist-modal.service';
+import { ToastService } from './toast.service';
 import { VideoCardComponent } from './video-card.component';
 
 function makeVideo(overrides: Partial<Video> = {}): Video {
@@ -117,5 +119,39 @@ describe('VideoLibraryService & VideoCardComponent watched badge/status', () => 
     expect(el.querySelector('.watched-badge')).toBeNull();
     expect(el.querySelector('.watched-status')).toBeNull();
     expect(library.isWatched(video.id)).toBe(false);
+  });
+
+  it('opens Save to playlist modal and shows toast on Watch Later toggle', () => {
+    const saveModal = TestBed.inject(SaveToPlaylistModalService);
+    const toast = TestBed.inject(ToastService);
+    const video = makeVideo({ id: 'vid-save' });
+    fixture.componentRef.setInput('video', video);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const moreBtn = el.querySelector('.more-btn') as HTMLButtonElement;
+    moreBtn.click();
+    fixture.detectChanges();
+
+    const items = Array.from(el.querySelectorAll<HTMLButtonElement>('.card-menu-item'));
+    const saveToPlBtn = items.find((b) => b.textContent?.includes('Save to playlist'));
+    expect(saveToPlBtn).toBeDefined();
+    saveToPlBtn!.click();
+    expect(saveModal.activeVideo()?.id).toBe('vid-save');
+
+    // Re-open menu and toggle Watch Later ON then OFF
+    moreBtn.click();
+    fixture.detectChanges();
+    const wlBtn = Array.from(el.querySelectorAll<HTMLButtonElement>('.card-menu-item'))
+      .find((b) => b.textContent?.includes('Watch Later'));
+    expect(wlBtn).toBeDefined();
+    wlBtn!.click();
+    expect(library.isWatchLater('vid-save')).toBe(true);
+    expect(toast.toasts().at(-1)?.message).toBe('Saved to Watch Later');
+
+    fixture.componentInstance.toggleWatchLater();
+    expect(library.isWatchLater('vid-save')).toBe(false);
+    expect(toast.toasts().at(-1)?.message).toBe('Removed from Watch Later');
+    toast.clear();
   });
 });
