@@ -114,6 +114,12 @@ services:
         sync: false
       - key: AUTH_REJECT_LEGACY_GUEST_IMPERSONATION
         value: "false"
+      - key: AUDIO_COM_CLIENT_ID
+        sync: false
+      - key: AUDIO_COM_REFRESH_TOKEN
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
 
   # ─── christianapp-test Staging API (develop branch, free tier auto-sleep) ─
   - type: web

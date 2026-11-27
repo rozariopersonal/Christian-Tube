@@ -387,6 +387,22 @@ class ProfileScreen extends StatelessWidget {
                               context.push('/admin-users');
                             },
                           ),
+                          const Divider(height: 16),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.graphic_eq_rounded,
+                                color: context.tokens.accent),
+                            title: const Text('Audio Processor Report',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13)),
+                            subtitle: const Text(
+                                'Background YouTube audio sync, auto-process & logs',
+                                style: TextStyle(fontSize: 13)),
+                            trailing: const Icon(Icons.chevron_right, size: 20),
+                            onTap: () {
+                              context.push('/admin/audio-processor');
+                            },
+                          ),
                           if (AppConfig.isBeta) ...[
                             const Divider(height: 16),
                             ListTile(

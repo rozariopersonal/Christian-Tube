@@ -57,3 +57,9 @@
 # Core Desugaring & Kotlin
 -dontwarn java.lang.invoke.**
 -dontwarn kotlin.**
+
+# WorkManager & Firebase Messaging (Admin Background Audio Processor)
+-keep class dev.fluttercommunity.workmanager.** { *; }
+-keep class androidx.work.** { *; }
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**

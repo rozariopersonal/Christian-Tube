@@ -124,17 +124,22 @@ def main():
 
     data = token_resp.json()
     access_token = data.get("access_token")
+    refresh_token = data.get("refresh_token")
     if not access_token:
         print(f"No access_token found in response: {data}")
         sys.exit(1)
 
     print("\n" + "=" * 60)
-    print("SUCCESS! Here is your AUDIO_COM_TOKEN:")
+    print("SUCCESS! Here are your Audio.com credentials:")
     print("=" * 60)
-    print(access_token)
-    print("=" * 60)
-    print("\nAdd this line to your services/transcriber/.env file:")
     print(f"AUDIO_COM_TOKEN={access_token}")
+    print(f"AUDIO_COM_CLIENT_ID={client_id}")
+    if refresh_token:
+        print(f"AUDIO_COM_REFRESH_TOKEN={refresh_token}")
+    else:
+        print("# Note: Audio.com did not return a refresh_token in this response.")
+    print("=" * 60)
+    print("\nAdd these lines to your backend/Render environment and .env file.")
 
 
 if __name__ == "__main__":

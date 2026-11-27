@@ -24,6 +24,9 @@ import 'features/feed/video_feed_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/micro_feed/micro_feed_screen.dart';
 import 'features/profile/admin_users_screen.dart';
+import 'features/admin/screens/audio_processor_report_screen.dart';
+import 'features/admin/services/admin_audio_background_coordinator.dart';
+import 'features/admin/services/admin_fcm_service.dart';
 import 'features/profile/playlist_detail_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/settings_screen.dart';
@@ -471,6 +474,12 @@ class _ChristianAppState extends State<ChristianApp> {
                 return WatchPlanDetailScreen(plan: plan);
               },
             ),
+            GoRoute(
+              path: '/admin/audio-processor',
+              redirect: (context, state) =>
+                  AuthService().isAdmin ? null : '/profile',
+              builder: (context, state) => const AudioProcessorReportScreen(),
+            ),
           ],
         ),
       ],
@@ -480,6 +489,11 @@ class _ChristianAppState extends State<ChristianApp> {
     NotificationService.onNotificationPayload = (payload) {
       _router.push(payload);
     };
+    // Initialize admin background audio processor & FCM push when signed in as Admin
+    if (AuthService().isAdmin) {
+      AdminAudioBackgroundCoordinator.instance.initializeForAdmin();
+      AdminFcmService.instance.initializeForAdmin();
+    }
     NotificationService().plugin.getNotificationAppLaunchDetails().then((details) {
       final response = details?.notificationResponse;
       final payload = response?.payload;

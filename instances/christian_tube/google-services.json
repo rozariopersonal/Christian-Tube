@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "964554609475",
+    "project_id": "chritianapp",
+    "storage_bucket": "chritianapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964554609475:android:e08d04c0a4c15c72c5d5f6",
+        "android_client_info": {
+          "package_name": "org.rozario.christiantube.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWA0hVriCwoFlfdIdTWxQicMkKcQaYAMY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964554609475:android:14de108183c74313c5d5f6",
+        "android_client_info": {
+          "package_name": "org.rozario.christiantube.mobile.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWA0hVriCwoFlfdIdTWxQicMkKcQaYAMY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
