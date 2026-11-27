@@ -208,7 +208,8 @@ class Config:
         run_on_boot: bool = False,
         neon_database_url: str | None = None,
         video_pace_seconds: int = 90,
-        daily_process_cap: int = 80,
+        daily_process_cap: int = 500,
+        neon_push_batch_size: int = 100,
         local_idle_poll_seconds: int = 600,
         sync_now: bool = False,
         auto_update_ytdlp: bool = False,
@@ -233,6 +234,7 @@ class Config:
         self.run_on_boot = run_on_boot
         self.video_pace_seconds = video_pace_seconds
         self.daily_process_cap = daily_process_cap
+        self.neon_push_batch_size = neon_push_batch_size
         self.local_idle_poll_seconds = local_idle_poll_seconds
         self.sync_now = sync_now
         self.auto_update_ytdlp = auto_update_ytdlp
@@ -312,7 +314,8 @@ def load_config(args: argparse.Namespace) -> Config:
         timezone=_env("TIMEZONE", "Asia/Kolkata"),
         run_on_boot=_env("RUN_ON_BOOT", "false").lower() in ("1", "true", "yes"),
         video_pace_seconds=int(_env("VIDEO_PACE_SECONDS", "90")),
-        daily_process_cap=int(_env("DAILY_PROCESS_CAP", "80")),
+        daily_process_cap=int(_env("DAILY_PROCESS_CAP", "500")),
+        neon_push_batch_size=int(_env("NEON_PUSH_BATCH_SIZE", "100")),
         local_idle_poll_seconds=int(_env("LOCAL_IDLE_POLL_SECONDS", "600")),
         sync_now=getattr(args, "sync_now", False),
         auto_update_ytdlp=_env("AUTO_UPDATE_YTDLP", "false").lower() in ("1", "true", "yes"),
@@ -2610,6 +2613,14 @@ def main():
                     else:
                         # Short or failed — still mark dirty so Neon learns about Shorts/dead videos
                         db.mark_dirty(video_id)
+
+                    if cfg.neon_push_batch_size > 0:
+                        dirty_ids = db.get_dirty_video_ids()
+                        if len(dirty_ids) >= cfg.neon_push_batch_size:
+                            try:
+                                sync_with_neon(db, cfg.neon_database_url, cfg, rescue_video_ids=dirty_ids)
+                            except Exception as e:
+                                log.error("Batch Neon push (%d videos) failed: %s", len(dirty_ids), e)
 
                     if not cfg.once and _running and cfg.video_pace_seconds > 0:
                         _interruptible_sleep(cfg.video_pace_seconds)
