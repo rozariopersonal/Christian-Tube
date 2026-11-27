@@ -320,12 +320,9 @@ export class AdminAudioProcessorService {
     }
     const session = JSON.parse(raw) as UploadSessionPayload;
 
-    // 1. Trigger Audio.com success hook & add to collection
+    // 1. Trigger Audio.com success hook & add to collection (auto-rollover at 1000-item cap)
     await this.audioCom.triggerSuccessHook(session.successHook);
-    const colId = await this.audioCom.getOrCreateCollection(session.channelName);
-    if (colId) {
-      await this.audioCom.addToCollection(colId, session.audioId);
-    }
+    await this.audioCom.addToChannelCollection(session.channelName, session.audioId);
 
     // 2. Quick 3-4s stream URL check (avoids HTTP gateway timeouts)
     const streamUrl = await this.audioCom.resolveStreamUrl(session.audioId, 2, 1800);

@@ -348,16 +348,54 @@ export class AudioComApiService {
     return null;
   }
 
-  async addToCollection(collectionId: string, audioId: string): Promise<void> {
+  async addToCollection(collectionId: string, audioId: string): Promise<'ok' | 'full' | 'error'> {
     try {
-      await this.authedFetch(`${this.apiBase}/collection/item/add?id=${collectionId}`, {
+      const resp = await this.authedFetch(`${this.apiBase}/collection/item/add?id=${collectionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio: String(audioId) }),
       });
+      if (resp.ok) return 'ok';
+      if (resp.status === 422) {
+        const text = await resp.text().catch(() => '');
+        if (text.includes('1000')) {
+          return 'full';
+        }
+      }
+      this.logger.warn(`addToCollection warning (${resp.status})`);
     } catch (err: any) {
       this.logger.warn(`addToCollection warning: ${err?.message || err}`);
     }
+    return 'error';
+  }
+
+  /**
+   * Adds an audio track to a channel collection, automatically rolling over to
+   * "<Channel> (Part 2)", "(Part 3)", etc. when Audio.com's 1000-item cap is hit.
+   */
+  async addToChannelCollection(channelName: string, audioId: string): Promise<string | null> {
+    const base = (channelName || '').trim();
+    if (!base) return null;
+    const partKey = `${this.cache.getPrefix()}:audio_proc:col_part:${base.toLowerCase()}`;
+    const rawPart = await this.cache.getString(partKey);
+    const startPart = Math.max(1, parseInt(rawPart || '1', 10) || 1);
+
+    for (let part = startPart; part < startPart + 20; part++) {
+      const title = part === 1 ? base.slice(0, 100) : `${base.slice(0, 88)} (Part ${part})`;
+      const colId = await this.getOrCreateCollection(title);
+      if (!colId) return null;
+      const res = await this.addToCollection(colId, audioId);
+      if (res === 'ok') {
+        await this.cache.setString(partKey, String(part), 86400 * 7);
+        return colId;
+      }
+      if (res === 'full') {
+        await this.cache.setString(partKey, String(part + 1), 86400 * 7);
+        continue;
+      }
+      return colId;
+    }
+    return null;
   }
 
   async resolveStreamUrl(audioId: string, maxAttempts = 2, delayMs = 2000): Promise<string | null> {

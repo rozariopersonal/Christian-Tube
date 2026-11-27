@@ -965,8 +965,14 @@ class AudioComClient:
             log.warning("  get_or_create_collection error: %s", e)
         return None
 
-    def add_to_collection(self, collection_id: str, audio_id: str) -> None:
-        """Adds an audio track to a collection."""
+    def add_to_collection(self, collection_id: str, audio_id: str) -> str:
+        """Adds an audio track to a collection.
+
+        Returns:
+          - 'ok' on success
+          - 'full' when Audio.com reports the 1000-item collection limit (HTTP 422)
+          - 'error' on any other failure
+        """
         try:
             resp = self._requests.post(
                 f"{self.api}/collection/item/add?id={collection_id}",
@@ -976,10 +982,42 @@ class AudioComClient:
             )
             if resp.status_code in (200, 201, 204):
                 log.info("  added track %s to Audio.com collection %s", audio_id, collection_id)
-            else:
-                log.warning("  add to collection warning: %s %s", resp.status_code, resp.text[:200])
+                return "ok"
+            if resp.status_code == 422 and "1000" in (resp.text or ""):
+                log.info("  Audio.com collection %s reached 1000-item limit; will roll over to next part", collection_id)
+                return "full"
+            log.warning("  add to collection warning: %s %s", resp.status_code, resp.text[:200])
         except Exception as e:
             log.warning("  add_to_collection error: %s", e)
+        return "error"
+
+    def add_to_channel_collection(self, channel_name: str, audio_id: str, image_bytes: bytes | None = None) -> str | None:
+        """Adds an audio track to the channel's Audio.com collection, rolling over
+        to '<Channel> (Part 2)', '(Part 3)', etc. whenever a collection hits
+        Audio.com's 1000-item cap.
+        """
+        base = (channel_name or "").strip()
+        if not base:
+            return None
+        if not hasattr(self, "_active_part_cache"):
+            self._active_part_cache: dict[str, int] = {}
+        start_part = self._active_part_cache.get(base.lower(), 1)
+        for part in range(start_part, start_part + 20):
+            col_title = base[:100] if part == 1 else f"{base[:88]} (Part {part})"
+            col_id = self.get_or_create_collection(col_title)
+            if not col_id:
+                return None
+            status = self.add_to_collection(col_id, str(audio_id))
+            if status == "ok":
+                self._active_part_cache[base.lower()] = part
+                if image_bytes:
+                    self.upload_collection_image(col_id, image_bytes)
+                return col_id
+            if status == "full":
+                self._active_part_cache[base.lower()] = part + 1
+                continue
+            return col_id
+        return None
 
     def upload_audio_image(self, audio_id: str, image_bytes: bytes, mime: str = "image/jpeg") -> bool:
         """Uploads cover artwork for an audio track to Audio.com."""
@@ -1191,13 +1229,9 @@ class AudioComClient:
         if image_bytes:
             self.upload_audio_image(str(audio_id), image_bytes)
 
-        # 5. Associate with collection if requested
+        # 5. Associate with collection if requested (auto-rollover at 1000-item cap)
         if collection_name:
-            col_id = self.get_or_create_collection(collection_name)
-            if col_id:
-                self.add_to_collection(col_id, str(audio_id))
-                if image_bytes:
-                    self.upload_collection_image(col_id, image_bytes)
+            self.add_to_channel_collection(collection_name, str(audio_id), image_bytes=image_bytes)
 
         # 6. Track metadata is set at create time (see step 1); there is no
         #    Audio.com update route, so no follow-up metadata call is made.
@@ -1914,9 +1948,7 @@ def process_video(db: Database, audiocom: AudioComClient, cfg: Config, row: tupl
                     },
                 )
                 if channel.strip():
-                    col_id = audiocom.get_or_create_collection(channel.strip())
-                    if col_id:
-                        audiocom.add_to_collection(col_id, str(matched_id))
+                    audiocom.add_to_channel_collection(channel.strip(), str(matched_id))
                 log.info(">> Successfully completed (reused existing upload): %s", video_id)
                 return (video_id, audio_url)
 
@@ -2570,21 +2602,14 @@ def main():
                     if not _running:
                         break
                     video_id = row[0]
-                    published_at = row[3]
-                    rescue = is_recent_video(published_at, days=7)
                     res = process_video(db, audiocom, cfg, row)
                     if res:
                         db.mark_completed(res[0], res[1])
-                        db.mark_dirty(res[0], is_rescue=rescue)
+                        db.mark_dirty(res[0])
                         daily_count += 1
-                        if rescue:
-                            try:
-                                sync_with_neon(db, cfg.neon_database_url, cfg, rescue_video_ids=[res[0]])
-                            except Exception as e:
-                                log.error("Rescue Neon flush failed for %s: %s", res[0], e)
                     else:
                         # Short or failed — still mark dirty so Neon learns about Shorts/dead videos
-                        db.mark_dirty(video_id, is_rescue=rescue)
+                        db.mark_dirty(video_id)
 
                     if not cfg.once and _running and cfg.video_pace_seconds > 0:
                         _interruptible_sleep(cfg.video_pace_seconds)
