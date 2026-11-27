@@ -148,4 +148,42 @@ describe('CacheService', () => {
     const commands = fetchMock.mock.calls.map((c: any) => JSON.parse(c[1].body)[0]);
     expect(commands).not.toContain('SET');
   });
+
+  it('skips caching when shouldCache returns false and deduplicates concurrent misses', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: null }),
+    });
+    global.fetch = fetchMock as any;
+
+    const svc = new CacheService(
+      makeConfig({
+        instanceId: 'christian_tube',
+        'redis.upstashRestUrl': 'https://example-upstash.upstash.io',
+        'redis.upstashRestToken': 'secret-token',
+      }),
+    );
+
+    let calls = 0;
+    const loader = jest.fn(async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 20));
+      return { ids: ['v1'], degraded: true };
+    });
+
+    const [a, b] = await Promise.all([
+      svc.getOrSet('video-search', 'cand:grace', 3600, loader, {
+        shouldCache: (v) => !v.degraded,
+      }),
+      svc.getOrSet('video-search', 'cand:grace', 3600, loader, {
+        shouldCache: (v) => !v.degraded,
+      }),
+    ]);
+
+    expect(a).toEqual({ ids: ['v1'], degraded: true });
+    expect(b).toEqual({ ids: ['v1'], degraded: true });
+    expect(calls).toBe(1);
+    const commands = fetchMock.mock.calls.map((c: any) => JSON.parse(c[1].body)[0]);
+    expect(commands).not.toContain('SET');
+  });
 });

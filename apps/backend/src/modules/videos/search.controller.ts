@@ -10,6 +10,9 @@ export class SearchController {
     @Query("q") q?: string,
     @Query("type") type?: "VIDEO" | "SHORT" | "ALL",
     @Query("category") category?: string,
+    @Query("channelId") channelId?: string,
+    @Query("channelIds") channelIds?: string,
+    @Query("sort") sort?: "latest" | "popular" | "oldest" | "relevance",
     @Query("limit") limit?: number,
     @Query("offset") offset?: number,
   ) {
@@ -17,6 +20,9 @@ export class SearchController {
       search: q,
       type,
       category,
+      channelId,
+      channelIds,
+      sort,
       limit,
       offset,
     });

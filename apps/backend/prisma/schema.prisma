@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
 }
 
 enum VideoType {
@@ -43,6 +45,9 @@ model Video {
   audioUrl               String?
   audioLastRetryAt       DateTime?
 
+  // Postgres FTS vector (maintained by video_search_vector_trg trigger)
+  searchVector           Unsupported("tsvector")?
+
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
@@ -61,6 +66,9 @@ model Video {
   @@index([sourceVideoId])
   @@index([type, publishedAt(sort: Desc)])
   @@index([channelId, type, publishedAt(sort: Desc)])
+  @@index([searchVector], type: Gin, map: "Video_searchVector_idx")
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Video_title_trgm_idx")
+  @@index([channelName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Video_channelName_trgm_idx")
 }
 
 /// Per-video pipeline status. One row per video; each worker owns a JSONB

@@ -53,7 +53,7 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
           }
         </div>
 
-        @if (typeFilter() !== 'CHANNELS') {
+        @if (typeFilter() !== 'CHANNELS' && typeFilter() !== 'BIBLE') {
           <select
             class="sort-select"
             aria-label="Sort search results"
@@ -69,6 +69,11 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
 
       @if (loading() && results().length === 0 && bibleResults().length === 0) {
         <p class="hint">Searching...</p>
+      } @else if (errorMessage()) {
+        <div class="hint">
+          <p>{{ errorMessage() }}</p>
+          <button type="button" class="pill-chip active" (click)="loadMore(true)">Retry</button>
+        </div>
       } @else if (query().trim().length === 0) {
         <p class="hint">Type to search sermons, worship, Bible verses, and channels.</p>
       } @else if (filteredResults().length === 0 && matchedChannels().length === 0 && visibleBibleResults().length === 0) {
@@ -524,11 +529,13 @@ export class SearchComponent implements OnInit {
   readonly results = signal<Video[]>([]);
   readonly bibleResults = signal<BibleSemanticHit[]>([]);
   readonly loading = signal<boolean>(false);
+  readonly errorMessage = signal<string | null>(null);
   readonly hasMore = signal<boolean>(true);
 
   private offset = 0;
   private readonly limit = 24;
   private rawBibleResults: BibleSemanticHit[] = [];
+  private requestId = 0;
 
   readonly matchedChannels = computed(() => {
     const q = this.query().trim().toLowerCase();
@@ -567,8 +574,25 @@ export class SearchComponent implements OnInit {
     }
     this.route.queryParamMap.subscribe((qp) => {
       const q = qp.get('q') ?? '';
-      if (q !== this.query()) {
+      const rawType = qp.get('type') as SearchTypeFilter | null;
+      const rawSort = qp.get('sort') as SearchSort | null;
+      const nextType: SearchTypeFilter =
+        rawType && ['ALL', 'VIDEO', 'SHORT', 'CHANNELS', 'BIBLE'].includes(rawType)
+          ? rawType
+          : 'ALL';
+      const nextSort: SearchSort =
+        rawSort && ['relevance', 'latest', 'popular'].includes(rawSort)
+          ? rawSort
+          : 'relevance';
+
+      const changed =
+        q !== this.query() ||
+        nextType !== this.typeFilter() ||
+        nextSort !== this.sort();
+      if (changed) {
         this.query.set(q);
+        this.typeFilter.set(nextType);
+        this.sort.set(nextSort);
         void this.loadMore(true);
       }
     });
@@ -578,7 +602,11 @@ export class SearchComponent implements OnInit {
     const q = this.query().trim();
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { q: q || null },
+      queryParams: {
+        q: q || null,
+        type: this.typeFilter() === 'ALL' ? null : this.typeFilter(),
+        sort: this.sort() === 'relevance' ? null : this.sort(),
+      },
       queryParamsHandling: 'merge',
     });
     void this.loadMore(true);
@@ -601,6 +629,11 @@ export class SearchComponent implements OnInit {
 
   selectType(f: SearchTypeFilter): void {
     this.typeFilter.set(f);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { type: f === 'ALL' ? null : f },
+      queryParamsHandling: 'merge',
+    });
     if (f !== 'CHANNELS') {
       void this.loadMore(true);
     }
@@ -608,24 +641,35 @@ export class SearchComponent implements OnInit {
 
   selectSort(nextSort: SearchSort): void {
     this.sort.set(nextSort);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sort: nextSort === 'relevance' ? null : nextSort },
+      queryParamsHandling: 'merge',
+    });
     void this.loadMore(true);
   }
 
   async loadMore(refresh: boolean): Promise<void> {
     const q = this.query().trim();
     if (!q) {
+      this.requestId++;
       this.results.set([]);
       this.rawBibleResults = [];
       this.bibleResults.set([]);
+      this.errorMessage.set(null);
       this.hasMore.set(false);
+      this.loading.set(false);
       return;
     }
-    if (this.loading() || this.typeFilter() === 'CHANNELS') return;
+    if (this.typeFilter() === 'CHANNELS') return;
+    if (!refresh && (this.loading() || !this.hasMore())) return;
+
+    const reqId = ++this.requestId;
     if (refresh) {
       this.offset = 0;
       this.hasMore.set(true);
+      this.errorMessage.set(null);
     }
-    if (!this.hasMore()) return;
 
     this.loading.set(true);
     try {
@@ -637,6 +681,7 @@ export class SearchComponent implements OnInit {
           count: 0,
           results: [],
         }));
+        if (reqId !== this.requestId) return;
         const filtered = (res.results || []).filter(
           (h) => h.bookNumber != null && h.chapter != null && h.verse != null,
         );
@@ -645,7 +690,7 @@ export class SearchComponent implements OnInit {
           filtered,
           this.bibleService.version(),
         );
-        if (this.query().trim() === q) {
+        if (reqId === this.requestId) {
           this.bibleResults.set(localized);
         }
         return;
@@ -655,6 +700,7 @@ export class SearchComponent implements OnInit {
         void this.bibleService
           .searchSemantic(q, 12)
           .then(async (res) => {
+            if (reqId !== this.requestId) return;
             const filtered = (res.results || []).filter(
               (h) => h.bookNumber != null && h.chapter != null && h.verse != null,
             );
@@ -663,12 +709,12 @@ export class SearchComponent implements OnInit {
               filtered,
               this.bibleService.version(),
             );
-            if (this.query().trim() === q) {
+            if (reqId === this.requestId) {
               this.bibleResults.set(localized);
             }
           })
           .catch(() => {
-            if (this.query().trim() === q) {
+            if (reqId === this.requestId) {
               this.rawBibleResults = [];
               this.bibleResults.set([]);
             }
@@ -682,6 +728,7 @@ export class SearchComponent implements OnInit {
         limit: this.limit,
         offset: this.offset,
       });
+      if (reqId !== this.requestId) return;
       if (refresh) {
         this.results.set(batch);
       } else {
@@ -693,8 +740,15 @@ export class SearchComponent implements OnInit {
       }
       this.offset += batch.length;
       this.hasMore.set(batch.length >= this.limit);
+    } catch {
+      if (reqId === this.requestId) {
+        this.errorMessage.set('Search failed. Please check your connection and try again.');
+        this.hasMore.set(false);
+      }
     } finally {
-      this.loading.set(false);
+      if (reqId === this.requestId) {
+        this.loading.set(false);
+      }
     }
   }
 

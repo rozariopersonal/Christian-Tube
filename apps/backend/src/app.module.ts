@@ -21,6 +21,7 @@ import { AdminReleaseModule } from './modules/admin-release/admin-release.module
 import { AdminAudioProcessorModule } from './modules/admin-audio-processor/admin-audio-processor.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { BibleModule } from './modules/bible/bible.module';
+import { VideoVectorModule } from './modules/video-vector/video-vector.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { BibleModule } from './modules/bible/bible.module';
     AdminAudioProcessorModule,
     AudioModule,
     BibleModule,
+    VideoVectorModule,
   ],
 })
 export class AppModule {}

@@ -70,6 +70,16 @@ export default () => {
       restToken: process.env.UPSTASH_VECTOR_REST_TOKEN,
       timeoutMs: parseInt(process.env.UPSTASH_VECTOR_TIMEOUT_MS || '3000', 10),
     },
+    upstashVideoVector: {
+      restUrl: process.env.UPSTASH_VIDEO_VECTOR_REST_URL || process.env.UPSTASH_VECTOR_REST_URL,
+      restToken: process.env.UPSTASH_VIDEO_VECTOR_REST_TOKEN || process.env.UPSTASH_VECTOR_REST_TOKEN,
+      namespace:
+        process.env.UPSTASH_VIDEO_VECTOR_NAMESPACE ||
+        (instanceId === 'christian_tube' ? 'videos' : `videos_${instanceId}`),
+      timeoutMs: parseInt(process.env.UPSTASH_VIDEO_VECTOR_TIMEOUT_MS || '2500', 10),
+      minScore: parseFloat(process.env.VIDEO_VECTOR_MIN_SCORE || '0.60'),
+      maxInlineOps: parseInt(process.env.VIDEO_VECTOR_MAX_INLINE_OPS || '200', 10),
+    },
     storage: {
       endpoint: process.env.STORAGE_ENDPOINT,
       region: process.env.STORAGE_REGION || 'auto',

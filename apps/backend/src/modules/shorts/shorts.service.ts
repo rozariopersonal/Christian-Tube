@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { CacheService } from '../cache/cache.service';
 import { YoutubeService } from '../youtube/youtube.service';
+import { VideoVectorService } from '../video-vector/video-vector.service';
 
 export interface InitiateUploadDto {
   title: string;
@@ -39,6 +40,7 @@ export class ShortsService {
     private readonly prisma: PrismaService,
     private readonly youtubeService: YoutubeService,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly videoVector?: VideoVectorService,
   ) {}
 
   private getTodayUtcDateString(): string {
@@ -333,7 +335,7 @@ export class ShortsService {
           },
         });
 
-        await this.prisma.video.upsert({
+        const savedShort = await this.prisma.video.upsert({
           where: { id: data.youtubeVideoId },
           update: {
             type: 'SHORT',
@@ -374,8 +376,11 @@ export class ShortsService {
             category,
           },
         });
+        this.videoVector?.upsertVideos([savedShort]).catch((e: any) => {
+          this.logger.warn(`Upstash vector upsert failed for short ${savedShort.id}: ${e?.message || e}`);
+        });
         this.logger.log(`✅ Short automatically mirrored to Video feed: ${data.youtubeVideoId} ("${data.title}")`);
-        await this.cache?.invalidate('videos', 'channels');
+        await this.cache?.invalidate('videos', 'channels', 'video-search');
       } catch (feedErr: any) {
         this.logger.warn(`Could not mirror short creation to Video feed: ${feedErr.message}`);
       }
@@ -471,17 +476,30 @@ export class ShortsService {
 
   async cleanupLegacyShorts() {
     try {
-      // 1. Delete any mock / virtual shorts with synthetic IDs
-      const deletedVideos = await this.prisma.video.deleteMany({
-        where: {
-          OR: [
-            { id: { startsWith: 'short_' } },
-            { id: { startsWith: 'mock_' } },
-            { id: { startsWith: 'local_' } },
-            { type: 'SHORT', channelId: { startsWith: 'UC_ChristianTube' } },
-          ],
-        },
+      // 1. Capture synthetic IDs first, then delete from DB & Upstash Vector
+      const legacyWhere = {
+        OR: [
+          { id: { startsWith: 'short_' } },
+          { id: { startsWith: 'mock_' } },
+          { id: { startsWith: 'local_' } },
+          { type: 'SHORT' as const, channelId: { startsWith: 'UC_ChristianTube' } },
+        ],
+      };
+      const legacyRows = await this.prisma.video.findMany({
+        where: legacyWhere,
+        select: { id: true },
       });
+      const legacyIds = legacyRows.map((r) => r.id);
+
+      const deletedVideos = await this.prisma.video.deleteMany({
+        where: legacyWhere,
+      });
+
+      if (legacyIds.length > 0) {
+        this.videoVector?.deleteIds(legacyIds).catch((e: any) => {
+          this.logger.warn(`Upstash cleanup failed for legacy shorts: ${e?.message || e}`);
+        });
+      }
 
       // 2. Delete any mock creations
       const deletedCreations = await (this.prisma as any).shortCreation.deleteMany({
@@ -495,7 +513,7 @@ export class ShortsService {
       }).catch(() => ({ count: 0 }));
 
       this.logger.log(`🧹 Cleaned up legacy/mock shorts: ${deletedVideos.count} videos, ${deletedCreations.count} creations.`);
-      await this.cache?.invalidate('videos', 'channels');
+      await this.cache?.invalidate('videos', 'channels', 'video-search');
       return {
         success: true,
         deletedVideos: deletedVideos.count,

@@ -14,6 +14,7 @@ import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncService } from '../sync/sync.service';
 import { CacheService } from '../cache/cache.service';
+import { VideoVectorService } from '../video-vector/video-vector.service';
 
 @Injectable()
 export class ChannelsService {
@@ -24,6 +25,7 @@ export class ChannelsService {
     private readonly configService: ConfigService,
     private readonly syncService: SyncService,
     @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly videoVector?: VideoVectorService,
   ) {}
 
   isAdmin(email?: string): boolean {
@@ -516,7 +518,7 @@ export class ChannelsService {
       this.logger.warn(`WebSub subscription error for added channel ${channel.id}: ${e.message}`);
     });
 
-    await this.cache?.invalidate('channels', 'videos');
+    await this.cache?.invalidate('channels', 'videos', 'video-search');
 
     return {
       status: 'success',
@@ -553,7 +555,9 @@ export class ChannelsService {
       where: { id },
       data: { isActive },
     });
-    await this.cache?.invalidate('channels', 'videos');
+    // Invalidate search + feed caches immediately so deactivated channels never leak from Redis.
+    // Vectors remain in Upstash (enforced via Neon isActive=true) so re-enabling costs 0 ops.
+    await this.cache?.invalidate('channels', 'videos', 'video-search');
     return {
       status: 'success',
       isActive: updated.isActive,
@@ -571,6 +575,13 @@ export class ChannelsService {
 
   async removeChannel(id: string) {
     try {
+      // Capture affected video IDs before deleteMany so Upstash vectors can be cleaned up.
+      const existingVideos = await this.prisma.video.findMany({
+        where: { channelId: id },
+        select: { id: true },
+      });
+      const videoIds = existingVideos.map((v) => v.id);
+
       await this.prisma.video.deleteMany({
         where: { channelId: id },
       });
@@ -579,7 +590,13 @@ export class ChannelsService {
         where: { id },
       });
 
-      await this.cache?.invalidate('channels', 'videos');
+      await this.cache?.invalidate('channels', 'videos', 'video-search');
+
+      if (videoIds.length > 0) {
+        this.videoVector?.deleteIds(videoIds).catch((err: any) => {
+          this.logger.warn(`Upstash cleanup failed for removed channel ${id}: ${err?.message || err}`);
+        });
+      }
 
       return {
         status: 'success',

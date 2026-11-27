@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../../core/layout/content_width.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/api/api_client.dart';
 import '../../core/models/short.dart';
@@ -8,6 +9,22 @@ import '../../core/utils/formatters.dart';
 
 class ShortsSearchDelegate extends SearchDelegate<Short?> {
   final ApiClient _apiClient = ApiClient();
+  String? _lastQuery;
+  Future<List<Short>>? _lastFuture;
+
+  Future<List<Short>> _memoizedSearch(String raw) {
+    final q = raw.trim();
+    if (_lastQuery != q || _lastFuture == null) {
+      _lastQuery = q;
+      _lastFuture = _searchShorts(q).catchError((Object err, StackTrace st) {
+        if (_lastQuery == q) {
+          _lastFuture = null;
+        }
+        Error.throwWithStackTrace(err, st);
+      });
+    }
+    return _lastFuture!;
+  }
 
   @override
   String get searchFieldLabel => 'Search ${AppConfig.appName} Shorts...';
@@ -59,11 +76,19 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
     return Container(
       color: context.tokens.background,
       child: FutureBuilder<List<Short>>(
-        future: _searchShorts(query.trim()),
+        future: _memoizedSearch(query),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
               child: CircularProgressIndicator(color: context.tokens.accent),
+            );
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Could not search Shorts. Please try again.',
+                style: TextStyle(color: context.tokens.onSurfaceMuted, fontSize: 15),
+              ),
             );
           }
           final shorts = snapshot.data ?? [];
@@ -83,8 +108,9 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          return MaxWidthBox(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             itemCount: shorts.length,
             separatorBuilder: (_, __) => Divider(color: context.tokens.surfaceBorder, height: 16),
             itemBuilder: (context, index) {
@@ -184,7 +210,8 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
                 ),
               );
             },
-          );
+          ),
+        );
         },
       ),
     );
@@ -204,27 +231,23 @@ class ShortsSearchDelegate extends SearchDelegate<Short?> {
   }
 
   Future<List<Short>> _searchShorts(String searchQuery) async {
-    try {
-      final response = await _apiClient.dio.get(
-        '/videos',
-        queryParameters: {
-          'type': 'SHORT',
-          'search': searchQuery,
-          'limit': 50,
-        },
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        final dynamic raw = response.data;
-        final List<dynamic> list =
-            raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
-        return list
-            .whereType<Map<String, dynamic>>()
-            .map((s) => Short.fromJson(s))
-            .where((s) => s.durationSeconds <= 180 || s.type == 'SHORT')
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Error searching shorts: $e');
+    final response = await _apiClient.dio.get(
+      '/api/search',
+      queryParameters: {
+        'q': searchQuery,
+        'type': 'SHORT',
+        'sort': 'relevance',
+        'limit': 50,
+      },
+    );
+    if (response.statusCode == 200 && response.data != null) {
+      final dynamic raw = response.data;
+      final List<dynamic> list =
+          raw is List ? raw : (raw['videos'] ?? raw['data'] ?? []);
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((s) => Short.fromJson(s))
+          .toList();
     }
     return [];
   }
