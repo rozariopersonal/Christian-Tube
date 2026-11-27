@@ -85,7 +85,7 @@ export class VideoVectorService {
     this.timeoutMs =
       this.configService.get<number>('upstashVideoVector.timeoutMs') || 2500;
     const rawMin = this.configService.get<number>('upstashVideoVector.minScore');
-    this.minScore = Number.isFinite(rawMin) ? Number(rawMin) : 0.6;
+    this.minScore = Number.isFinite(rawMin) ? Number(rawMin) : 0.66;
     const rawCap = this.configService.get<number>(
       'upstashVideoVector.maxInlineOps',
     );
