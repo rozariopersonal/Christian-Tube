@@ -736,6 +736,19 @@ class TestDualDbAndSync(unittest.TestCase):
         finally:
             os.unlink(tmp.name)
 
+    def test_collection_rollover_on_1000_item_limit(self):
+        client = AudioComClient("test_token")
+        client.get_or_create_collection = MagicMock(side_effect=["col_p1", "col_p2"])
+        full_resp = MagicMock(status_code=422, text='{"errors":{"audio":"There can be maximum 1000 items in this collection"}}')
+        ok_resp = MagicMock(status_code=204, text="")
+        client._requests.post = MagicMock(side_effect=[full_resp, ok_resp])
+
+        col_id = client.add_to_channel_collection("CFC India", "audio_1001")
+        self.assertEqual(col_id, "col_p2")
+        client.get_or_create_collection.assert_any_call("CFC India")
+        client.get_or_create_collection.assert_any_call("CFC India (Part 2)")
+        self.assertEqual(client._active_part_cache["cfc india"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

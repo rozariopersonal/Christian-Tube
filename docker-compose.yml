@@ -68,8 +68,6 @@ services:
       - processor-work:/work
       - ./services/youtube-processor/worker.py:/app/worker.py
       - ./services/youtube-processor/eligible_videos.sql:/app/eligible_videos.sql:ro
-      - ./releases:/app/releases
-      - ./.git/modules/releases:/app/.git/modules/releases
 
   embedder:
     build:

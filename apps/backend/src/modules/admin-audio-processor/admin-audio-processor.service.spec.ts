@@ -36,7 +36,8 @@ describe('AdminAudioProcessorService', () => {
       createAudio: jest.fn(),
       triggerSuccessHook: jest.fn().mockResolvedValue(undefined),
       getOrCreateCollection: jest.fn().mockResolvedValue('col_1'),
-      addToCollection: jest.fn().mockResolvedValue(undefined),
+      addToCollection: jest.fn().mockResolvedValue('ok'),
+      addToChannelCollection: jest.fn().mockResolvedValue('col_1'),
       resolveStreamUrl: jest.fn().mockResolvedValue('https://cdn.audio.com/stream.mp3'),
     };
     push = {
