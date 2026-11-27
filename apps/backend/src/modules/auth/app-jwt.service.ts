@@ -7,7 +7,6 @@ export interface AccessTokenClaims {
   sub: string;
   sid: string;
   email: string | null;
-  isGuest: boolean;
 }
 
 const ISSUER = 'christian-tube';
@@ -98,7 +97,6 @@ export class AppJwtService implements OnModuleInit {
     return new SignJWT({
       sid: claims.sid,
       email: claims.email,
-      guest: claims.isGuest,
       typ: 'access',
     })
       .setProtectedHeader({ alg: 'HS256', kid })
@@ -137,15 +135,17 @@ export class AppJwtService implements OnModuleInit {
         if (
           payload.typ !== 'access' ||
           typeof payload.sub !== 'string' ||
-          typeof payload.sid !== 'string'
+          typeof payload.sid !== 'string' ||
+          payload.guest === true ||
+          typeof payload.email !== 'string' ||
+          !payload.email.trim()
         ) {
           throw new Error('Malformed access token claims');
         }
         return {
           sub: payload.sub,
           sid: payload.sid,
-          email: typeof payload.email === 'string' ? payload.email : null,
-          isGuest: payload.guest === true,
+          email: payload.email.trim(),
         };
       } catch (err) {
         lastError = err;

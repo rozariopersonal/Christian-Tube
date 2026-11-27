@@ -59,13 +59,10 @@ const KEY_PREFERRED_LANGUAGES = 'preferred_languages';
           }
         } @else {
           <div class="account-actions">
-            <p class="muted">Sign in to sync followed channels &amp; preferences.</p>
+            <p class="muted">Sign in with Google to sync followed channels &amp; preferences.</p>
             <div class="chip-wrap">
               <button type="button" class="pill-chip active" (click)="auth.promptGoogleSignIn()">
                 Sign in with Google
-              </button>
-              <button type="button" class="pill-chip" (click)="auth.signInAsGuest()">
-                Guest Sign-In
               </button>
             </div>
           </div>

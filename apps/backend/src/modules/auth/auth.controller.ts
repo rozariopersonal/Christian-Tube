@@ -17,7 +17,7 @@ import {
 } from '../../guards/current-user.decorator';
 import { AuthSessionService } from './auth-session.service';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
-import { GoogleAuthDto, GuestAuthDto, RefreshAuthDto } from './dto/auth.dto';
+import { GoogleAuthDto, RefreshAuthDto } from './dto/auth.dto';
 
 @Controller(['auth', 'api/auth'])
 export class AuthController {
@@ -29,14 +29,6 @@ export class AuthController {
   @Post('google')
   async googleLogin(@Body() dto: GoogleAuthDto) {
     return this.authSessionService.createGoogleSession(dto);
-  }
-
-  @UseGuards(AuthThrottlerGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @HttpCode(HttpStatus.OK)
-  @Post('guest')
-  async guestLogin(@Body() dto: GuestAuthDto) {
-    return this.authSessionService.createGuestSession(dto);
   }
 
   @UseGuards(AuthThrottlerGuard)

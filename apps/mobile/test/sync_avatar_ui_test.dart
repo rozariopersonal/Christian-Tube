@@ -61,7 +61,6 @@ void main() {
                 id: 'u_1',
                 email: 'arul.rozario4@gmail.com',
                 displayName: 'Arul Rozario',
-                isGuest: false,
               ),
               initialSessionExpiredForTesting: true,
             );
@@ -111,7 +110,6 @@ void main() {
           id: 'u_1',
           email: 'arul@example.com',
           displayName: 'Arul',
-          isGuest: false,
         ),
         initialSessionExpiredForTesting: false,
       );
@@ -127,6 +125,29 @@ void main() {
 
       expect(find.byIcon(Icons.sync_problem), findsNothing);
       expect(find.text('AR'), findsOneWidget);
+    });
+
+    testWidgets('shows Google Sign-In without Continue as Guest when signed out', (tester) async {
+      final auth = AuthService(
+        registerAsShared: false,
+        skipInitialLoad: true,
+      );
+      addTearDown(auth.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          dark: false,
+          child: SyncAvatarButton(authService: auth),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('btn_profile')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in with Google'), findsOneWidget);
+      expect(find.text('Continue as Guest'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
 }

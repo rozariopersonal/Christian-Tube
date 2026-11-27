@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
@@ -72,6 +73,20 @@ describe('UsersService', () => {
       );
       expect(res).toEqual(mockUser);
     });
+
+    it('rejects creating a new user when email is missing or empty', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.syncUser({
+          id: 'u-no-email',
+          email: '   ',
+          displayName: 'No Email',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.user.upsert).not.toHaveBeenCalled();
+    });
   });
 
   describe('getPreferences', () => {
@@ -88,8 +103,9 @@ describe('UsersService', () => {
       expect(prisma.userPreference.create).not.toHaveBeenCalled();
     });
 
-    it('creates default preferences if none found', async () => {
+    it('ensures user and creates default preferences if none found and email is provided', async () => {
       prisma.userPreference.findUnique.mockResolvedValue(null);
+      prisma.user.upsert.mockResolvedValue({ id: 'u1', email: 'u1@example.com' });
       const defaultPref = {
         userId: 'u1',
         languages: ['en'],
@@ -97,16 +113,47 @@ describe('UsersService', () => {
       };
       prisma.userPreference.create.mockResolvedValue(defaultPref);
 
-      const res = await service.getPreferences('u1');
+      const res = await service.getPreferences('u1', 'u1@example.com');
+      expect(prisma.user.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u1' },
+        }),
+      );
       expect(prisma.userPreference.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             userId: 'u1',
+            languages: ['en'],
+            primaryBibleVersionId: 'NASB',
+            defaultPage: 'feed',
             hasCompletedOnboarding: false,
           }),
         }),
       );
+      const createData = prisma.userPreference.create.mock.calls[0][0].data;
+      expect(createData.videoChannelIds).toBeUndefined();
+      expect(createData.shortsChannelIds).toBeUndefined();
+      expect(createData.bibleVersionIds).toBeUndefined();
+      expect(createData.dailyReminderEnabled).toBeUndefined();
+      expect(createData.dailyReminderTime).toBeUndefined();
       expect(res).toEqual(defaultPref);
+    });
+
+    it('returns default preferences without FK insert when email is absent and user does not exist', async () => {
+      prisma.userPreference.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const res = await service.getPreferences('u-missing');
+      expect(prisma.userPreference.create).not.toHaveBeenCalled();
+      expect(res).toEqual(
+        expect.objectContaining({
+          userId: 'u-missing',
+          languages: ['en'],
+          primaryBibleVersionId: 'NASB',
+          defaultPage: 'feed',
+          hasCompletedOnboarding: false,
+        }),
+      );
     });
   });
 
@@ -115,8 +162,6 @@ describe('UsersService', () => {
       const savedPref = {
         userId: 'u1',
         languages: ['en', 'ta'],
-        videoChannelIds: ['c1', 'c2'],
-        shortsChannelIds: ['c2', 'c3'],
         primaryBibleVersionId: 'TAOBVSI',
         lockScreenWordFeedEnabled: true,
         lockScreenRefreshIntervalMinutes: 30,
@@ -125,15 +170,17 @@ describe('UsersService', () => {
       prisma.userPreference.upsert.mockResolvedValue(savedPref);
       prisma.channelSubscription.upsert.mockResolvedValue({ id: 'sub1' });
 
-      const res = await service.savePreferences('u1', {
-        languages: ['en', 'ta'],
-        videoChannelIds: ['c1', 'c2'],
-        shortsChannelIds: ['c2', 'c3'],
-        primaryBibleVersionId: 'TAOBVSI',
-        lockScreenWordFeedEnabled: true,
-        lockScreenRefreshIntervalMinutes: 30,
-        hasCompletedOnboarding: true,
-      });
+      const res = await service.savePreferences(
+        'u1',
+        {
+          languages: ['en', 'ta'],
+          primaryBibleVersionId: 'TAOBVSI',
+          lockScreenWordFeedEnabled: true,
+          lockScreenRefreshIntervalMinutes: 30,
+          hasCompletedOnboarding: true,
+        },
+        'u1@example.com',
+      );
 
       expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -144,9 +191,29 @@ describe('UsersService', () => {
           }),
         }),
       );
+      const upsertCreate = prisma.userPreference.upsert.mock.calls[0][0].create;
+      expect(upsertCreate.videoChannelIds).toBeUndefined();
+      expect(upsertCreate.shortsChannelIds).toBeUndefined();
+      expect(upsertCreate.bibleVersionIds).toBeUndefined();
+      expect(upsertCreate.dailyReminderEnabled).toBeUndefined();
+      expect(upsertCreate.dailyReminderTime).toBeUndefined();
       expect(prisma.channelSubscription.upsert).not.toHaveBeenCalled();
       expect(prisma.channelSubscription.deleteMany).not.toHaveBeenCalled();
       expect(res).toEqual(savedPref);
+    });
+
+    it('allows saving preferences for an existing user when email is omitted', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'u1@example.com' });
+      prisma.userPreference.upsert.mockResolvedValue({ userId: 'u1', themeMode: 'dark' });
+
+      const res = await service.savePreferences('u1', { themeMode: 'dark' });
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        include: { preference: true },
+      });
+      expect(prisma.user.upsert).not.toHaveBeenCalled();
+      expect(res).toEqual({ userId: 'u1', themeMode: 'dark' });
     });
   });
 
@@ -229,11 +296,15 @@ describe('UsersService', () => {
       });
       prisma.userPreference.upsert.mockResolvedValue({ userId: 'u1' });
 
-      await service.savePreferences('u1', {
-        themeMode: 'light', // stale (1500 < 2000)
-        languages: ['en'],  // newer (2500 > 1000)
-        fieldTimestamps: { themeMode: 1500, languages: 2500 },
-      });
+      await service.savePreferences(
+        'u1',
+        {
+          themeMode: 'light', // stale (1500 < 2000)
+          languages: ['en'],  // newer (2500 > 1000)
+          fieldTimestamps: { themeMode: 1500, languages: 2500 },
+        },
+        'u1@example.com',
+      );
 
       expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -258,10 +329,14 @@ describe('UsersService', () => {
         defaultPage: 'bible',
       });
 
-      await service.savePreferences('u1', {
-        defaultPage: 'bible',
-        fieldTimestamps: { defaultPage: 2000 },
-      });
+      await service.savePreferences(
+        'u1',
+        {
+          defaultPage: 'bible',
+          fieldTimestamps: { defaultPage: 2000 },
+        },
+        'u1@example.com',
+      );
 
       expect(prisma.userPreference.upsert).toHaveBeenCalledWith(
         expect.objectContaining({

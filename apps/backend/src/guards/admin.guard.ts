@@ -30,8 +30,8 @@ export class AdminGuard extends AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user || user.isGuest === true) {
-      this.logger.warn(`Admin access denied for guest user: ${user?.userId}`);
+    if (!user) {
+      this.logger.warn('Admin access denied: missing authenticated user');
       throw new ForbiddenException('Admin access required');
     }
 

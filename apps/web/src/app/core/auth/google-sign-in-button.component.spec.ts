@@ -46,7 +46,7 @@ describe('GoogleSignInButtonComponent', () => {
       refreshToken: 'refresh-1',
       sessionId: 'sess-1',
       expiresIn: 900,
-      user: { id: 'u1', email: 'u@example.com', displayName: 'User', photoUrl: null, isGuest: false },
+      user: { id: 'u1', email: 'u@example.com', displayName: 'User', photoUrl: null },
     });
     await Promise.resolve();
     expect(auth.sessionNeedsSignIn()).toBe(false);

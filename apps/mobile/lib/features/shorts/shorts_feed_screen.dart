@@ -10,7 +10,6 @@ import 'players/shorts_player.dart';
 import '../search/shorts_search_delegate.dart';
 import '../../core/services/bottom_bar_visibility_service.dart';
 import '../../core/services/user_sync_service.dart';
-import '../../core/services/user_preference_service.dart';
 import 'services/shorts_orchestrator_service.dart';
 import 'widgets/my_creations_grid.dart';
 import 'widgets/community_shorts_grid.dart';
@@ -54,8 +53,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   late final ChannelService _channelService =
       widget.channelService ?? ChannelService();
   late final AuthService _authService = widget.authService ?? AuthService();
-  late final UserPreferenceService _preferenceService =
-      UserPreferenceService.instance;
   late final CommunityShortsController _communityController;
   final ScrollController _communityScrollController = ScrollController();
 
@@ -74,7 +71,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     super.initState();
     _communityController = widget.communityController ??
         CommunityShortsController(
-          isAuthenticated: _authService.isAuthenticated,
           subscribedChannelIds: _subscribedShortsChannelIds,
         );
 
@@ -95,8 +91,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     });
 
     _channelService.addListener(_onChannelContextChanged);
-    _authService.addListener(_onAuthContextChanged);
-    _preferenceService.addListener(_onPreferenceContextChanged);
     _orchestrator.fetchCloudCreations();
     _communityScrollController.addListener(_onCommunityScroll);
 
@@ -149,22 +143,13 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
     await _communityController.setChannelFilter(selectedIds);
   }
 
-  void _onPreferenceContextChanged() {
-    _pushSubscriptionContext();
-  }
-
   void _onChannelContextChanged() {
-    _pushSubscriptionContext();
-  }
-
-  void _onAuthContextChanged() {
     _pushSubscriptionContext();
   }
 
   Future<void> _pushSubscriptionContext() async {
     if (!mounted) return;
     await _communityController.updateSubscriptionContext(
-      isAuthenticated: _authService.isAuthenticated,
       subscribedChannelIds: _subscribedShortsChannelIds,
     );
   }
@@ -239,8 +224,6 @@ class _ShortsFeedScreenState extends State<ShortsFeedScreen> {
   void dispose() {
     _shortsResetSub?.cancel();
     _channelService.removeListener(_onChannelContextChanged);
-    _authService.removeListener(_onAuthContextChanged);
-    _preferenceService.removeListener(_onPreferenceContextChanged);
     stopAllPlatformShorts();
     BottomBarVisibilityService.instance.setShortPlaying(false);
     _communityScrollController.removeListener(_onCommunityScroll);

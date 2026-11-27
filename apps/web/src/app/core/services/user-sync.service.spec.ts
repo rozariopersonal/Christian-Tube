@@ -134,45 +134,44 @@ describe('UserSyncService', () => {
     expect(userSync.pendingOps()['sub:ch-valid']).toBeDefined();
   });
 
-  it('hands off guest pending ops to authenticated user on Google sign-in', async () => {
+  it('isolates pending ops per userId without cross-user handoff', async () => {
     authService.currentUser.set({
-      id: 'guest_123',
-      email: 'guest_123@christianapp.local',
-      displayName: 'Guest',
+      id: 'user-a',
+      email: 'a@example.com',
+      displayName: 'User A',
     });
     TestBed.flushEffects();
     await Promise.resolve();
 
-    const guestStateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
-    guestStateReq.flush({ serverTime: Date.now() });
+    const stateReqA = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+    stateReqA.flush({ serverTime: Date.now() });
     await Promise.resolve();
 
-    userSync.enqueueSubscription('ch-guest', true);
-    const guestSubReq = httpMock.expectOne((r) =>
-      r.url.endsWith('/api/channels/ch-guest/subscribe'),
+    userSync.enqueueSubscription('ch-a', true);
+    const subReqA = httpMock.expectOne((r) =>
+      r.url.endsWith('/api/channels/ch-a/subscribe'),
     );
-    guestSubReq.flush(null, { status: 503, statusText: 'Unavailable' });
+    subReqA.flush(null, { status: 503, statusText: 'Unavailable' });
     await Promise.resolve();
-    expect(userSync.pendingOps()['sub:ch-guest']).toBeDefined();
+    expect(userSync.pendingOps()['sub:ch-a']).toBeDefined();
 
-    // Sign in as Google user
+    // Switch to another authenticated user
     authService.currentUser.set({
-      id: 'google-sub-999',
-      email: 'user@gmail.com',
-      displayName: 'Real User',
+      id: 'user-b',
+      email: 'b@example.com',
+      displayName: 'User B',
     });
     TestBed.flushEffects();
     await Promise.resolve();
 
-    const handoffSubReq = httpMock.expectOne((r) =>
-      r.url.endsWith('/api/channels/ch-guest/subscribe'),
+    httpMock.expectNone((r) =>
+      r.url.endsWith('/api/channels/ch-a/subscribe'),
     );
-    handoffSubReq.flush({ status: 'subscribed', channelId: 'ch-guest' });
-    await new Promise((r) => setTimeout(r, 0));
-
-    const userStateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
-    userStateReq.flush({ serverTime: Date.now(), subscriptions: ['ch-guest'] });
+    const stateReqB = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
+    stateReqB.flush({ serverTime: Date.now(), subscriptions: [] });
     await Promise.resolve();
+
+    expect(userSync.pendingOps()).toEqual({});
   });
 
   it('clears all on-device user data from localStorage on signOut', async () => {

@@ -70,29 +70,4 @@ export class GoogleJwksService {
       throw new Error('Invalid or expired token');
     }
   }
-
-  isGuestToken(token: string): boolean {
-    return token.startsWith('token_');
-  }
-
-  /**
-   * Returns the guest identity id embedded in a guest token.
-   * Legacy tokens without an email claim keep working unchanged.
-   * Format: `token_<userId>` or `token_<userId>::<email>`.
-   */
-  parseGuestToken(token: string): string | null {
-    if (!this.isGuestToken(token)) return null;
-    return token.replace('token_', '').split('::')[0] || null;
-  }
-
-  /**
-   * Returns the email claimed by a guest token, if present.
-   * The email is only an identity hint; authorization still requires the
-   * email to match the configured admin list.
-   */
-  parseGuestEmail(token: string): string | null {
-    if (!this.isGuestToken(token)) return null;
-    const email = token.replace('token_', '').split('::')[1]?.trim();
-    return email || null;
-  }
 }

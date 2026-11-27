@@ -66,7 +66,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         id: 'u_1',
         email: 'u1@example.com',
         displayName: 'User One',
-        isGuest: false,
       },
       accessToken: 'expired-access',
       refreshToken: 'refresh-1',
@@ -118,7 +117,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         id: 'u_1',
         email: 'u1@example.com',
         displayName: 'User One',
-        isGuest: false,
       },
       accessToken: 'expired-access',
       refreshToken: 'revoked-refresh',
@@ -153,7 +151,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         id: 'u_1',
         email: 'u1@example.com',
         displayName: 'User One',
-        isGuest: false,
       },
       accessToken: 'expired-access',
       refreshToken: 'refresh-1',
@@ -205,7 +202,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         id: 'u_1',
         email: 'u1@example.com',
         displayName: 'U1',
-        isGuest: false,
       },
       accessToken: 'tok',
       refreshToken: 'ref',
@@ -223,7 +219,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         id: 'sub_old',
         email: 'old@example.com',
         displayName: 'Old User',
-        isGuest: false,
       },
       accessToken: 'tok-old',
       refreshToken: 'ref-old',
@@ -260,7 +255,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
         email: 'new@example.com',
         displayName: 'New User',
         photoUrl: null,
-        isGuest: false,
       },
     });
     await tick();
@@ -285,7 +279,6 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
       id: 'u_1',
       email: 'u1@example.com',
       displayName: 'U1',
-      isGuest: false,
     });
     TestBed.flushEffects();
     await tick();
@@ -306,5 +299,33 @@ describe('Web Auth, Interceptor & Sync Gating', () => {
 
     const stateReq = httpMock.expectOne((r) => r.url.endsWith('/api/user/state'));
     stateReq.flush({ serverTime: Date.now() });
+  });
+
+  it('clears legacy guest session keys on startup while preserving local preferences and onboarding flag', () => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+    localStorage.setItem(
+      KEY_USER,
+      JSON.stringify({ id: 'guest_999', email: '', displayName: 'Guest User' }),
+    );
+    localStorage.setItem(KEY_ACCESS_TOKEN, 'old-guest-tok');
+    localStorage.setItem('ct_web_last_guest_id_v1', 'guest_999');
+    localStorage.setItem('ct_web_sync_pending_v2_guest_999', '{"k":"v"}');
+    localStorage.setItem('selected_languages', '["ta"]');
+    localStorage.setItem('onboarding_completed', 'true');
+
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const freshAuth = TestBed.inject(AuthService);
+
+    expect(freshAuth.currentUser()).toBeNull();
+    expect(freshAuth.sessionExpired()).toBe(false);
+    expect(localStorage.getItem(KEY_USER)).toBeNull();
+    expect(localStorage.getItem(KEY_ACCESS_TOKEN)).toBeNull();
+    expect(localStorage.getItem('ct_web_last_guest_id_v1')).toBeNull();
+    expect(localStorage.getItem('ct_web_sync_pending_v2_guest_999')).toBeNull();
+    expect(localStorage.getItem('selected_languages')).toBe('["ta"]');
+    expect(localStorage.getItem('onboarding_completed')).toBe('true');
   });
 });

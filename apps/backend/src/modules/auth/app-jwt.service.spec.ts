@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose';
 import { AppJwtService } from './app-jwt.service';
 
 function makeService(configValues: Record<string, unknown>) {
@@ -19,7 +20,6 @@ describe('AppJwtService', () => {
       sub: 'user_1',
       sid: 'sid_1',
       email: 'a@b.com',
-      isGuest: false,
     });
 
     const keysV2 = JSON.stringify({
@@ -34,18 +34,53 @@ describe('AppJwtService', () => {
       sub: 'user_1',
       sid: 'sid_1',
       email: 'a@b.com',
-      isGuest: false,
     });
 
     const tokenFromV2 = await svcV2.signAccessToken({
-      sub: 'guest_9',
+      sub: 'user_9',
       sid: 'sid_9',
-      email: null,
-      isGuest: true,
+      email: 'user9@example.com',
     });
     const verifiedNew = await svcV2.verifyAccessToken(tokenFromV2);
-    expect(verifiedNew.isGuest).toBe(true);
-    expect(verifiedNew.email).toBeNull();
+    expect(verifiedNew.sub).toBe('user_9');
+    expect(verifiedNew.email).toBe('user9@example.com');
+  });
+
+  it('rejects legacy guest JWTs and tokens with empty or null email', async () => {
+    const secret = 'secret-one-32-bytes-minimum-1234';
+    const svc = makeService({
+      'auth.jwtKeysRaw': JSON.stringify({ v1: secret }),
+    });
+
+    const guestToken = await new SignJWT({
+      sid: 'sid_guest',
+      email: 'guest@guest.local',
+      guest: true,
+      typ: 'access',
+    })
+      .setProtectedHeader({ alg: 'HS256', kid: 'v1' })
+      .setIssuer('christian-tube')
+      .setAudience('christian-tube-api')
+      .setSubject('guest_123')
+      .setIssuedAt()
+      .setExpirationTime('15m')
+      .sign(new TextEncoder().encode(secret));
+
+    await expect(svc.verifyAccessToken(guestToken)).rejects.toThrow();
+
+    const nullEmailToken = await svc.signAccessToken({
+      sub: 'u_null',
+      sid: 's_null',
+      email: null,
+    });
+    await expect(svc.verifyAccessToken(nullEmailToken)).rejects.toThrow();
+
+    const emptyEmailToken = await svc.signAccessToken({
+      sub: 'u_empty',
+      sid: 's_empty',
+      email: '   ',
+    });
+    await expect(svc.verifyAccessToken(emptyEmailToken)).rejects.toThrow();
   });
 
   it('rejects expired tokens', async () => {
@@ -57,7 +92,6 @@ describe('AppJwtService', () => {
       sub: 'u1',
       sid: 's1',
       email: 'a@b.com',
-      isGuest: false,
     });
     await expect(svc.verifyAccessToken(token)).rejects.toThrow();
   });

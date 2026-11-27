@@ -16,23 +16,6 @@ export class GoogleAuthDto {
   deviceLabel?: string;
 }
 
-export class GuestAuthDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(128)
-  deviceId!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  deviceLabel?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  displayName?: string;
-}
-
 export class RefreshAuthDto {
   @IsString()
   @IsNotEmpty()

@@ -1,15 +1,28 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
-import { UserSyncService } from '../../../core/services/user-sync.service';
-import { AuthService } from '../../../core/auth/auth.service';
-import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
 import {
-  APP_COLOR_THEMES,
-  ThemeService,
-} from '../../../core/theme/theme.service';
-import { SUPPORTED_LANGUAGES } from '../../../shared/ui/language-meta';
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnInit,
+  ViewChild,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
+import {
+  ContentPreferencesService,
+  resolveDefaultWebRoute,
+} from '../../../core/services/content-preferences.service';
+import { ReaderAppearanceService } from '../../../core/services/reader-appearance.service';
+import { UserSyncService } from '../../../core/services/user-sync.service';
+import {
+  SUPPORTED_LANGUAGES,
+  canonicalLanguageCode,
+} from '../../../shared/ui/language-meta';
+import { getVersionsForLanguages } from '../../bible/models/bible.model';
+import { Channel } from '../../channels/models/channel.model';
 import { ChannelService } from '../../channels/services/channel.service';
 
 const LANGUAGES = Object.values(SUPPORTED_LANGUAGES)
@@ -22,174 +35,88 @@ const LANGUAGES = Object.values(SUPPORTED_LANGUAGES)
         : l.englishName,
   }));
 
-const BIBLE_VERSIONS = ['NASB', 'KJV', 'ASV', 'NLT', 'WEB', 'TAOBVSI'];
+const POPULAR_CHANNEL_LIMIT = 4;
 
 @Component({
   selector: 'app-onboarding',
   standalone: true,
-  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="onboarding-wrap max-width-box">
-      <div class="progress-bar">
-        <div class="progress-fill" [style.width.%]="((step() + 1) / 5) * 100"></div>
-      </div>
-      <p class="step-label">Step {{ step() + 1 }} of 5</p>
-
-      @switch (step()) {
-        @case (0) {
-          <section class="step-card">
-            <img src="logo.png" alt="ChristianApp" width="56" height="56" />
+      <main class="quickstart-card">
+        <header class="welcome-head">
+          <img src="logo.png" alt="ChristianApp" width="56" height="56" class="brand-logo" />
+          <div>
             <h1 class="font-display">Welcome to ChristianApp</h1>
             <p class="muted">
-              Sign in with Google to sync your followed channels, preferences, and reading progress — or continue as a guest.
+              Choose your preferred languages to personalize videos, Bible reading, books, and audio sermons.
             </p>
-            @if (auth.isAuthenticated()) {
-              <div class="signed-in-pill">
-                Signed in as {{ auth.currentUser()!.displayName }}
-              </div>
-            } @else {
-              <div class="auth-actions">
-                <button type="button" class="pill-chip active" (click)="auth.promptGoogleSignIn()">
+          </div>
+        </header>
+
+        <section class="section-block" aria-labelledby="account-heading">
+          <div class="section-head">
+            <h2 id="account-heading">Sync Across Devices (Optional)</h2>
+            <p class="muted">
+              Sign in with Google to restore your saved setup or keep your library synced across devices.
+            </p>
+          </div>
+
+          @if (auth.isAuthenticated()) {
+            <div class="signed-in-pill">
+              <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
+              <span>Signed in as {{ auth.currentUser()!.displayName }}</span>
+            </div>
+          } @else {
+            <div class="auth-actions">
+              <div #gsiHost class="gsi-host"></div>
+              @if (!gsiRendered()) {
+                <button
+                  type="button"
+                  class="pill-chip"
+                  (click)="auth.promptGoogleSignIn()"
+                >
                   Sign in with Google
                 </button>
-                <button type="button" class="pill-chip" (click)="auth.signInAsGuest()">
-                  Continue as Guest
-                </button>
-              </div>
-            }
-          </section>
-        }
-
-        @case (1) {
-          <section class="step-card">
-            <h1 class="font-display">Choose Your Languages</h1>
-            <p class="muted">Used to filter books, audio sermons, and Bible resources.</p>
-            <div class="chip-grid">
-              @for (lang of languages; track lang.code) {
-                <button
-                  type="button"
-                  class="pill-chip"
-                  [class.active]="selectedLanguages().has(lang.code)"
-                  (click)="toggleLanguage(lang.code)"
-                >
-                  {{ lang.name }}
-                </button>
               }
             </div>
-          </section>
-        }
+          }
+        </section>
 
-        @case (2) {
-          <section class="step-card">
-            <h1 class="font-display">Follow Channels</h1>
-            <p class="muted">Pick ministries and teachers for your video feed.</p>
-            <input
-              type="search"
-              class="search-input"
-              placeholder="Search channels..."
-              [ngModel]="channelSearch()"
-              (ngModelChange)="channelSearch.set($event)"
-            />
-            <div class="channel-list">
-              @for (ch of filteredChannels(); track ch.id) {
-                <button
-                  type="button"
-                  class="channel-row"
-                  [class.selected]="selectedChannelIds().has(ch.id)"
-                  (click)="toggleChannel(ch.id)"
-                >
-                  <span class="ch-title">{{ ch.title }}</span>
-                  <span class="material-symbols-rounded">
-                    {{ selectedChannelIds().has(ch.id) ? 'check_circle' : 'add_circle_outline' }}
-                  </span>
-                </button>
-              }
-            </div>
-          </section>
-        }
+        <section class="section-block" aria-labelledby="languages-heading">
+          <div class="section-head">
+            <h2 id="languages-heading">Choose Your Languages</h2>
+            <p class="muted">
+              We’ll automatically select a matching Bible version and popular channels for you.
+            </p>
+          </div>
 
-        @case (3) {
-          <section class="step-card">
-            <h1 class="font-display">Primary Bible Version</h1>
-            <p class="muted">You can switch versions anytime in the Bible reader.</p>
-            <div class="chip-grid">
-              @for (v of bibleVersions; track v) {
-                <button
-                  type="button"
-                  class="pill-chip"
-                  [class.active]="primaryBible() === v"
-                  (click)="primaryBible.set(v)"
-                >
-                  {{ v }}
-                </button>
-              }
-            </div>
-          </section>
-        }
-
-        @case (4) {
-          <section class="step-card">
-            <h1 class="font-display">Personalize Appearance</h1>
-            <p class="muted">Choose your theme mode and accent color.</p>
-
-            <div class="chip-grid">
-              @for (mode of ['system', 'light', 'dark']; track mode) {
-                <button
-                  type="button"
-                  class="pill-chip"
-                  [class.active]="theme.themeMode() === mode"
-                  (click)="theme.setThemeMode($any(mode))"
-                >
-                  {{ mode[0].toUpperCase() + mode.slice(1) }}
-                </button>
-              }
+          <div class="chip-grid" role="group" aria-label="Preferred languages">
+            @for (lang of languages; track lang.code) {
               <button
                 type="button"
                 class="pill-chip"
-                [class.active]="theme.isAmoled()"
-                (click)="theme.setAmoled(!theme.isAmoled())"
+                [class.active]="selectedLanguages().has(lang.code)"
+                [attr.aria-pressed]="selectedLanguages().has(lang.code)"
+                (click)="toggleLanguage(lang.code)"
               >
-                AMOLED Black
+                {{ lang.name }}
               </button>
-            </div>
+            }
+          </div>
+        </section>
 
-            <div class="swatch-row">
-              @for (c of colorThemes; track c.id) {
-                <button
-                  type="button"
-                  class="swatch"
-                  [style.background-color]="c.color"
-                  [class.selected]="theme.colorTheme().id === c.id"
-                  [attr.aria-label]="c.name"
-                  (click)="theme.setColorTheme(c.id)"
-                ></button>
-              }
-            </div>
-          </section>
-        }
-      }
-
-      <footer class="nav-footer">
-        @if (step() > 0) {
-          <button type="button" class="pill-chip" (click)="step.set(step() - 1)">
-            Back
+        <footer class="cta-footer">
+          <button
+            type="button"
+            class="start-btn"
+            [disabled]="saving()"
+            (click)="startExploring()"
+          >
+            {{ saving() ? 'Setting up...' : 'Start Exploring' }}
           </button>
-        } @else {
-          <button type="button" class="pill-chip" (click)="finish()">
-            Skip
-          </button>
-        }
-
-        @if (step() < 4) {
-          <button type="button" class="pill-chip active" (click)="step.set(step() + 1)">
-            Continue
-          </button>
-        } @else {
-          <button type="button" class="pill-chip active" [disabled]="saving()" (click)="finish()">
-            {{ saving() ? 'Saving...' : 'Get Started' }}
-          </button>
-        }
-      </footer>
+        </footer>
+      </main>
     </div>
   `,
   styles: [
@@ -200,117 +127,109 @@ const BIBLE_VERSIONS = ['NASB', 'KJV', 'ASV', 'NLT', 'WEB', 'TAOBVSI'];
         padding-bottom: 32px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        justify-content: center;
         max-width: 640px;
       }
 
-      .progress-bar {
-        height: 6px;
-        border-radius: var(--radius-pill);
-        background-color: var(--surface-variant);
-        overflow: hidden;
-      }
-
-      .progress-fill {
-        height: 100%;
-        background-color: var(--accent);
-        transition: width 200ms ease;
-      }
-
-      .step-label {
-        margin: 0;
-        font-size: 12px;
-        color: var(--on-surface-muted);
-      }
-
-      .step-card {
-        flex: 1;
+      .quickstart-card {
         background-color: var(--surface);
         border: 1px solid var(--surface-border);
         border-radius: var(--radius-lg);
         padding: 24px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 24px;
       }
 
-      .step-card h1 {
-        margin: 0;
-        font-size: 22px;
+      .welcome-head {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .brand-logo {
+        border-radius: 12px;
+      }
+
+      .welcome-head h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .section-block {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .section-head h2 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 700;
       }
 
       .muted {
         margin: 0;
+        font-size: 14px;
         color: var(--on-surface-muted);
+        line-height: 1.45;
       }
 
-      .auth-actions,
+      .auth-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .gsi-host {
+        min-height: 0;
+      }
+
+      .signed-in-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        align-self: flex-start;
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 14px;
+      }
+
       .chip-grid {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
       }
 
-      .signed-in-pill {
-        padding: 10px 14px;
-        border-radius: var(--radius-md);
-        background-color: var(--accent-soft);
-        color: var(--accent);
-        font-weight: 600;
-      }
-
-      .search-input {
-        padding: 10px 12px;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--surface-border);
-        background-color: var(--bg);
-      }
-
-      .channel-list {
-        max-height: 300px;
-        overflow-y: auto;
+      .cta-footer {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
+        justify-content: stretch;
+        padding-top: 4px;
       }
 
-      .channel-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--surface-border);
-        background-color: var(--bg);
-      }
-
-      .channel-row.selected {
-        border-color: var(--accent);
-        background-color: var(--accent-soft);
-      }
-
-      .swatch-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-
-      .swatch {
-        width: 36px;
-        height: 36px;
+      .start-btn {
+        width: 100%;
+        min-height: 46px;
+        padding: 12px 20px;
         border-radius: var(--radius-pill);
-        border: 2px solid transparent;
+        background-color: var(--accent);
+        color: var(--bg);
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        cursor: pointer;
+        transition: opacity 150ms ease;
       }
 
-      .swatch.selected {
-        border-color: var(--on-surface);
-        transform: scale(1.1);
-      }
-
-      .nav-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+      .start-btn:disabled {
+        opacity: 0.65;
+        cursor: wait;
       }
     `,
   ],
@@ -322,37 +241,68 @@ export class OnboardingComponent implements OnInit {
   private readonly channels = inject(ChannelService);
   private readonly appearance = inject(ReaderAppearanceService);
   readonly auth = inject(AuthService);
-  readonly theme = inject(ThemeService);
 
-  readonly step = signal<number>(0);
   readonly saving = signal<boolean>(false);
-  readonly selectedLanguages = signal(new Set(this.preferences.preferredLanguages()));
-  readonly selectedChannelIds = signal(new Set(this.channels.subscribedIds()));
-  private channelSelectionEdited = false;
-  readonly channelSearch = signal<string>('');
-  readonly primaryBible = signal<string>(this.appearance.primaryBibleVersion());
-
+  readonly gsiRendered = signal<boolean>(false);
+  readonly selectedLanguages = signal(
+    new Set(this.preferences.preferredLanguages()),
+  );
   readonly languages = LANGUAGES;
-  readonly bibleVersions = BIBLE_VERSIONS;
-  readonly colorThemes = APP_COLOR_THEMES;
 
-  readonly filteredChannels = computed(() => {
-    const q = this.channelSearch().trim().toLowerCase();
-    const all = this.channels.channels();
-    if (!q) return all;
-    return all.filter((c) => c.title.toLowerCase().includes(q));
-  });
+  private languageSelectionEdited = false;
+  private wasSignedOutOnEntry = !this.auth.isAuthenticated();
+  private autoNavigated = false;
 
-  ngOnInit(): void {
-    void this.channels.fetchChannels();
-    void this.channels.loadSubscriptions().then(() => {
-      if (!this.channelSelectionEdited) {
-        this.selectedChannelIds.set(new Set(this.channels.subscribedIds()));
+  @ViewChild('gsiHost')
+  set gsiHost(ref: ElementRef<HTMLElement> | undefined) {
+    if (ref && !this.auth.isAuthenticated()) {
+      this.tryRenderGsiButton(ref.nativeElement);
+    }
+  }
+
+  constructor() {
+    effect(() => {
+      const authed = this.auth.isAuthenticated();
+      const remote = this.userSync.remoteState();
+      if (!authed) {
+        this.wasSignedOutOnEntry = true;
+        return;
       }
+
+      untracked(() => {
+        if (
+          !this.languageSelectionEdited &&
+          remote?.preferences?.languages &&
+          remote.preferences.languages.length > 0
+        ) {
+          this.selectedLanguages.set(new Set(remote.preferences.languages));
+        }
+
+        if (
+          this.wasSignedOutOnEntry &&
+          !this.autoNavigated &&
+          remote?.preferences?.hasCompletedOnboarding
+        ) {
+          this.autoNavigated = true;
+          this.markCompletedLocally();
+          const targetRoute = resolveDefaultWebRoute(
+            remote.preferences.defaultPage ?? this.preferences.defaultPage(),
+          );
+          void this.router.navigateByUrl(`/${targetRoute}`);
+        }
+      });
     });
   }
 
+  ngOnInit(): void {
+    void this.channels.fetchChannels();
+    if (this.auth.isAuthenticated() && this.auth.canSync()) {
+      void this.channels.loadSubscriptions();
+    }
+  }
+
   toggleLanguage(code: string): void {
+    this.languageSelectionEdited = true;
     const next = new Set(this.selectedLanguages());
     if (next.has(code) && next.size > 1) {
       next.delete(code);
@@ -362,34 +312,90 @@ export class OnboardingComponent implements OnInit {
     this.selectedLanguages.set(next);
   }
 
-  toggleChannel(id: string): void {
-    this.channelSelectionEdited = true;
-    const next = new Set(this.selectedChannelIds());
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    this.selectedChannelIds.set(next);
-  }
-
-  async finish(): Promise<void> {
+  async startExploring(): Promise<void> {
+    if (this.saving()) return;
     this.saving.set(true);
     try {
-      this.appearance.setPrimaryBibleVersion(this.primaryBible());
-      this.preferences.setLanguages([...this.selectedLanguages()]);
-      this.theme.setThemeMode(this.theme.themeMode());
-      this.theme.setColorTheme(this.theme.colorTheme().id);
-      if (this.channelSelectionEdited) {
-        this.channels.saveChannelSelections(this.selectedChannelIds());
+      const selectedLangs = [...this.selectedLanguages()];
+      this.preferences.setLanguages(selectedLangs);
+
+      const { preferred } = getVersionsForLanguages(selectedLangs);
+      if (preferred.length > 0) {
+        this.appearance.setPrimaryBibleVersion(preferred[0].id.toUpperCase());
       }
+
+      await this.autoFollowPopularChannels(selectedLangs);
+
       if (this.auth.isAuthenticated()) {
         this.userSync.enqueuePreference('hasCompletedOnboarding', true);
       }
-      localStorage.setItem('onboarding_completed', 'true');
-      await this.router.navigateByUrl('/feed');
+      this.markCompletedLocally();
+      await this.router.navigateByUrl(`/${this.preferences.defaultRoute()}`);
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private async autoFollowPopularChannels(
+    selectedLangs: readonly string[],
+  ): Promise<void> {
+    if (this.channels.subscribedIds().length > 0) {
+      return;
+    }
+    if (this.channels.channels().length === 0) {
+      await this.channels.fetchChannels();
+    }
+    const activeChannels = this.channels
+      .channels()
+      .filter((c) => c.isActive);
+    if (activeChannels.length === 0) {
+      return;
+    }
+
+    const langSet = new Set(
+      selectedLangs.map((code) => canonicalLanguageCode(code).toLowerCase()),
+    );
+    const matching = activeChannels.filter(
+      (c) =>
+        c.language &&
+        langSet.has(canonicalLanguageCode(c.language).toLowerCase()),
+    );
+    const pool = matching.length > 0 ? matching : activeChannels;
+    const popularIds = this.pickTopChannelIds(pool, POPULAR_CHANNEL_LIMIT);
+    if (popularIds.length > 0) {
+      await this.channels.subscribeMany(popularIds);
+    }
+  }
+
+  private pickTopChannelIds(
+    channels: readonly Channel[],
+    limit: number,
+  ): string[] {
+    return [...channels]
+      .sort(
+        (a, b) =>
+          b.subscriberCount - a.subscriberCount ||
+          b.videoCount - a.videoCount,
+      )
+      .slice(0, limit)
+      .map((c) => c.id);
+  }
+
+  private markCompletedLocally(): void {
+    try {
+      localStorage.setItem('onboarding_completed', 'true');
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  private tryRenderGsiButton(host: HTMLElement): void {
+    const ok = this.auth.initGoogleSignIn();
+    if (!ok) {
+      this.gsiRendered.set(false);
+      return;
+    }
+    this.auth.renderGoogleButton(host);
+    this.gsiRendered.set(host.childElementCount > 0);
   }
 }

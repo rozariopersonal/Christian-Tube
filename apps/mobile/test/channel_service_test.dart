@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/services/user_sync_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
 import 'package:mobile/features/channels/channel_service.dart';
@@ -61,7 +60,11 @@ void main() {
       Dio(BaseOptions(baseUrl: 'http://localhost:3000'))
         ..httpClientAdapter = adapter;
 
-  Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+  Future<void> settle() async {
+    await pumpEventQueue(times: 20);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await pumpEventQueue(times: 20);
+  }
 
   test('guest toggleSubscribe is device-local and makes no network calls', () async {
     final adapter = StubAdapter();
@@ -149,8 +152,8 @@ void main() {
       ..setActiveUserForTesting('onboarding-user');
     await Future.wait([
       sync.enqueuePreferences({
-        'videoChannelIds': ['video'],
-        'shortsChannelIds': <String>[],
+        'languages': ['en', 'ta'],
+        'defaultPage': 'shorts',
       }),
       sync.enqueueSubscriptions({'video': true, 'old': false}),
       sync.enqueuePreference('hasCompletedOnboarding', true),
@@ -161,8 +164,8 @@ void main() {
       prefs.getString('mobile_sync_pending_v2_onboarding-user')!,
     ) as Map<String, dynamic>;
     expect(saved.keys, unorderedEquals([
-      'pref:videoChannelIds',
-      'pref:shortsChannelIds',
+      'pref:languages',
+      'pref:defaultPage',
       'sub:video',
       'sub:old',
       'pref:hasCompletedOnboarding',
@@ -426,23 +429,25 @@ void main() {
       expect(notifyCount, 1);
     });
 
-    test('toggleSubscribe syncs follow state to UserPreference', () async {
+    test('toggleSubscribe updates subscribedChannelIds and SharedPreferences directly', () async {
       final adapter = StubAdapter();
       final service = ChannelService.forTesting(dio: testDio(adapter));
 
       service.toggleSubscribe('c1');
       await settle();
 
-      final pref = UserPreferenceService.instance.preferences;
-      expect(pref.videoChannelIds, contains('c1'));
-      expect(pref.shortsChannelIds, contains('c1'));
+      expect(service.subscribedChannelIds, contains('c1'));
+      expect(service.followedChannelIds, contains('c1'));
+      var prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('subscribed_channel_ids'), contains('c1'));
 
       service.toggleSubscribe('c1');
       await settle();
 
-      final updatedPref = UserPreferenceService.instance.preferences;
-      expect(updatedPref.videoChannelIds, isNot(contains('c1')));
-      expect(updatedPref.shortsChannelIds, isNot(contains('c1')));
+      expect(service.subscribedChannelIds, isNot(contains('c1')));
+      expect(service.followedChannelIds, isNot(contains('c1')));
+      prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList('subscribed_channel_ids'), isNot(contains('c1')));
     });
 
     test('loadSubscriptions merges backend IDs with existing local IDs without wiping them', () async {

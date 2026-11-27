@@ -15,6 +15,7 @@ class AuthTokenStore {
   static const String keyRefreshToken = 'auth_refresh_token';
   static const String keySessionId = 'auth_session_id';
   static const String keyDeviceId = 'auth_device_id';
+  static const String keyDeviceOnboardingCompleted = 'ct_device_onboarding_completed_v1';
   static const String keySessionExpired = 'auth_session_expired';
   static const String legacyKeyToken = 'auth_token';
 
@@ -160,12 +161,41 @@ class AuthTokenStore {
     }
   }
 
+  /// Clears only auth/session keys and optional stale guest sync keys while
+  /// preserving local user preferences, followed channels, and device state.
+  Future<void> clearAuthSessionKeysOnly({String? legacyGuestUserId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keyUser);
+    await prefs.remove(keyAccessToken);
+    await prefs.remove(keySessionId);
+    await prefs.remove(keySessionExpired);
+    await prefs.remove(legacyKeyToken);
+    await prefs.remove('mobile_last_guest_id_v1');
+    if (legacyGuestUserId != null && legacyGuestUserId.isNotEmpty) {
+      await prefs.remove('mobile_sync_pending_v2_$legacyGuestUserId');
+    }
+    if (kIsWeb) {
+      await prefs.remove(keyRefreshToken);
+    } else {
+      _ephemeralRefreshFallback = null;
+      try {
+        await _secureStorage.delete(key: keyRefreshToken);
+      } on MissingPluginException {
+        // ignore
+      } catch (_) {}
+    }
+  }
+
   Future<void> clearAllExceptDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     final deviceId = prefs.getString(keyDeviceId);
+    final onboardingCompleted = prefs.getBool(keyDeviceOnboardingCompleted);
     await prefs.clear();
     if (deviceId != null && deviceId.trim().isNotEmpty) {
       await prefs.setString(keyDeviceId, deviceId);
+    }
+    if (onboardingCompleted != null) {
+      await prefs.setBool(keyDeviceOnboardingCompleted, onboardingCompleted);
     }
     _ephemeralRefreshFallback = null;
     if (!kIsWeb) {

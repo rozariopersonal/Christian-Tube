@@ -57,7 +57,6 @@ void main() {
 
   CommunityShortsController buildController({
     List<String>? responses,
-    bool isAuthenticated = false,
     Set<String> subscribedChannelIds = const {},
   }) {
     adapter = RecordingAdapter(responses ?? []);
@@ -65,7 +64,6 @@ void main() {
     apiClient.dio.httpClientAdapter = adapter;
     return CommunityShortsController(
       apiClient: apiClient,
-      isAuthenticated: isAuthenticated,
       subscribedChannelIds: subscribedChannelIds,
     );
   }
@@ -75,7 +73,7 @@ void main() {
   });
 
   group('CommunityShortsController subscriptions filter', () {
-    test('fetchShorts queries all shorts when not signed in', () async {
+    test('fetchShorts queries all shorts when subscribedChannelIds is empty', () async {
       final controller =
           buildController(responses: ['[${jsonEncode(_short('s1', 'c1'))}]']);
       await _settle();
@@ -89,16 +87,17 @@ void main() {
       expect(controller.shorts, hasLength(1));
     });
 
-    test('no filter request when signed out even with subscriptions', () async {
-      final controller = buildController(responses: []);
+    test('updateSubscriptionContext is a no-op when subscribedChannelIds is unchanged', () async {
+      final controller = buildController(
+        responses: [],
+        subscribedChannelIds: {'enA'},
+      );
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: false,
         subscribedChannelIds: {'enA'},
       );
 
-      // Effective mode is unchanged (all → all), so no refetch happens.
       expect(adapter.requests, isEmpty);
     });
 
@@ -107,7 +106,6 @@ void main() {
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
 
@@ -125,7 +123,6 @@ void main() {
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       expect(controller.shorts, hasLength(1));
@@ -141,7 +138,7 @@ void main() {
       expect(controller.shorts, hasLength(2));
     });
 
-    test('switching to signed-in mode resets and avoids stale all cache', () async {
+    test('switching to subscribed mode resets and avoids stale all cache', () async {
       SharedPreferences.setMockInitialValues({
         'ct_cached_community_shorts':
             jsonEncode([_short('cached', 'x')]),
@@ -149,12 +146,11 @@ void main() {
       final controller = buildController(responses: ['[]']);
       await _settle();
 
-      // Constructed signed-out: the "all" cache fills the feed instantly.
+      // Constructed with no subscriptions: the "all" cache fills the feed instantly.
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
       expect(controller.shorts, hasLength(1));
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
 
@@ -174,7 +170,6 @@ void main() {
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       final filteredKey = controller.activeCacheKey;
@@ -182,7 +177,6 @@ void main() {
       expect(filteredKey, isNot('ct_cached_community_shorts'));
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: false,
         subscribedChannelIds: {},
       );
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
@@ -193,14 +187,12 @@ void main() {
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       final first = adapter.requests[0].queryParameters['channelIds'] as String;
       expect(first.split(','), ['enA']);
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA', 'taC'},
       );
       final second =
@@ -209,19 +201,17 @@ void main() {
       expect(second, isNot(first));
     });
 
-    test('signing out switches back to the all-shorts feed', () async {
+    test('clearing subscriptions switches back to the all-shorts feed', () async {
       final controller = buildController(responses: ['[]', '[]']);
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       expect(adapter.requests[0].queryParameters['channelIds'], isNotNull);
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: false,
-        subscribedChannelIds: {'enA'},
+        subscribedChannelIds: {},
       );
       expect(controller.activeCacheKey, 'ct_cached_community_shorts');
       expect(adapter.requests[1].queryParameters['channelIds'], isNull);
@@ -230,7 +220,6 @@ void main() {
     test('constructor initialized with subscriptions queries subscribed channels immediately', () async {
       final controller = buildController(
         responses: ['[]'],
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       await _settle();
@@ -248,7 +237,6 @@ void main() {
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA', 'taC', 'hiB'},
       );
       final allFollowedCacheKey = controller.activeCacheKey;
@@ -270,7 +258,6 @@ void main() {
       await _settle();
 
       await controller.updateSubscriptionContext(
-        isAuthenticated: true,
         subscribedChannelIds: {'enA', 'taC'},
       );
       await controller.setChannelFilter({'taC'});
@@ -288,7 +275,6 @@ void main() {
     test('constructor initialized with subscriptions loads scoped cache instead of generic all cache', () async {
       final controller = buildController(
         responses: [],
-        isAuthenticated: true,
         subscribedChannelIds: {'enA'},
       );
       await _settle();

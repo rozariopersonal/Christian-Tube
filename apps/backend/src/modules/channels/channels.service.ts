@@ -537,17 +537,29 @@ export class ChannelsService {
 
   private async ensureUser(user: { userId: string; email?: string | null }) {
     const email = (user.email || '').trim().toLowerCase();
+    if (!email) {
+      if (typeof (this.prisma.user as any)?.findUnique === 'function') {
+        const existing = await (this.prisma.user as any).findUnique({
+          where: { id: user.userId },
+        });
+        if (existing) {
+          return existing;
+        }
+      }
+      throw new UnauthorizedException('Valid user email is required');
+    }
+
     try {
       await this.prisma.user.upsert({
         where: { id: user.userId },
         update: {
-          email: email || undefined,
+          email,
           role: 'USER',
           lastLoginAt: new Date(),
         },
         create: {
           id: user.userId,
-          email: email || `guest_${user.userId}@christianapp.local`,
+          email,
           role: 'USER',
           displayName: 'User',
           isBlocked: false,
@@ -555,25 +567,15 @@ export class ChannelsService {
         },
       });
     } catch (err: any) {
-      if (err?.code === 'P2002') {
-        await this.prisma.user.upsert({
+      if (err?.code === 'P2002' && typeof (this.prisma.user as any)?.findUnique === 'function') {
+        const existing = await (this.prisma.user as any).findUnique({
           where: { id: user.userId },
-          update: {
-            role: 'USER',
-            lastLoginAt: new Date(),
-          },
-          create: {
-            id: user.userId,
-            email: `guest_${user.userId}@christianapp.local`,
-            role: 'USER',
-            displayName: 'User',
-            isBlocked: false,
-            lastLoginAt: new Date(),
-          },
         });
-      } else {
-        throw err;
+        if (existing) {
+          return existing;
+        }
       }
+      throw err;
     }
   }
 

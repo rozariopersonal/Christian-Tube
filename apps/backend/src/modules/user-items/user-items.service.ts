@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,17 +58,28 @@ export class UserItemsService {
 
   private async ensureUser(userId: string, email?: string | null) {
     const cleanEmail = (email || '').trim().toLowerCase();
-    const fallbackEmail = `guest_${userId}@christianapp.local`;
+    if (!cleanEmail) {
+      if (typeof (this.prisma.user as any)?.findUnique === 'function') {
+        const existing = await (this.prisma.user as any).findUnique({
+          where: { id: userId },
+        });
+        if (existing) {
+          return existing;
+        }
+      }
+      throw new BadRequestException('Valid email is required to create user');
+    }
+
     try {
       await this.prisma.user.upsert({
         where: { id: userId },
         update: {
-          email: cleanEmail || undefined,
+          email: cleanEmail,
           lastLoginAt: new Date(),
         },
         create: {
           id: userId,
-          email: cleanEmail || fallbackEmail,
+          email: cleanEmail,
           role: 'USER',
           displayName: 'User',
           isBlocked: false,
@@ -76,22 +87,15 @@ export class UserItemsService {
         },
       });
     } catch (err: any) {
-      if (err?.code === 'P2002') {
-        await this.prisma.user.upsert({
+      if (err?.code === 'P2002' && typeof (this.prisma.user as any)?.findUnique === 'function') {
+        const existing = await (this.prisma.user as any).findUnique({
           where: { id: userId },
-          update: { lastLoginAt: new Date() },
-          create: {
-            id: userId,
-            email: fallbackEmail,
-            role: 'USER',
-            displayName: 'User',
-            isBlocked: false,
-            lastLoginAt: new Date(),
-          },
         });
-      } else {
-        throw err;
+        if (existing) {
+          return existing;
+        }
       }
+      throw err;
     }
   }
 

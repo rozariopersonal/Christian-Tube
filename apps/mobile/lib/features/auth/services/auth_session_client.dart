@@ -65,20 +65,6 @@ class AuthSessionClient {
     return _parseSessionResult(res);
   }
 
-  Future<AuthSessionResult> createGuest({
-    required String deviceId,
-    String? deviceLabel,
-    String? displayName,
-  }) async {
-    final res = await _post('/api/auth/guest', {
-      'deviceId': deviceId,
-      if (deviceLabel != null) 'deviceLabel': deviceLabel,
-      if (displayName != null && displayName.trim().isNotEmpty)
-        'displayName': displayName.trim(),
-    });
-    return _parseSessionResult(res);
-  }
-
   Future<AuthSessionResult> refresh({
     required String sessionId,
     required String refreshToken,

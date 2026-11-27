@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { UserItemsService } from './user-items.service';
 
 describe('UserItemsService', () => {
@@ -8,6 +9,7 @@ describe('UserItemsService', () => {
     prisma = {
       user: {
         upsert: jest.fn().mockResolvedValue({ id: 'u1' }),
+        findUnique: jest.fn().mockResolvedValue(null),
       },
       userItem: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -131,5 +133,23 @@ describe('UserItemsService', () => {
       { id: 'note-s1', status: 'ok' },
       { id: 'bad-feature', status: 'rejected' },
     ]);
+  });
+
+  it('rejects creating a user when email is missing instead of synthesizing a guest email', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.upsertBatch('u-no-email', '', [
+        {
+          id: 'hl-1',
+          itemType: 'highlight',
+          feature: 'bible',
+          targetId: 'GEN:1:1',
+        },
+      ]),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(prisma.user.upsert).not.toHaveBeenCalled();
+    expect(prisma.userItem.createMany).not.toHaveBeenCalled();
   });
 });

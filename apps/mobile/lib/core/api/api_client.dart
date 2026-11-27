@@ -10,7 +10,6 @@ class ApiClient {
 
   static bool _isAuthEndpoint(String path) {
     return path.contains('/auth/google') ||
-        path.contains('/auth/guest') ||
         path.contains('/auth/refresh') ||
         path.contains('/auth/logout');
   }

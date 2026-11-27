@@ -31,44 +31,40 @@ class CommunityShortsController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  bool _isAuthenticated = false;
   Set<String> _subscribedChannelIds = const {};
   Set<String>? _candidateChannelIds;
   Set<String>? _selectedChannelIds;
 
   CommunityShortsController({
     ApiClient? apiClient,
-    bool isAuthenticated = false,
     Set<String> subscribedChannelIds = const {},
   })  : apiClient = apiClient ?? ApiClient(),
-        _isAuthenticated = isAuthenticated,
-        _subscribedChannelIds = subscribedChannelIds {
+        _subscribedChannelIds = Set<String>.of(subscribedChannelIds) {
     _candidateChannelIds = resolveSubscribedChannelIds(
-      isAuthenticated: isAuthenticated,
-      subscribedChannelIds: subscribedChannelIds,
+      subscribedChannelIds: _subscribedChannelIds,
     );
     _loadCachedShorts();
   }
 
   /// Active channel filter: `null` means show every short.
   Set<String>? get _effectiveChannelIds {
-    if (!_isAuthenticated || _subscribedChannelIds.isEmpty) return null;
+    if (_subscribedChannelIds.isEmpty) return null;
     final ids = _candidateChannelIds;
     if (ids == null || ids.isEmpty) return null;
     return ids;
   }
 
   /// Explicit channel selection from the Shorts grid. `null` means use the
-  /// normal feed (all followed channels for signed-in users, all otherwise).
+  /// normal feed (all followed channels when subscribed, all otherwise).
   Set<String>? get _activeChannelIds =>
       _selectedChannelIds ?? _effectiveChannelIds;
 
   Set<String> get selectedChannelIds =>
       Set<String>.unmodifiable(_selectedChannelIds ?? const {});
 
-  /// Cache key scoped to the active filter so a signed-out user (or a user
-  /// with no subscriptions) never sees a stale subscriptions-filtered snapshot,
-  /// and vice versa. Exposed for test assertions.
+  /// Cache key scoped to the active filter so a user with no subscriptions
+  /// never sees a stale subscriptions-filtered snapshot, and vice versa.
+  /// Exposed for test assertions.
   String get activeCacheKey {
     final ids = _activeChannelIds;
     if (ids == null) return _cacheKeyAll;
@@ -97,25 +93,20 @@ class CommunityShortsController extends ChangeNotifier {
     return hash.toRadixString(16).padLeft(8, '0');
   }
 
-  /// Recomputes the subscriptions filter from the current auth + subscription
-  /// state. Refetches (and resets the feed) only when the resolved candidate
-  /// set actually changed.
+  /// Recomputes the subscriptions filter from the current subscription state.
+  /// Refetches (and resets the feed) only when the resolved candidate set
+  /// actually changed.
   Future<void> updateSubscriptionContext({
-    required bool isAuthenticated,
     required Set<String> subscribedChannelIds,
   }) async {
     final previous = _activeChannelIds;
-    _isAuthenticated = isAuthenticated;
-    _subscribedChannelIds = subscribedChannelIds;
+    _subscribedChannelIds = Set<String>.of(subscribedChannelIds);
     _candidateChannelIds = resolveSubscribedChannelIds(
-      isAuthenticated: isAuthenticated,
-      subscribedChannelIds: subscribedChannelIds,
+      subscribedChannelIds: _subscribedChannelIds,
     );
 
     if (_selectedChannelIds != null) {
-      final eligibleIds = _isAuthenticated
-          ? (_candidateChannelIds ?? const <String>{})
-          : const <String>{};
+      final eligibleIds = _candidateChannelIds ?? const <String>{};
       final retained = _selectedChannelIds!.intersection(eligibleIds);
       _selectedChannelIds = retained.isEmpty ? null : retained;
     }

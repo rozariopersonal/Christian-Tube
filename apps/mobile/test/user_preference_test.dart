@@ -14,44 +14,42 @@ void main() {
     test('defaults are set correctly', () {
       final pref = UserPreference.defaults();
       expect(pref.languages, equals(['en']));
-      expect(pref.videoChannelIds, isEmpty);
-      expect(pref.shortsChannelIds, isEmpty);
       expect(pref.primaryBibleVersionId, equals('NASB'));
-      expect(pref.bibleVersionIds, equals(['NASB']));
       expect(pref.themeMode, equals('system'));
       expect(pref.accentColor, equals('blue'));
-      expect(pref.dailyReminderEnabled, isFalse);
-      expect(pref.dailyReminderTime, equals('07:00'));
+      expect(pref.defaultPage, equals('feed'));
+      expect(pref.lockScreenWordFeedEnabled, isFalse);
+      expect(pref.lockScreenRefreshIntervalMinutes, equals(60));
       expect(pref.hasCompletedOnboarding, isFalse);
     });
 
-    test('fromJson and toJson roundtrip preserves all fields', () {
+    test('fromJson and toJson roundtrip preserves all trimmed fields', () {
       final json = {
         'languages': ['en', 'ta'],
-        'videoChannelIds': ['ch1', 'ch2'],
-        'shortsChannelIds': ['ch2', 'ch3'],
         'primaryBibleVersionId': 'TAOBVSI',
-        'bibleVersionIds': ['TAOBVSI', 'NASB'],
         'themeMode': 'dark',
         'accentColor': 'emerald',
-        'defaultPage': 'feed',
-        'dailyReminderEnabled': true,
-        'dailyReminderTime': '06:30',
+        'defaultPage': 'bible',
         'lockScreenWordFeedEnabled': true,
         'lockScreenRefreshIntervalMinutes': 30,
         'hasCompletedOnboarding': true,
       };
 
-      final pref = UserPreference.fromJson(json);
+      final pref = UserPreference.fromJson({
+        ...json,
+        // Legacy keys are ignored cleanly
+        'videoChannelIds': const ['ch1'],
+        'shortsChannelIds': const ['ch2'],
+        'channelSelectionsConfigured': true,
+        'bibleVersionIds': const ['TAOBVSI', 'NASB'],
+        'dailyReminderEnabled': true,
+        'dailyReminderTime': '06:30',
+      });
       expect(pref.languages, equals(['en', 'ta']));
-      expect(pref.videoChannelIds, equals(['ch1', 'ch2']));
-      expect(pref.shortsChannelIds, equals(['ch2', 'ch3']));
       expect(pref.primaryBibleVersionId, equals('TAOBVSI'));
-      expect(pref.bibleVersionIds, equals(['TAOBVSI', 'NASB']));
       expect(pref.themeMode, equals('dark'));
       expect(pref.accentColor, equals('emerald'));
-      expect(pref.dailyReminderEnabled, isTrue);
-      expect(pref.dailyReminderTime, equals('06:30'));
+      expect(pref.defaultPage, equals('bible'));
       expect(pref.lockScreenWordFeedEnabled, isTrue);
       expect(pref.lockScreenRefreshIntervalMinutes, equals(30));
       expect(pref.hasCompletedOnboarding, isTrue);
@@ -65,44 +63,34 @@ void main() {
       final updated = original.copyWith(
         languages: ['hi', 'en'],
         primaryBibleVersionId: 'HINERV',
+        defaultPage: 'shorts',
         hasCompletedOnboarding: true,
       );
 
       expect(updated.languages, equals(['hi', 'en']));
       expect(updated.primaryBibleVersionId, equals('HINERV'));
+      expect(updated.defaultPage, equals('shorts'));
       expect(updated.hasCompletedOnboarding, isTrue);
       // Unchanged fields remain original
       expect(updated.themeMode, equals(original.themeMode));
       expect(updated.accentColor, equals(original.accentColor));
     });
 
-    test('configured empty Shorts selection survives restore', () {
-      final pref = UserPreference.fromJson({
-        'videoChannelIds': ['video'],
-        'shortsChannelIds': <String>[],
-        'fieldTimestamps': {'videoChannelIds': 1, 'shortsChannelIds': 1},
-      });
-      final restored = UserPreference.fromJson(pref.toJson());
-      expect(restored.videoFeedChannels({'video', 'shorts'}), {'video'});
-      expect(restored.shortsFeedChannels({'video', 'shorts'}), isEmpty);
-      expect(const UserPreference().shortsFeedChannels({'legacy'}), {'legacy'});
-    });
-
     test('equality and hashCode work as expected', () {
       const p1 = UserPreference(
         languages: ['en'],
-        videoChannelIds: ['c1'],
         primaryBibleVersionId: 'NASB',
+        defaultPage: 'feed',
       );
       const p2 = UserPreference(
         languages: ['en'],
-        videoChannelIds: ['c1'],
         primaryBibleVersionId: 'NASB',
+        defaultPage: 'feed',
       );
       const p3 = UserPreference(
         languages: ['ta'],
-        videoChannelIds: ['c1'],
         primaryBibleVersionId: 'TAOBVSI',
+        defaultPage: 'bible',
       );
 
       expect(p1, equals(p2));
