@@ -43,6 +43,7 @@ export class VideoVectorService {
   private readonly timeoutMs: number;
   private readonly minScore: number;
   private readonly maxInlineOps: number;
+  private readonly readOnly: boolean;
 
   private circuitOpenUntil = 0;
   private supportsDenseQueryMode = true;
@@ -90,6 +91,9 @@ export class VideoVectorService {
     );
     this.maxInlineOps =
       Number.isFinite(rawCap) && Number(rawCap) > 0 ? Number(rawCap) : 200;
+    this.readOnly =
+      this.configService.get<boolean>('upstashVideoVector.readOnly') === true ||
+      process.env.UPSTASH_VIDEO_VECTOR_READ_ONLY === 'true';
   }
 
   isEnabled(): boolean {
@@ -356,7 +360,7 @@ export class VideoVectorService {
     videos: VideoVectorInput[],
     opts?: { maxOps?: number; skipHashCheck?: boolean },
   ): Promise<{ upserted: number; skipped: number }> {
-    if (!this.isEnabled() || this.isCircuitOpen() || !videos.length) {
+    if (!this.isEnabled() || this.readOnly || this.isCircuitOpen() || !videos.length) {
       return { upserted: 0, skipped: videos.length };
     }
 
@@ -446,7 +450,7 @@ export class VideoVectorService {
    * Budget-capped vector deletion from Upstash Vector.
    */
   async deleteIds(ids: string[], opts?: { maxOps?: number }): Promise<number> {
-    if (!this.isEnabled() || this.isCircuitOpen() || !ids.length) {
+    if (!this.isEnabled() || this.readOnly || this.isCircuitOpen() || !ids.length) {
       return 0;
     }
 

@@ -79,6 +79,7 @@ export default () => {
       timeoutMs: parseInt(process.env.UPSTASH_VIDEO_VECTOR_TIMEOUT_MS || '2500', 10),
       minScore: parseFloat(process.env.VIDEO_VECTOR_MIN_SCORE || '0.60'),
       maxInlineOps: parseInt(process.env.VIDEO_VECTOR_MAX_INLINE_OPS || '200', 10),
+      readOnly: process.env.UPSTASH_VIDEO_VECTOR_READ_ONLY === 'true',
     },
     storage: {
       endpoint: process.env.STORAGE_ENDPOINT,
