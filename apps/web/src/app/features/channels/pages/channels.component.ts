@@ -1,26 +1,24 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   OnInit,
   computed,
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ScreenClassService } from '../../../core/layout/screen-class.service';
 import { ContentPreferencesService } from '../../../core/services/content-preferences.service';
-import { HeaderSearchService } from '../../../core/services/header-search.service';
 import { LanguageDropdownComponent } from '../../../shared/ui/language-dropdown.component';
 import { canonicalLanguageCode } from '../../../shared/ui/language-meta';
 import { ChannelCardComponent } from '../components/channel-card.component';
 import {
+  ChannelModalCompletedEvent,
   ChannelRequestModalComponent,
-  ChannelRequestPayload,
 } from '../components/channel-request-modal.component';
-import { Channel } from '../models/channel.model';
+import { Channel, ChannelRequest } from '../models/channel.model';
 import { ChannelService } from '../services/channel.service';
 
 @Component({
@@ -33,21 +31,55 @@ import { ChannelService } from '../services/channel.service';
     ChannelRequestModalComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(document:keydown.escape)': 'onEscapeKey()',
+  },
   template: `
     <div class="channels-page max-width-box">
       <header class="header-row">
         <h1 class="font-display">
           {{ auth.isAdmin() ? 'Channel Administration' : 'Channels' }}
         </h1>
-        <button
-          type="button"
-          class="pill-chip active"
-          (click)="showRequestModal.set(true)"
-        >
-          <span class="material-symbols-rounded btn-icon">playlist_add</span>
-          Request Channel
-        </button>
+        <div class="header-actions">
+          @if (auth.isAdmin()) {
+            <button
+              type="button"
+              class="pill-chip active"
+              (click)="openModal('add')"
+            >
+              <span class="material-symbols-rounded btn-icon">add_circle</span>
+              Add Channel
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="pill-chip active"
+              (click)="openModal('request')"
+            >
+              <span class="material-symbols-rounded btn-icon">playlist_add</span>
+              Request Channel
+            </button>
+          }
+        </div>
       </header>
+
+      @if (feedbackBanner(); as banner) {
+        <div
+          class="feedback-banner"
+          [class.error]="banner.isError"
+          role="status"
+        >
+          <span>{{ banner.message }}</span>
+          <button
+            type="button"
+            class="banner-close"
+            aria-label="Dismiss"
+            (click)="feedbackBanner.set(null)"
+          >
+            <span class="material-symbols-rounded">close</span>
+          </button>
+        </div>
+      }
 
       @if (auth.isAdmin()) {
         <div class="tab-bar">
@@ -76,17 +108,26 @@ import { ChannelService } from '../services/channel.service';
 
       @if (!auth.isAdmin() || activeTab() === 'browse') {
         <div class="controls">
-          @if (screen.isCompact()) {
-            <div class="search-box">
-              <span class="material-symbols-rounded">search</span>
-              <input
-                type="search"
-                placeholder="Search channels..."
-                [ngModel]="search()"
-                (ngModelChange)="search.set($event)"
-              />
-            </div>
-          }
+          <div class="search-box">
+            <span class="material-symbols-rounded">search</span>
+            <input
+              type="search"
+              placeholder="Search channels..."
+              aria-label="Search channels"
+              [ngModel]="search()"
+              (ngModelChange)="search.set($event)"
+            />
+            @if (search()) {
+              <button
+                type="button"
+                class="clear-search-btn"
+                aria-label="Clear channel search"
+                (click)="search.set('')"
+              >
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            }
+          </div>
 
           <app-language-dropdown
             [selectedLanguages]="selectedLanguages()"
@@ -120,6 +161,22 @@ import { ChannelService } from '../services/channel.service';
             <span class="material-symbols-rounded empty-icon">tv_off</span>
             <h2>No channels found</h2>
             <p class="muted">Try adjusting your search or language filter.</p>
+            @if (search().trim().length >= 2) {
+              <button
+                type="button"
+                class="pill-chip active empty-cta"
+                (click)="openModal(auth.isAdmin() ? 'add' : 'request', search().trim())"
+              >
+                <span class="material-symbols-rounded btn-icon">
+                  {{ auth.isAdmin() ? 'add_circle' : 'playlist_add' }}
+                </span>
+                {{
+                  auth.isAdmin()
+                    ? 'Search "' + search().trim() + '" on YouTube to Add'
+                    : 'Request "' + search().trim() + '" on YouTube'
+                }}
+              </button>
+            }
           </div>
         } @else {
           <div class="channels-grid">
@@ -136,29 +193,46 @@ import { ChannelService } from '../services/channel.service';
         }
       } @else {
         <div class="requests-list">
-          @if (channelService.channelRequests().length === 0) {
+          @if (
+            channelService.isLoadingRequests() &&
+            channelService.channelRequests().length === 0
+          ) {
+            <p class="empty-msg">Loading channel requests...</p>
+          } @else if (channelService.channelRequests().length === 0) {
             <p class="empty-msg">No channel requests yet.</p>
           } @else {
             @for (req of channelService.channelRequests(); track req.id) {
               <div class="request-row">
-                <div>
+                <div class="req-details">
                   <strong>{{ req.channelName }}</strong>
                   <p class="req-url">{{ req.channelUrl }}</p>
+                  @if (req.notes && req.notes !== req.channelName) {
+                    <p class="req-notes">{{ req.notes }}</p>
+                  }
+                  <p class="req-meta">Requested by: {{ req.submittedBy }}</p>
                 </div>
                 <div class="req-actions">
-                  <span class="status-badge">{{ req.status }}</span>
+                  <span
+                    class="status-badge"
+                    [class.approved]="req.status === 'APPROVED'"
+                    [class.rejected]="req.status === 'REJECTED'"
+                  >
+                    {{ req.status }}
+                  </span>
                   @if (req.status === 'PENDING') {
                     <button
                       type="button"
                       class="pill-chip active"
-                      (click)="channelService.approveRequest(req.id)"
+                      [disabled]="isRequestBusy(req.id)"
+                      (click)="approveRequest(req)"
                     >
-                      Approve
+                      {{ isRequestBusy(req.id) ? 'Working...' : 'Approve' }}
                     </button>
                     <button
                       type="button"
                       class="pill-chip"
-                      (click)="channelService.rejectRequest(req.id)"
+                      [disabled]="isRequestBusy(req.id)"
+                      (click)="openRejectModal(req)"
                     >
                       Reject
                     </button>
@@ -190,10 +264,56 @@ import { ChannelService } from '../services/channel.service';
         </div>
       }
 
-      @if (showRequestModal()) {
+      @if (requestToReject(); as req) {
+        <div
+          class="confirm-backdrop"
+          (click)="!isRequestBusy(req.id) && requestToReject.set(null)"
+        >
+          <form
+            class="confirm-modal"
+            (click)="$event.stopPropagation()"
+            (ngSubmit)="confirmReject()"
+          >
+            <h3>Reject Channel Request</h3>
+            <p>
+              Reject <strong>{{ req.channelName }}</strong>?
+            </p>
+            <input
+              type="text"
+              name="rejectReason"
+              class="reject-input"
+              placeholder="Reason for rejection (optional)"
+              [ngModel]="rejectReason()"
+              (ngModelChange)="rejectReason.set($event)"
+              [disabled]="isRequestBusy(req.id)"
+            />
+            <div class="confirm-actions">
+              <button
+                type="button"
+                class="pill-chip"
+                [disabled]="isRequestBusy(req.id)"
+                (click)="requestToReject.set(null)"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="pill-chip danger-btn"
+                [disabled]="isRequestBusy(req.id)"
+              >
+                {{ isRequestBusy(req.id) ? 'Rejecting...' : 'Reject' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+
+      @if (modalMode(); as mode) {
         <app-channel-request-modal
-          (submitted)="submitRequest($event)"
-          (closed)="showRequestModal.set(false)"
+          [mode]="mode"
+          [initialQuery]="modalInitialQuery()"
+          (completed)="onModalCompleted($event)"
+          (closed)="modalMode.set(null)"
         />
       }
     </div>
@@ -220,8 +340,45 @@ import { ChannelService } from '../services/channel.service';
         font-weight: 700;
       }
 
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
       .btn-icon {
         font-size: 18px;
+      }
+
+      .feedback-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 14px;
+        margin-bottom: 14px;
+        border-radius: var(--radius-md);
+        background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .feedback-banner.error {
+        background-color: color-mix(in srgb, var(--error) 14%, transparent);
+        border-color: color-mix(in srgb, var(--error) 35%, transparent);
+        color: var(--error);
+      }
+
+      .banner-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 2px;
       }
 
       .tab-bar {
@@ -269,7 +426,7 @@ import { ChannelService } from '../services/channel.service';
 
       .search-box {
         flex: 1;
-        min-width: 200px;
+        min-width: 220px;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -282,9 +439,21 @@ import { ChannelService } from '../services/channel.service';
 
       .search-box input {
         flex: 1;
+        min-width: 0;
         border: none;
         outline: none;
         background: transparent;
+      }
+
+      .clear-search-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        color: var(--on-surface-muted);
+        cursor: pointer;
+        padding: 2px;
       }
 
       .channels-grid {
@@ -299,6 +468,10 @@ import { ChannelService } from '../services/channel.service';
         border-radius: var(--radius-lg);
         padding: 36px 24px;
         text-align: center;
+      }
+
+      .empty-cta {
+        margin-top: 12px;
       }
 
       .empty-icon {
@@ -328,7 +501,14 @@ import { ChannelService } from '../services/channel.service';
         flex-wrap: wrap;
       }
 
-      .req-url {
+      .req-details {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .req-url,
+      .req-notes,
+      .req-meta {
         margin: 4px 0 0;
         font-size: 12px;
         color: var(--on-surface-muted);
@@ -341,6 +521,14 @@ import { ChannelService } from '../services/channel.service';
         font-size: 12px;
         font-weight: 600;
         background-color: var(--surface-variant);
+      }
+
+      .status-badge.approved {
+        color: var(--accent);
+      }
+
+      .status-badge.rejected {
+        color: var(--error);
       }
 
       .empty-msg {
@@ -395,6 +583,13 @@ import { ChannelService } from '../services/channel.service';
         color: var(--on-surface-muted);
       }
 
+      .reject-input {
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
       .confirm-actions {
         display: flex;
         justify-content: flex-end;
@@ -412,21 +607,38 @@ import { ChannelService } from '../services/channel.service';
 export class ChannelsComponent implements OnInit {
   readonly channelService = inject(ChannelService);
   readonly auth = inject(AuthService);
-  readonly screen = inject(ScreenClassService);
   private readonly prefs = inject(ContentPreferencesService);
-  private readonly headerSearch = inject(HeaderSearchService);
-  private readonly destroyRef = inject(DestroyRef);
 
   readonly activeTab = signal<'browse' | 'requests'>('browse');
   readonly search = signal<string>('');
   readonly selectedLanguages = signal<string[]>(this.prefs.preferredLanguages());
   readonly statusFilter = signal<'all' | 'active' | 'suspended'>('all');
-  readonly showRequestModal = signal<boolean>(false);
+  readonly modalMode = signal<'request' | 'add' | null>(null);
+  readonly modalInitialQuery = signal<string>('');
   readonly channelToDelete = signal<Channel | null>(null);
+  readonly requestToReject = signal<ChannelRequest | null>(null);
+  readonly rejectReason = signal<string>('');
+  readonly busyRequestIds = signal<ReadonlySet<string>>(new Set());
+  readonly feedbackBanner = signal<{ message: string; isError: boolean } | null>(
+    null,
+  );
 
   constructor() {
     effect(() => {
       this.selectedLanguages.set(this.prefs.preferredLanguages());
+    });
+
+    effect(() => {
+      const isAdmin = this.auth.isAdmin();
+      untracked(() => {
+        if (isAdmin) {
+          void this.channelService.fetchAdminChannels();
+          void this.channelService.fetchRequests();
+        } else {
+          this.activeTab.set('browse');
+          void this.channelService.fetchChannels();
+        }
+      });
     });
   }
 
@@ -485,17 +697,80 @@ export class ChannelsComponent implements OnInit {
 
   ngOnInit(): void {
     void this.channelService.loadSubscriptions();
-    if (this.auth.isAdmin()) {
-      void this.channelService.fetchAdminChannels();
-    } else {
-      void this.channelService.fetchChannels();
+  }
+
+  openModal(mode: 'request' | 'add', initialQuery = ''): void {
+    this.feedbackBanner.set(null);
+    this.modalInitialQuery.set(initialQuery);
+    this.modalMode.set(mode);
+  }
+
+  onEscapeKey(): void {
+    const req = this.requestToReject();
+    if (req) {
+      if (!this.isRequestBusy(req.id)) {
+        this.requestToReject.set(null);
+      }
+    } else if (this.channelToDelete()) {
+      this.channelToDelete.set(null);
     }
-    void this.channelService.fetchRequests();
-    const unregister = this.headerSearch.register({
-      placeholder: 'Search channels...',
-      onChange: (q) => this.search.set(q),
+  }
+
+  onModalCompleted(ev: ChannelModalCompletedEvent): void {
+    this.modalMode.set(null);
+    this.feedbackBanner.set({
+      message:
+        ev.mode === 'add'
+          ? `Added "${ev.channelName}" and started video ingestion.`
+          : `Request submitted for "${ev.channelName}".`,
+      isError: false,
     });
-    this.destroyRef.onDestroy(unregister);
+  }
+
+  isRequestBusy(id: string): boolean {
+    return this.busyRequestIds().has(id);
+  }
+
+  async approveRequest(req: ChannelRequest): Promise<void> {
+    if (this.isRequestBusy(req.id)) return;
+    this.setRequestBusy(req.id, true);
+    try {
+      const res = await this.channelService.approveRequest(req.id);
+      this.feedbackBanner.set({
+        message: res.ok
+          ? `Approved "${req.channelName}" and started video ingestion.`
+          : res.error || 'Failed to approve request.',
+        isError: !res.ok,
+      });
+    } finally {
+      this.setRequestBusy(req.id, false);
+    }
+  }
+
+  openRejectModal(req: ChannelRequest): void {
+    this.rejectReason.set('');
+    this.requestToReject.set(req);
+  }
+
+  async confirmReject(): Promise<void> {
+    const req = this.requestToReject();
+    if (!req || this.isRequestBusy(req.id)) return;
+    this.setRequestBusy(req.id, true);
+    try {
+      const res = await this.channelService.rejectRequest(
+        req.id,
+        this.rejectReason(),
+      );
+      this.requestToReject.set(null);
+      this.feedbackBanner.set({
+        message: res.ok
+          ? `Rejected request for "${req.channelName}".`
+          : res.error || 'Failed to reject request.',
+        isError: !res.ok,
+      });
+    } finally {
+      this.setRequestBusy(req.id, false);
+    }
   }
 
   async confirmDelete(): Promise<void> {
@@ -505,15 +780,12 @@ export class ChannelsComponent implements OnInit {
     this.channelToDelete.set(null);
   }
 
-  async submitRequest(payload: ChannelRequestPayload): Promise<void> {
-    await this.channelService.submitRequest(
-      payload.name,
-      payload.url,
-      payload.reason,
-    );
-    this.showRequestModal.set(false);
-    if (this.auth.isAdmin()) {
-      this.activeTab.set('requests');
-    }
+  private setRequestBusy(id: string, busy: boolean): void {
+    this.busyRequestIds.update((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   }
 }

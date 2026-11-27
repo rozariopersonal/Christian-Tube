@@ -1,4 +1,12 @@
-import { Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -123,22 +131,29 @@ export class ChannelsService {
     subscriberCount: string | null;
     handle?: string | null;
   } | null> {
-    let clean = input.trim();
+    let clean = input.trim().replace(/^https?:\/\/m\.youtube\.com/i, 'https://www.youtube.com');
     if (!clean) return null;
 
     let handle: string | null = null;
     let explicitId: string | null = null;
+    let customPath: string | null = null;
 
     if (clean.includes('youtube.com/channel/')) {
-      explicitId = clean.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
+      explicitId = clean.split('youtube.com/channel/')[1].split('/')[0].split('?')[0].split('#')[0];
     } else if (clean.includes('youtube.com/@')) {
-      handle = clean.split('youtube.com/@')[1].split('/')[0].split('?')[0];
+      handle = clean.split('youtube.com/@')[1].split('/')[0].split('?')[0].split('#')[0];
+    } else if (clean.includes('youtube.com/c/')) {
+      customPath = `c/${clean.split('youtube.com/c/')[1].split('/')[0].split('?')[0].split('#')[0]}`;
+      handle = customPath.substring(2);
+    } else if (clean.includes('youtube.com/user/')) {
+      customPath = `user/${clean.split('youtube.com/user/')[1].split('/')[0].split('?')[0].split('#')[0]}`;
+      handle = customPath.substring(5);
     } else if (clean.startsWith('@')) {
-      handle = clean.substring(1).split('/')[0].split('?')[0];
+      handle = clean.substring(1).split('/')[0].split('?')[0].split('#')[0];
     } else if (clean.startsWith('UC') && clean.length >= 20) {
-      explicitId = clean.split('?')[0];
+      explicitId = clean.split('/')[0].split('?')[0].split('#')[0];
     } else if (!clean.startsWith('http')) {
-      handle = clean;
+      handle = clean.split('/')[0].split('?')[0].split('#')[0];
     }
 
     const apiKey = this.configService.get<string>('youtubeApiKey');
@@ -169,9 +184,11 @@ export class ChannelsService {
 
     // Scrape fallback from YouTube public page
     try {
-      const targetUrl = handle
-        ? `https://www.youtube.com/@${encodeURIComponent(handle)}`
-        : `https://www.youtube.com/channel/${encodeURIComponent(explicitId || clean)}`;
+      const targetUrl = customPath
+        ? `https://www.youtube.com/${customPath}`
+        : handle
+          ? `https://www.youtube.com/@${encodeURIComponent(handle)}`
+          : `https://www.youtube.com/channel/${encodeURIComponent(explicitId || clean)}`;
 
       const res = await axios.get(targetUrl, {
         headers: {
@@ -229,18 +246,23 @@ export class ChannelsService {
     };
   }
 
-  async searchYouTube(query: string) {
-    const q = (query || '').trim();
-    if (!q) return [];
-
-    const results: any[] = [];
+  private async fetchRemoteYouTubeChannels(q: string): Promise<any[]> {
+    const remoteResults: any[] = [];
     const seenIds = new Set<string>();
 
     // 1. If query is a URL or handle or UC ID, resolve directly
-    if (q.startsWith('@') || q.startsWith('UC') || q.includes('youtube.com') || q.includes('youtu.be')) {
+    if (
+      q.startsWith('@') ||
+      (q.startsWith('UC') && q.length >= 20) ||
+      q.includes('youtube.com') ||
+      q.includes('youtu.be')
+    ) {
       const resolved = await this.resolveChannelInfo(q);
       if (resolved) {
-        results.push(resolved);
+        remoteResults.push({
+          ...resolved,
+          subscriberCount: resolved.subscriberCount ? parseInt(resolved.subscriberCount, 10) || null : null,
+        });
         seenIds.add(resolved.id);
       }
     }
@@ -275,7 +297,7 @@ export class ChannelsService {
             const snippet = detail?.snippet || it.snippet;
             const stats = detail?.statistics;
 
-            results.push({
+            remoteResults.push({
               id,
               name: snippet?.title || 'Channel',
               handle: snippet?.customUrl || null,
@@ -295,7 +317,105 @@ export class ChannelsService {
       }
     }
 
-    // 3. Search local database channels
+    // 3. If remote YouTube search yielded nothing, attempt web search resolution on YouTube
+    // (Never blocked by local DB matches.)
+    if (remoteResults.length === 0) {
+      try {
+        const webSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAg%253D%253D`;
+        const res = await axios.get(webSearchUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          timeout: 8000,
+        });
+
+        const html = res.data;
+        if (typeof html === 'string') {
+          const jsonMatch =
+            html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/) ||
+            html.match(/window\["ytInitialData"\]\s*=\s*({[\s\S]*?});/);
+          if (jsonMatch) {
+            const data = JSON.parse(jsonMatch[1]);
+            const contents =
+              data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]
+                ?.itemSectionRenderer?.contents || [];
+
+            for (const item of contents) {
+              const chRenderer = item.channelRenderer;
+              if (chRenderer) {
+                const id = chRenderer.channelId;
+                if (id && !seenIds.has(id)) {
+                  seenIds.add(id);
+                  const title = chRenderer.title?.simpleText || 'Channel';
+                  const thumb = chRenderer.thumbnail?.thumbnails?.[0]?.url || null;
+                  const desc = chRenderer.descriptionSnippet?.runs?.map((r: any) => r.text).join('') || null;
+
+                  remoteResults.push({
+                    id,
+                    name: title,
+                    handle: chRenderer.navigationEndpoint?.browseEndpoint?.canonicalBaseUrl || null,
+                    thumbnail: thumb ? (thumb.startsWith('//') ? `https:${thumb}` : thumb) : null,
+                    description: desc,
+                    subscriberCount: null,
+                    videoCount: null,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Web YouTube search scraper error: ${err.message}`);
+      }
+    }
+
+    return remoteResults;
+  }
+
+  async searchYouTube(query: string) {
+    const q = (query || '').trim();
+    if (q.length < 2) return [];
+
+    // Cache only non-empty remote YouTube results (10 min TTL) so transient empty
+    // responses are never cached and `isExisting` is always computed fresh.
+    const cacheKey = `ytsearch:${q.toLowerCase()}`;
+    const remoteResults = this.cache
+      ? ((await this.cache.getOrSet<any[] | null>('channels', cacheKey, 600, async () => {
+          const found = await this.fetchRemoteYouTubeChannels(q);
+          return found.length > 0 ? found : null;
+        })) ?? [])
+      : await this.fetchRemoteYouTubeChannels(q);
+
+    // Dynamically check which remote channels already exist in Postgres
+    const existingIdSet = new Set<string>();
+    const remoteIds = remoteResults.map((r) => r.id).filter(Boolean);
+    if (remoteIds.length > 0) {
+      try {
+        const existingRows = await this.prisma.channel.findMany({
+          where: { id: { in: remoteIds } },
+          select: { id: true },
+        });
+        for (const row of existingRows) {
+          existingIdSet.add(row.id);
+        }
+      } catch (_) {}
+    }
+
+    const results: any[] = [];
+    const seenIds = new Set<string>();
+
+    for (const r of remoteResults) {
+      if (!r?.id || seenIds.has(r.id)) continue;
+      seenIds.add(r.id);
+      results.push({
+        ...r,
+        isExisting: existingIdSet.has(r.id),
+      });
+    }
+
+    // Merge matching local database channels (marked isExisting: true)
     try {
       const localChannels = await this.prisma.channel.findMany({
         where: {
@@ -319,73 +439,25 @@ export class ChannelsService {
             description: lc.description,
             thumbnail: lc.thumbnail,
             subscriberCount: lc.subscriberCount ? parseInt(lc.subscriberCount, 10) : null,
-            videoCount: lc._count.videos,
+            videoCount: lc._count?.videos ?? 0,
             isExisting: true,
           });
         }
       }
     } catch (_) {}
 
-    // 4. If still empty, attempt web search resolution on YouTube
+    // If still empty, synthesize a neutral direct-submission card
     if (results.length === 0) {
-      try {
-        const webSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAg%253D%253D`;
-        const res = await axios.get(webSearchUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-          timeout: 8000,
-        });
-
-        const html = res.data;
-        if (typeof html === 'string') {
-          const jsonMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-          if (jsonMatch) {
-            const data = JSON.parse(jsonMatch[1]);
-            const contents =
-              data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]
-                ?.itemSectionRenderer?.contents || [];
-
-            for (const item of contents) {
-              const chRenderer = item.channelRenderer;
-              if (chRenderer) {
-                const id = chRenderer.channelId;
-                if (id && !seenIds.has(id)) {
-                  seenIds.add(id);
-                  const title = chRenderer.title?.simpleText || 'Channel';
-                  const thumb = chRenderer.thumbnail?.thumbnails?.[0]?.url || null;
-                  const desc = chRenderer.descriptionSnippet?.runs?.map((r: any) => r.text).join('') || null;
-                  const subsText = chRenderer.videoCountText?.simpleText || '';
-
-                  results.push({
-                    id,
-                    name: title,
-                    handle: chRenderer.navigationEndpoint?.browseEndpoint?.canonicalBaseUrl || null,
-                    thumbnail: thumb ? (thumb.startsWith('//') ? `https:${thumb}` : thumb) : null,
-                    description: desc,
-                    subscriberCount: null,
-                    videoCount: null,
-                  });
-                }
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        this.logger.warn(`Web YouTube search scraper error: ${err.message}`);
-      }
-    }
-
-    // 5. If still empty, synthesize a direct channel card
-    if (results.length === 0) {
+      const handle = q.startsWith('@') ? q : `@${q.replace(/\s+/g, '')}`;
       results.push({
-        id: q.startsWith('@') ? q : `@${q.replaceAll(' ', '')}`,
+        id: handle,
         name: q,
-        handle: q.startsWith('@') ? q : `@${q.replaceAll(' ', '')}`,
+        handle,
         thumbnail: null,
-        description: 'Tap Add to ingest this YouTube channel directly into ChristianApp',
+        description: 'Direct channel submission (unverified handle)',
         subscriberCount: null,
+        isExisting: false,
+        isSynthetic: true,
       });
     }
 
@@ -401,7 +473,7 @@ export class ChannelsService {
   }) {
     const rawUrl = (data.channelUrl || '').trim();
     if (!rawUrl) {
-      throw new Error('Channel URL or ID is required');
+      throw new BadRequestException('Channel URL or ID is required');
     }
 
     const resolved = await this.resolveChannelInfo(rawUrl);
@@ -481,6 +553,7 @@ export class ChannelsService {
       where: { id },
       data: { isActive },
     });
+    await this.cache?.invalidate('channels', 'videos');
     return {
       status: 'success',
       isActive: updated.isActive,
@@ -667,18 +740,95 @@ export class ChannelsService {
 
   // --- Channel Requests Workflow ---
 
+  private normalizeRequestTarget(raw: string): string {
+    const trimmed = raw.trim().replace(/^https?:\/\/m\.youtube\.com/i, 'https://www.youtube.com');
+    if (trimmed.includes('youtube.com/channel/')) {
+      return trimmed.split('youtube.com/channel/')[1].split('/')[0].split('?')[0].split('#')[0];
+    }
+    if (trimmed.includes('youtube.com/@')) {
+      return `@${trimmed.split('youtube.com/@')[1].split('/')[0].split('?')[0].split('#')[0]}`;
+    }
+    if (trimmed.startsWith('@')) {
+      return `@${trimmed.substring(1).split('/')[0].split('?')[0].split('#')[0]}`;
+    }
+    if (trimmed.startsWith('UC') && trimmed.length >= 20) {
+      return trimmed.split('/')[0].split('?')[0].split('#')[0];
+    }
+    return trimmed;
+  }
+
   async listRequests() {
     return this.prisma.channelRequest.findMany({
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createRequest(data: { channelUrl: string; notes?: string; submittedBy?: string }) {
+  async createRequest(data: {
+    channelUrl: string;
+    channelName?: string;
+    notes?: string;
+    submittedBy?: string;
+  }) {
+    const rawUrl = (data?.channelUrl || '').trim();
+    if (!rawUrl) {
+      throw new BadRequestException('Channel URL or ID is required');
+    }
+
+    const normalized = this.normalizeRequestTarget(rawUrl);
+    let resolvedId: string | null = null;
+    let resolvedName: string | null = null;
+    if (!(normalized.startsWith('UC') && normalized.length >= 20)) {
+      try {
+        const resolved = await this.resolveChannelInfo(normalized);
+        if (resolved?.id && resolved.id.startsWith('UC') && resolved.id.length >= 20) {
+          resolvedId = resolved.id;
+        }
+        if (resolved?.name && resolved.name !== normalized && resolved.name !== rawUrl) {
+          resolvedName = resolved.name;
+        }
+      } catch {
+        // Non-fatal: fall back to normalized handle/URL
+      }
+    }
+
+    const candidateUrls = Array.from(
+      new Set([rawUrl, normalized, ...(resolvedId ? [resolvedId] : [])]),
+    );
+
+    // Check if channel already exists in the platform
+    const existingChannel = await this.prisma.channel.findFirst({
+      where: {
+        id: { in: candidateUrls },
+      },
+      select: { id: true, name: true },
+    });
+    if (existingChannel) {
+      throw new ConflictException(`Channel "${existingChannel.name}" is already available.`);
+    }
+
+    // Check if an identical pending request already exists
+    const existingPending = await this.prisma.channelRequest.findFirst({
+      where: {
+        status: 'PENDING',
+        OR: candidateUrls.map((u) => ({
+          channelUrl: { equals: u, mode: 'insensitive' as const },
+        })),
+      },
+      select: { id: true },
+    });
+    if (existingPending) {
+      throw new ConflictException('A pending request for this channel already exists.');
+    }
+
+    const cleanName = (data.channelName || '').trim() || resolvedName || null;
+    const cleanNotes = (data.notes || '').trim() || null;
+
     return this.prisma.channelRequest.create({
       data: {
-        channelUrl: data.channelUrl,
-        notes: data.notes || null,
-        submittedBy: data.submittedBy || 'Anonymous',
+        channelUrl: resolvedId || normalized,
+        channelName: cleanName,
+        notes: cleanNotes,
+        submittedBy: (data.submittedBy || '').trim() || 'Anonymous',
         status: 'PENDING',
       },
     });
@@ -692,11 +842,14 @@ export class ChannelsService {
     if (!req) {
       throw new NotFoundException(`Channel request ${id} not found`);
     }
+    if (req.status !== 'PENDING') {
+      throw new ConflictException(`Channel request is already ${req.status.toLowerCase()}`);
+    }
 
-    // Add the channel to database and ingest videos
+    // Add the channel to database and ingest videos — never pass free-text notes as channel name
     const addResult = await this.addChannel({
       channelUrl: req.channelUrl,
-      name: req.notes || undefined,
+      name: req.channelName || undefined,
       adminEmail,
     });
 
@@ -721,6 +874,9 @@ export class ChannelsService {
 
     if (!req) {
       throw new NotFoundException(`Channel request ${id} not found`);
+    }
+    if (req.status !== 'PENDING') {
+      throw new ConflictException(`Channel request is already ${req.status.toLowerCase()}`);
     }
 
     const updatedReq = await this.prisma.channelRequest.update({

@@ -61,12 +61,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         CREATE TABLE IF NOT EXISTS "ChannelRequest" (
           "id" TEXT NOT NULL PRIMARY KEY,
           "channelUrl" TEXT NOT NULL,
+          "channelName" TEXT,
           "notes" TEXT,
           "status" TEXT NOT NULL DEFAULT 'PENDING',
           "submittedBy" TEXT,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+        ALTER TABLE "ChannelRequest" ADD COLUMN IF NOT EXISTS "channelName" TEXT;
 
         CREATE TABLE IF NOT EXISTS "User" (
           "id" TEXT NOT NULL PRIMARY KEY,

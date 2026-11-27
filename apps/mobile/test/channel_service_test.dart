@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/models/channel_request.dart';
 import 'package:mobile/core/services/user_preference_service.dart';
 import 'package:mobile/core/services/user_sync_service.dart';
 import 'package:mobile/features/auth/auth_service.dart';
@@ -477,6 +478,87 @@ void main() {
 
       await service.loadSubscriptions();
       expect(service.subscribedChannelIds, containsAll(['local_c1', 'backend_c1']));
+    });
+  });
+
+  group('channel requests & search', () {
+    ResponseBody jsonResponse(String body, int status) => ResponseBody.fromString(
+          body,
+          status,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+
+    test('submitChannelRequest posts to /api/channels/request and skips fetchRequests for non-admins', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) => jsonResponse(jsonEncode({'id': 'req_1'}), 201),
+      );
+      final service = ChannelService.forTesting(
+        dio: testDio(adapter),
+        authService: StubAuth(true),
+      );
+
+      final ok = await service.submitChannelRequest(
+        ChannelRequest(
+          channelUrl: '@GraceTV',
+          channelName: 'Grace TV',
+          language: 'en',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      expect(ok, isTrue);
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests.first.path, '/api/channels/request');
+    });
+
+    test('submitChannelRequest does not retry /channels/request on 409 Conflict and exposes server message', () async {
+      final adapter = StubAdapter(
+        onFetch: (options) {
+          throw DioException.badResponse(
+            requestOptions: options,
+            statusCode: 409,
+            response: Response(
+              requestOptions: options,
+              statusCode: 409,
+              data: {'message': 'A pending request for this channel already exists.'},
+            ),
+          );
+        },
+      );
+      final service = ChannelService.forTesting(
+        dio: testDio(adapter),
+        authService: StubAuth(true),
+      );
+
+      final ok = await service.submitChannelRequest(
+        ChannelRequest(
+          channelUrl: '@GraceTV',
+          channelName: 'Grace TV',
+          language: 'en',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+
+      expect(ok, isFalse);
+      expect(adapter.requests, hasLength(1));
+      expect(
+        service.lastRequestError,
+        'A pending request for this channel already exists.',
+      );
+    });
+
+    test('fetchRequests skips network call for non-admins', () async {
+      final adapter = StubAdapter();
+      final service = ChannelService.forTesting(
+        dio: testDio(adapter),
+        authService: StubAuth(false),
+      );
+
+      await service.fetchRequests();
+
+      expect(adapter.requests, isEmpty);
     });
   });
 }
