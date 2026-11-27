@@ -213,6 +213,7 @@ model ChannelSubscription {
 model ChannelRequest {
   id              String         @id @default(uuid())
   channelUrl      String
+  channelName     String?
   notes           String?
   status          String         @default("PENDING") // PENDING, APPROVED, REJECTED
   submittedBy     String?

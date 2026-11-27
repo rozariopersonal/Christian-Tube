@@ -535,7 +535,11 @@ export class SearchComponent implements OnInit {
     if (!q) return [];
     return this.channels
       .channels()
-      .filter((c) => c.title.toLowerCase().includes(q))
+      .filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          (c.description?.toLowerCase().includes(q) ?? false),
+      )
       .slice(0, 8);
   });
 

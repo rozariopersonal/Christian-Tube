@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../../guards/admin.guard';
 import { AuthGuard } from '../../guards/auth.guard';
+import { OptionalAuthGuard } from '../../guards/optional-auth.guard';
 import { CurrentUser, CurrentUser as CurrentUserType } from '../../guards/current-user.decorator';
 import { ChannelsService } from './channels.service';
 
@@ -105,11 +106,22 @@ export class ChannelsController {
     return this.channelsService.syncChannel(id);
   }
 
+  @UseGuards(OptionalAuthGuard)
   @Post('request')
   async submitChannelRequest(
-    @Body() body: { channelUrl: string; notes?: string; submittedBy?: string },
+    @Body() body: { channelUrl: string; channelName?: string; notes?: string },
+    @CurrentUser() user?: CurrentUserType,
   ) {
-    return this.channelsService.createRequest(body);
+    const verifiedEmail =
+      user && !user.isGuest && typeof user.email === 'string' && user.email.trim()
+        ? user.email.trim().toLowerCase()
+        : undefined;
+    return this.channelsService.createRequest({
+      channelUrl: body?.channelUrl,
+      channelName: body?.channelName,
+      notes: body?.notes,
+      submittedBy: verifiedEmail || 'Anonymous',
+    });
   }
 
   @UseGuards(AdminGuard)
