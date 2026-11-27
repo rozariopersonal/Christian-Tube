@@ -169,6 +169,22 @@ async function main() {
         ? ''
         : `AND (s.embedding->>'upstashHash' IS NULL OR s.embedding->>'upstashHash' = '')`;
 
+    // Priority order: CFC India -> RLCF -> NCCF -> Chennai -> Thirukattupalli -> Mumbai -> chronological
+    const priorityOrder = `
+      CASE v."channelId"
+        WHEN 'UCpZG4Vl2tqg5cIfGMocI2Ag' THEN 1 -- CFC India - Zac Poonen
+        WHEN 'UCL8wQnv6qB7rZtEYfY3vPtw' THEN 2 -- River of Life Christian Fellowship (RLCF)
+        WHEN 'UCPPkrC9R5ED2R2JRTaQgETw' THEN 3 -- NCCF Church
+        WHEN 'UCjOBTIP3cKg-F2MDsG8s5Og' THEN 4 -- CHENNAI CFC
+        WHEN 'UCIAzikTPghgCkPoZzwC7TKg' THEN 4 -- Chennai CFC LiveStreams
+        WHEN 'UC9AlMmkgFNKR6NweD_KUY0g' THEN 5 -- CFC Thirukattupalli
+        WHEN 'UCgmjTLT5NLzZboDtro6_e_A' THEN 6 -- Bombay Christian Fellowship - CFC Mumbai
+        WHEN 'UCAV-c6jP1yQwr6YGJPUFbdQ' THEN 6 -- Springs Of Life CFC - Navi Mumbai
+        ELSE 7
+      END ASC,
+      v."publishedAt" DESC
+    `;
+
     const rows = await prisma.$queryRawUnsafe(
       `SELECT v.id, v.type, v.title, v.description, v."channelId", v."channelName",
               v.category, v.tags, v.metadata, v."publishedAt",
@@ -178,7 +194,7 @@ async function main() {
        LEFT JOIN "VideoPipelineStatus" s ON s."videoId" = v.id
        WHERE c."isActive" = true
          ${whereClause}
-       ORDER BY v."publishedAt" DESC
+       ORDER BY ${priorityOrder}
        LIMIT $1`,
       opts.maxVideos,
     );
