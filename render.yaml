@@ -191,3 +191,9 @@ services:
         sync: false
       - key: AUTH_REJECT_LEGACY_GUEST_IMPERSONATION
         value: "false"
+      - key: UPSTASH_VECTOR_REST_URL
+        sync: false
+      - key: UPSTASH_VECTOR_REST_TOKEN
+        sync: false
+      - key: UPSTASH_VIDEO_VECTOR_READ_ONLY
+        value: "true"

@@ -197,4 +197,26 @@ describe('VideoVectorService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).queryMode).toBeUndefined();
   });
+
+  it('blocks upserts and deletes when readOnly is true (staging safety)', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as any;
+
+    const svc = new VideoVectorService(
+      makeConfig({
+        'upstashVideoVector.restUrl': 'https://vec.upstash.io',
+        'upstashVideoVector.restToken': 'tok',
+        'upstashVideoVector.readOnly': true,
+      }),
+    );
+
+    const upserted = await svc.upsertVideos([
+      { id: 'v1', title: 'Test', channelId: 'c1', channelName: 'Ch' },
+    ]);
+    const deleted = await svc.deleteIds(['v1']);
+
+    expect(upserted).toEqual({ upserted: 0, skipped: 1 });
+    expect(deleted).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
