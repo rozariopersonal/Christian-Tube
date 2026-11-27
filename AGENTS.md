@@ -529,17 +529,9 @@ Every change to the Flutter mobile client is subject to a 3-tier quality gate lo
 ### 3. Agent Branching & Local Test Standard
 
 - **Dedicated Branch per Task**: Agents and developers **must not** commit or push directly to `main` or `develop`. Every task must be performed on an isolated branch created from `develop`.
-- **Sync `develop` with `origin/main` if Behind**: Before creating a task branch from `develop`, fetch `origin` and check whether `origin/develop` is behind `origin/main`. If it is behind, recreate `develop` from `origin/main` first:
+- **One-Way Promotion (`feature/*` → `develop` → `main`)**: Feature and fix PRs **must** target `develop` (never `main` directly). Once staging (`develop`) is verified, promote `develop` → `main` using a **standard merge commit** (never squash or rebase, and never force-push `develop`). If an emergency hotfix ever lands on `main`, merge `main` back into `develop` before creating new branches:
   ```bash
   git fetch origin
-  # Check if origin/develop is behind origin/main (count > 0)
-  git rev-list --count origin/develop..origin/main
-  # If behind, recreate develop from origin/main:
-  git branch -f develop origin/main
-  git branch --set-upstream-to=origin/develop develop
-  git push --force-with-lease origin develop
-
-  # Then create your task branch from develop:
   git checkout develop
   git pull origin develop
   git checkout -b agent/<short-task-name>
@@ -547,11 +539,18 @@ Every change to the Flutter mobile client is subject to a 3-tier quality gate lo
 - **Mandatory Unit & E2E Testing**:
   - Every agent adding or modifying logic **must** add corresponding unit and widget tests in `apps/mobile/test/`.
   - If introducing or modifying a critical user flow, the agent **must** add or update the declarative Maestro flow in `.maestro/`.
-- **Local Pre-Push Verification**:
-  Before pushing to their branch or opening a PR, agents **must** run the local verification suite:
-  1. `flutter analyze --no-fatal-infos` (must pass with zero errors)
-  2. `flutter test` (all unit and widget tests must pass)
-  3. `.\scripts\test-e2e.ps1` (Windows) or `./scripts/test-e2e.sh` (macOS/Linux) against a running emulator or connected device.
+- **Local Pre-Push Verification & Goal-to-Test Checklist**:
+  Before pushing to their branch or opening a PR, agents **must** audit their `git diff` against the task's acceptance criteria and run the local verification suite (E2E tests run locally—not in PR CI—so agents catch and fix issues immediately while keeping PR CI fast):
+  1. **Goal-to-Test Matrix**: Map every new or modified behavior, error state, and edge case in `git diff` to an automated test at the fastest layer:
+     - **Mobile**: unit/widget/adaptivity tests (`flutter test --coverage`, covering `320`/`600`/`840`/`1400` widths and light/dark/AMOLED) and golden tests (`matchesGoldenFile`) for shared UI/layout changes.
+     - **Web**: Angular/Vitest component specs (`npm test -- --watch=false --coverage`) and Playwright visual snapshots (`toHaveScreenshot`) when UI changes.
+     - **Backend**: Jest unit specs (`npm test -- --runInBand --coverage`) and Postgres integration specs (`*.int.spec.ts` via `npm run test:int`) for API/DB changes.
+  2. **80% Diff-Coverage Gate**: Verify `node scripts/check-diff-coverage.mjs --lcov <app>/coverage/lcov.info --prefix <app>/ --min 80` passes (also enforced in `pr_validation.yml`).
+  3. **Mobile Static & Unit Checks**: `flutter analyze --no-fatal-infos` and `flutter test --coverage` (must pass with zero errors).
+  4. **Local Mobile E2E (Critical Flows)**: `.\scripts\test-e2e.ps1` (Windows) or `./scripts/test-e2e.sh` (macOS/Linux) against a running emulator or connected device (records `.mp4` video and scenario `.png` screenshots to `e2e-results/mobile/`).
+  5. **Local Web E2E (`apps/web/**` changes)**: Run `npm run e2e` in `apps/web` (or `E2E_LIVE=1 npm run e2e` against a local backend), generating Playwright's HTML report with screenshots and videos in `apps/web/playwright-report/`.
+  6. **Visual Baseline Ownership**: Golden baselines (`apps/mobile/test/goldens/*.png`) and Playwright snapshots (`apps/web/e2e/*-snapshots/`) are committed in the repo. Agents **must not** blindly run `--update-goldens` or `--update-snapshots` to silence failures—fix unintended regressions, and only regenerate baselines for intentional UI changes after inspecting the diff and noting it in the PR.
+  7. **GitHub Pages PR Preview**: Publish local E2E media (`.\scripts\publish-e2e-preview.ps1 -PreviewId pr-<num>` or `./scripts/publish-e2e-preview.sh pr-<num>`) and include the GitHub Pages URL + Goal-to-Test summary in the PR body. (`pr_e2e_cleanup.yml` cleans up `pr-<num>/` from `gh-pages` when the PR closes.)
 - **Conventional Commits & Release Notes**:
   All commits by agents **must** use Conventional Commits so that automated release notes accurately describe the changes to users:
   - `feat(<scope>): <user-facing description>` for new features (e.g. `feat(channels): add search and subscription filtering`).

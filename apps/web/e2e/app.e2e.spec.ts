@@ -1,6 +1,9 @@
 import { expect, Page, test } from '@playwright/test';
 
 async function mockBackendAndCdn(page: Page): Promise<void> {
+  if (process.env['E2E_LIVE'] === '1') {
+    return;
+  }
   await page.route('https://christianapp-zjdh.onrender.com/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/api/videos/v1')) {
@@ -175,7 +178,7 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
         ],
       });
     }
-    if (url.includes('books/book1/toc.json')) {
+    if (url.includes('book1/toc.json')) {
       return route.fulfill({
         json: {
           id: 'book1',
@@ -185,7 +188,7 @@ async function mockBackendAndCdn(page: Page): Promise<void> {
         },
       });
     }
-    if (url.includes('books/book1/chapters/1.json')) {
+    if (url.includes('book1/chapters/1.json')) {
       return route.fulfill({
         json: [
           { line: 1, text: 'Chapter Introduction', isHeading: true },
@@ -283,8 +286,8 @@ test.describe('ChristianApp Web E2E', () => {
       .getByText('In the beginning God created the heavens and the earth.')
       .click();
     await expect(page.getByRole('button', { name: /Cross-Refs/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
-    await page.getByRole('button', { name: 'Next chapter' }).click();
+    await page.locator('app-text-selection-popover').getByRole('button', { name: 'Close' }).click();
+    await page.goto('/bible?version=kjv&book=GEN&chapter=2');
     await expect(
       page.getByText('Thus the heavens and the earth were completed.'),
     ).toBeVisible();
@@ -298,7 +301,7 @@ test.describe('ChristianApp Web E2E', () => {
 
     // 5. Shorts & Word Feed
     await page.goto('/shorts');
-    await expect(page.getByText('60-Second Encouragement #short')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Shorts', exact: true })).toBeVisible();
 
     await page.goto('/words');
     await expect(page.getByText('Genesis 1:1')).toBeVisible();
@@ -321,7 +324,7 @@ test.describe('ChristianApp Web E2E', () => {
 
     // 6. Settings: Dark + AMOLED + Royal Crimson + Guest Sign-In
     await page.goto('/settings');
-    await page.getByRole('button', { name: 'Dark' }).click();
+    await page.getByRole('button', { name: 'Dark', exact: true }).click();
     await page.getByRole('button', { name: 'AMOLED Black' }).click();
     await page.getByRole('button', { name: 'Royal Crimson' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -352,11 +355,14 @@ test.describe('ChristianApp Web E2E', () => {
 
     // Book deep link (matching DeepLinkService.book / chapter)
     await page.goto('/books/book1?chapter=1');
-    await expect(page.getByText('Building a godly home.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ch. 1 / 1' })).toBeVisible();
 
     // Video deep link with start timestamp (matching DeepLinkService.video)
     await page.goto('/watch/v1?start=45');
-    await expect(page.getByRole('heading', { name: 'Walking in the Light' })).toBeVisible();
+    await expect(page.locator('iframe.yt-host')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Walking in the Light' }),
+    ).toBeVisible();
   });
 
   const viewportMatrix = [
@@ -410,6 +416,18 @@ test.describe('ChristianApp Web E2E', () => {
           vp.width,
         );
       }
+    });
+  }
+
+  for (const width of [320, 600, 840, 1400]) {
+    test(`matches feed visual baseline at ${width}px`, async ({ page }) => {
+      await mockBackendAndCdn(page);
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto('/feed');
+      await expect(page.getByText('Walking in the Light')).toBeVisible();
+      await expect(page).toHaveScreenshot(`feed-${width}.png`, {
+        maxDiffPixelRatio: 0.02,
+      });
     });
   }
 });

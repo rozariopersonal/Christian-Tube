@@ -597,9 +597,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
         if (isFullscreen) {
           return PopScope(
-            canPop: !_isFullScreen,
+            canPop: !isFullscreen,
             onPopInvokedWithResult: (didPop, result) {
-              if (!didPop && _isFullScreen) {
+              if (!didPop && isFullscreen) {
                 // Exiting fullscreen via back button: also lock portrait.
                 setState(() {
                   _isFullScreen = false;
@@ -846,7 +846,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 720) {
+        if (ScreenClass.ofWidth(constraints.maxWidth) != ScreenClass.compact) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

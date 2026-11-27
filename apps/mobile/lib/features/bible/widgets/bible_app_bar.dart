@@ -37,6 +37,7 @@ class BibleAppBar extends StatelessWidget implements PreferredSizeWidget {
     final appearance = controller.appearance;
 
     return AppBar(
+      automaticallyImplyLeading: false,
       backgroundColor: appearance.background(tokens),
       surfaceTintColor: Colors.transparent,
       elevation: 0,

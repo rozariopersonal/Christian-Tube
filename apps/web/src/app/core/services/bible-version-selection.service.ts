@@ -63,6 +63,19 @@ export class BibleVersionSelectionService {
     });
   }
 
+  selectSingle(
+    contextKey: string,
+    versionId: string,
+  ): 'primary-changed' | 'noop' {
+    const clean = versionId.toLowerCase();
+    const cur = this.ensureContext(contextKey)();
+    if (clean === cur.primary && cur.comparisons.length === 0) {
+      return 'noop';
+    }
+    this.writeState(contextKey, { primary: clean, comparisons: [] });
+    return 'primary-changed';
+  }
+
   toggleVersion(
     contextKey: string,
     versionId: string,

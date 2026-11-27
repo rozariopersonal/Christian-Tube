@@ -37,9 +37,23 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
             p.join(await getDatabasesPath(), 'christian_tube_user_items.db');
         final db = await openDatabase(
           dbPath,
-          version: 1,
+          version: 2,
           onCreate: (db, version) async {
             await _createTables(db);
+          },
+          onUpgrade: (db, oldVersion, newVersion) async {
+            if (oldVersion < 2) {
+              for (final sql in const [
+                'ALTER TABLE user_items ADD COLUMN start_offset INTEGER NOT NULL DEFAULT 0',
+                'ALTER TABLE user_items ADD COLUMN end_offset INTEGER NOT NULL DEFAULT 0',
+                'ALTER TABLE user_items ADD COLUMN color TEXT',
+                'ALTER TABLE user_items ADD COLUMN payload_json TEXT',
+              ]) {
+                try {
+                  await db.execute(sql);
+                } catch (_) {}
+              }
+            }
           },
         );
         _db = db;
@@ -83,10 +97,14 @@ class SqliteUserItemDataAdapter implements UserItemDataAdapter {
         chapter     INTEGER NOT NULL DEFAULT 0,
         verse_start INTEGER NOT NULL DEFAULT 0,
         verse_end   INTEGER NOT NULL DEFAULT 0,
+        start_offset INTEGER NOT NULL DEFAULT 0,
+        end_offset  INTEGER NOT NULL DEFAULT 0,
         target_id   TEXT NOT NULL DEFAULT '',
         color_index INTEGER,
+        color       TEXT,
         text        TEXT NOT NULL DEFAULT '',
         context_text TEXT,
+        payload_json TEXT,
         created_at  TEXT NOT NULL,
         updated_at  TEXT NOT NULL,
         deleted     INTEGER NOT NULL DEFAULT 0,

@@ -23,6 +23,7 @@ import {
   Video,
   formatTimeAgo,
   formatViewCount,
+  parseDurationSeconds,
 } from '../models/video.model';
 import { VideoLibraryService } from '../services/video-library.service';
 import { VideoNotesService } from '../services/video-notes.service';
@@ -124,7 +125,8 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   playsinline
                   (loadedmetadata)="onVideoLoaded($event)"
                   (timeupdate)="onNativeTimeUpdate($event)"
-                  (ended)="onPlaybackEnded()"
+                  (pause)="saveCurrentProgress()"
+                  (ended)="markCurrentVideoCompleted(); onPlaybackEnded()"
                 ></video>
               } @else {
                 <div #ytHost class="yt-host"></div>
@@ -180,15 +182,6 @@ function ensureYouTubeIframeApi(): Promise<void> {
                 <div class="bar-actions">
                   <button type="button" class="pill-chip" [class.active]="isLiked()" (click)="toggleLike()" [attr.aria-pressed]="isLiked()">
                     <span class="material-symbols-rounded" [class.filled]="isLiked()">favorite</span>
-                    {{ isLiked() ? 'Liked' : 'Like' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="pill-chip"
-                    [class.active]="isLiked()"
-                    (click)="toggleLike()"
-                  >
-                    <span class="material-symbols-rounded">thumb_up</span>
                     {{ isLiked() ? 'Liked' : 'Like' }}
                   </button>
 
@@ -254,6 +247,12 @@ function ensureYouTubeIframeApi(): Promise<void> {
                   }
                   @if (video()!.category) {
                     <span class="cat-badge">{{ video()!.category }}</span>
+                  }
+                  @if (library.isWatched(video()!.id)) {
+                    <span class="watched-pill">
+                      <span class="material-symbols-rounded watched-pill-icon">check_circle</span>
+                      Watched
+                    </span>
                   }
                 </div>
 
@@ -634,6 +633,21 @@ function ensureYouTubeIframeApi(): Promise<void> {
         background-color: var(--accent-soft);
         color: var(--accent);
         font-size: 11px;
+      }
+
+      .watched-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        background-color: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+      }
+
+      .watched-pill-icon {
+        font-size: 13px;
       }
 
       .desc-text {
@@ -1186,7 +1200,11 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
     this.initialStartSeconds =
       queryStartSeconds > 0 ? queryStartSeconds : this.library.resumeSeconds(v.id);
 
-    this.library.recordProgress(v, this.initialStartSeconds, 0);
+    this.library.recordProgress(
+      v,
+      this.initialStartSeconds,
+      parseDurationSeconds(v.duration),
+    );
 
     this.previousCursor = v;
     this.recommendationsCursor = v;
@@ -1197,6 +1215,7 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
         videoId: v.id,
         startSeconds: this.initialStartSeconds > 0 ? this.initialStartSeconds : 0,
       });
+      this.startProgressPolling();
     }
     if (v.channelId) void this.loadChannelPageCounts(v, generation);
   }
@@ -1236,7 +1255,13 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
           this.startProgressPolling();
         },
         onStateChange: (ev) => {
-          if (ev.data === window.YT?.PlayerState?.ENDED) {
+          const state = window.YT?.PlayerState;
+          if (ev.data === state?.PLAYING && !this.progressTimer) {
+            this.startProgressPolling();
+          } else if (ev.data === state?.PAUSED) {
+            this.saveCurrentProgress();
+          } else if (ev.data === state?.ENDED) {
+            this.markCurrentVideoCompleted();
             this.onPlaybackEnded();
           }
         },
@@ -1247,6 +1272,18 @@ export class WatchVideoComponent implements OnInit, OnDestroy {
   private startProgressPolling(): void {
     if (this.progressTimer) clearInterval(this.progressTimer);
     this.progressTimer = setInterval(() => this.saveCurrentProgress(), 5000);
+  }
+
+  markCurrentVideoCompleted(): void {
+    const v = this.video();
+    if (!v) return;
+    let dur = 0;
+    if (this.ytPlayer) {
+      dur = this.ytPlayer.getDuration?.() ?? 0;
+    } else if (this.nativeVideoRef?.nativeElement) {
+      dur = this.nativeVideoRef.nativeElement.duration || 0;
+    }
+    this.library.markWatched(v, dur > 0 ? dur : parseDurationSeconds(v.duration));
   }
 
   private saveCurrentProgress(): void {

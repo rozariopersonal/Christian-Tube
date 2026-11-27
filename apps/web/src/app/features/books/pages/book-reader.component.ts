@@ -103,8 +103,6 @@ interface ImageSpread {
     FormsModule,
     InfiniteScrollTriggerDirective,
     ModalSheetComponent,
-    ReaderColumnsToggleComponent,
-    ReaderTypographyToggleComponent,
     ReaderSpreadFooterComponent,
     TextSelectionPopoverComponent,
     ReaderAutoFullscreenToggleComponent,
@@ -176,13 +174,28 @@ interface ImageSpread {
     </ng-template>
 
     <ng-template #topbarRight>
-      <app-reader-auto-fullscreen-toggle />
-      <app-reader-columns-toggle
-        [maxColumns]="isImageBook() ? 2 : 3"
-        [allowContinuous]="!isImageBook()"
-      />
       @if (!isImageBook()) {
-        <app-reader-typography-toggle />
+        <div class="tb-font-stepper" aria-label="Font size">
+          <button
+            type="button"
+            class="tb-font-btn"
+            aria-label="Decrease font size"
+            title="Decrease font size"
+            (click)="appearance.stepFontSize(-1)"
+          >
+            −
+          </button>
+          <span class="tb-font-val">{{ appearance.fontSize() }}</span>
+          <button
+            type="button"
+            class="tb-font-btn"
+            aria-label="Increase font size"
+            title="Increase font size"
+            (click)="appearance.stepFontSize(1)"
+          >
+            +
+          </button>
+        </div>
       }
       <div class="tb-actions-pill">
         <button
@@ -1108,27 +1121,6 @@ interface ImageSpread {
         transition: background-color 180ms ease, color 180ms ease;
       }
 
-      .book-reader-page[data-paper='paper'] {
-        --reader-bg: #faf8f5;
-        --reader-fg: #1f2937;
-        --reader-muted: #6b7280;
-        --reader-border: rgba(31, 41, 55, 0.12);
-      }
-
-      .book-reader-page[data-paper='sepia'] {
-        --reader-bg: #f4ecd8;
-        --reader-fg: #433422;
-        --reader-muted: #78644c;
-        --reader-border: rgba(67, 52, 34, 0.14);
-      }
-
-      .book-reader-page[data-paper='night'] {
-        --reader-bg: #121620;
-        --reader-fg: #e2e8f0;
-        --reader-muted: #94a3b8;
-        --reader-border: rgba(226, 232, 240, 0.12);
-      }
-
       .reader-bar {
         position: sticky;
         top: var(--shell-top-offset);
@@ -1298,6 +1290,40 @@ interface ImageSpread {
         font-variant-numeric: tabular-nums;
       }
 
+      .tb-font-stepper {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 2px;
+        border-radius: var(--radius-pill);
+        background-color: var(--surface-variant);
+        border: 1px solid var(--surface-border);
+      }
+
+      .tb-font-btn {
+        width: 26px;
+        height: 28px;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        color: var(--on-surface);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .tb-font-btn:hover {
+        background-color: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .tb-font-val {
+        min-width: 22px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+      }
+
       .tb-actions-pill {
         display: inline-flex;
         align-items: center;
@@ -1343,6 +1369,7 @@ interface ImageSpread {
         padding: 6px;
         border-radius: var(--radius-md);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
         display: flex;
@@ -1680,6 +1707,7 @@ interface ImageSpread {
         height: 40px;
         border-radius: var(--radius-pill);
         background-color: var(--surface);
+        color: var(--on-surface);
         border: 1px solid var(--surface-border);
         display: grid;
         place-items: center;

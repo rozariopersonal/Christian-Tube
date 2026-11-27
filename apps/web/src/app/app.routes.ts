@@ -149,6 +149,27 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'library',
+        loadComponent: () =>
+          import('./features/library/pages/library-hub.component').then(
+            (m) => m.LibraryHubComponent,
+          ),
+      },
+      {
+        path: 'songs',
+        loadComponent: () =>
+          import('./features/songs/pages/songs-library.component').then(
+            (m) => m.SongsLibraryComponent,
+          ),
+      },
+      {
+        path: 'song/:id',
+        loadComponent: () =>
+          import('./features/songs/pages/song-reader.component').then(
+            (m) => m.SongReaderComponent,
+          ),
+      },
+      {
         path: 'audio',
         loadComponent: () =>
           import('./features/audio/pages/audio-library.component').then(

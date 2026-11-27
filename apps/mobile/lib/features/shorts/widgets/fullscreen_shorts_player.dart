@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/adaptivity.dart';
 import '../../../core/models/short.dart';
 import '../../../core/models/local_short_item.dart';
 import '../../../core/services/bottom_bar_visibility_service.dart';
@@ -358,7 +359,9 @@ class _FullscreenShortsPlayerState extends State<FullscreenShortsPlayer> {
         // to ~480dp, centered, so the 9:16 video isn't pillarboxed tiny and the
         // floating action bar stays anchored to the player column.
         final playerWidth =
-            constraints.maxWidth > 560.0 ? 480.0 : constraints.maxWidth;
+            ScreenClass.ofWidth(constraints.maxWidth) != ScreenClass.compact
+                ? 480.0
+                : constraints.maxWidth;
 
         return Align(
           alignment: Alignment.topCenter,

@@ -1,11 +1,15 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/theme/app_tokens.dart';
 import 'package:mobile/features/bible/models/bible_book.dart';
 import 'package:mobile/features/engines/scripture/adapters/web_bible_data_adapter.dart';
 import 'package:mobile/features/engines/scripture/services/online_bible_service.dart';
+import 'package:mobile/shared/ui/bible_version_picker_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _AllowAllHttpOverrides extends HttpOverrides {
   @override
@@ -130,12 +134,52 @@ void main() {
   group('OnlineBibleService Live Chapter Fetching', () {
     test('fetches John 3 (book 43, ch 3) for NASB from API.Bible', () async {
       final verses = await OnlineBibleService.fetchLiveChapter('NASB', 43, 3);
+      if (verses.isEmpty && OnlineBibleService.isRateLimited('NASB')) {
+        markTestSkipped('NASB API rate limit reached (403/429)');
+        return;
+      }
       expect(verses, isNotEmpty);
       final v16 = verses.where((v) => v['verse'] == 16).firstOrNull;
       expect(v16, isNotNull);
       expect((v16!['text'] as String).toLowerCase(), contains('begotten son'));
     }, timeout: const Timeout(Duration(seconds: 25)),
         skip: 'Live Bible APIs currently return HTTP 403 and 429.');
+
+    test('fetches Genesis 1 (book 1, ch 1) for MSG with clubbed verse spans', () async {
+      final verses = await OnlineBibleService.fetchLiveChapter('MSG', 1, 1);
+      if (verses.isEmpty && OnlineBibleService.isRateLimited('MSG')) {
+        markTestSkipped('MSG API rate limit reached (403/429)');
+        return;
+      }
+      expect(verses, isNotEmpty);
+      expect(verses.length, greaterThan(5));
+      final v1 = verses.where((v) => v['verse'] == 1).firstOrNull;
+      expect(v1, isNotNull);
+      expect((v1!['text'] as String).isNotEmpty, isTrue);
+      expect(v1['verse_span'], isNotNull);
+    }, timeout: const Timeout(Duration(seconds: 25)));
+
+    test('tracks rate limit state and clears cleanly', () async {
+      OnlineBibleService.clearRateLimitStateForTest();
+      expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
+
+      OnlineBibleService.markRateLimitedForTest('MSG');
+      expect(OnlineBibleService.isRateLimited('msg'), isTrue);
+
+      OnlineBibleService.markRateLimitedForTest(
+        'NASB',
+        const Duration(milliseconds: -1),
+      );
+      expect(OnlineBibleService.isRateLimited('NASB'), isFalse);
+
+      OnlineBibleService.clearRateLimitStateForTest();
+      expect(OnlineBibleService.isRateLimited('MSG'), isFalse);
+
+      OnlineBibleService.markRateLimitedForTest('NLT');
+      final skipped = await OnlineBibleService.fetchLiveChapter('NLT', 1, 1);
+      expect(skipped, isEmpty);
+      OnlineBibleService.clearRateLimitStateForTest();
+    });
 
     test('parses MSG chapter responses with clubbed verse spans', () async {
       final previous = OnlineBibleService.swapHttpClientAdapter(_ApiBibleFixtureAdapter());
@@ -203,5 +247,37 @@ void main() {
       expect(loaded.any((item) => item.$1 == 43 && (item.$2 == 13 || item.$2 == 15)), isTrue);
     }, timeout: const Timeout(Duration(seconds: 25)),
         skip: 'Live Bible APIs currently return HTTP 403 and 429.');
+  });
+
+  group('BibleVersionPickerSheet Rate Limit UI', () {
+    testWidgets('disables rate-limited online version and shows API limit reached',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'bible_recent_versions': ['NASB', 'BSB'],
+      });
+      OnlineBibleService.clearRateLimitStateForTest();
+      OnlineBibleService.markRateLimitedForTest('NASB');
+      addTearDown(OnlineBibleService.clearRateLimitStateForTest);
+
+      String? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.light]),
+          home: Scaffold(
+            body: BibleVersionPickerSheet(
+              activeVersionId: 'BSB',
+              installedIdsOverride: const {'BSB', 'NASB'},
+              onSelectVersion: (id) => selected = id,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('API limit reached'), findsWidgets);
+      await tester.tap(find.text('NASB').last);
+      await tester.pumpAndSettle();
+      expect(selected, isNull);
+    });
   });
 }

@@ -118,6 +118,7 @@ class ProfileScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: false,
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -707,7 +708,7 @@ class ProfileScreen extends StatelessWidget {
                       child: Text(
                         video.duration!,
                         style: TextStyle(
-                            color: context.tokens.onSurface,
+                            color: context.tokens.onScrim,
                             fontSize: 11,
                             fontWeight: FontWeight.bold),
                       ),

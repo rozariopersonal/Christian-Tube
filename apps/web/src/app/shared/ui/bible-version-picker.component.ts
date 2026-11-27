@@ -76,7 +76,7 @@ export interface BibleVersionSelectionEvent {
 
           @if (maxSelections() > 1) {
             <div class="dropdown-hint">
-              <span>Select up to {{ maxSelections() }} versions to compare</span>
+              <span>Tap a version to switch · checkbox to compare (max {{ maxSelections() }})</span>
               <span>{{ selectedCount() }}/{{ maxSelections() }}</span>
             </div>
           }
@@ -84,18 +84,15 @@ export interface BibleVersionSelectionEvent {
           <div class="dropdown-list">
             @if (selectedList().length > 0) {
               <div class="group-label">
-                {{ maxSelections() > 1 ? 'Selected (Default / Last Used on Top)' : 'Current Version' }}
+                {{ selectedCount() > 1 ? 'Selected (Primary on Top)' : 'Current Version' }}
               </div>
               @for (v of selectedList(); track v.id; let first = $first) {
                 <div class="ver-row selected" [class.primary]="first">
                   <button
                     type="button"
                     class="ver-main"
-                    (click)="onToggleVersion(v.id)"
+                    (click)="onSelectSingle(v.id)"
                   >
-                    <span class="material-symbols-rounded check-ico">
-                      {{ maxSelections() === 1 || (first && selectedCount() === 1) ? 'radio_button_checked' : 'check_box' }}
-                    </span>
                     <span class="ver-badge">{{ v.label }}</span>
                     <div class="ver-meta">
                       <strong>{{ v.fullName }}</strong>
@@ -109,9 +106,20 @@ export interface BibleVersionSelectionEvent {
                       type="button"
                       class="pin-btn"
                       title="Make Primary (pin to top)"
-                      (click)="onMakePrimary(v.id)"
+                      (click)="$event.stopPropagation(); onMakePrimary(v.id)"
                     >
                       <span class="material-symbols-rounded">vertical_align_top</span>
+                    </button>
+                  }
+                  @if (maxSelections() > 1) {
+                    <button
+                      type="button"
+                      class="ver-compare-btn checked"
+                      [title]="first ? 'Primary version' : 'Remove from parallel compare'"
+                      [attr.aria-label]="'Compare ' + v.fullName"
+                      (click)="$event.stopPropagation(); onToggleComparison(v.id)"
+                    >
+                      <span class="material-symbols-rounded check-ico">check_box</span>
                     </button>
                   }
                 </div>
@@ -121,20 +129,30 @@ export interface BibleVersionSelectionEvent {
             @for (grp of preferredGroups(); track grp.language) {
               <div class="group-label">{{ grp.language }}</div>
               @for (v of grp.versions; track v.id) {
-                <button
-                  type="button"
-                  class="ver-row ver-main"
-                  (click)="onToggleVersion(v.id)"
-                >
-                  <span class="material-symbols-rounded check-ico muted-ico">
-                    {{ maxSelections() === 1 ? 'radio_button_unchecked' : 'check_box_outline_blank' }}
-                  </span>
-                  <span class="ver-badge">{{ v.label }}</span>
-                  <div class="ver-meta">
-                    <strong>{{ v.fullName }}</strong>
-                    <span class="muted">{{ v.language }}</span>
-                  </div>
-                </button>
+                <div class="ver-row">
+                  <button
+                    type="button"
+                    class="ver-main"
+                    (click)="onSelectSingle(v.id)"
+                  >
+                    <span class="ver-badge">{{ v.label }}</span>
+                    <div class="ver-meta">
+                      <strong>{{ v.fullName }}</strong>
+                      <span class="muted">{{ v.language }}</span>
+                    </div>
+                  </button>
+                  @if (maxSelections() > 1) {
+                    <button
+                      type="button"
+                      class="ver-compare-btn"
+                      title="Add to parallel compare"
+                      [attr.aria-label]="'Compare ' + v.fullName"
+                      (click)="$event.stopPropagation(); onToggleComparison(v.id)"
+                    >
+                      <span class="material-symbols-rounded check-ico muted-ico">check_box_outline_blank</span>
+                    </button>
+                  }
+                </div>
               }
             }
 
@@ -158,20 +176,30 @@ export interface BibleVersionSelectionEvent {
                 @for (grp of otherGroups(); track grp.language) {
                   <div class="group-label">{{ grp.language }}</div>
                   @for (v of grp.versions; track v.id) {
-                    <button
-                      type="button"
-                      class="ver-row ver-main"
-                      (click)="onToggleVersion(v.id)"
-                    >
-                      <span class="material-symbols-rounded check-ico muted-ico">
-                        {{ maxSelections() === 1 ? 'radio_button_unchecked' : 'check_box_outline_blank' }}
-                      </span>
-                      <span class="ver-badge">{{ v.label }}</span>
-                      <div class="ver-meta">
-                        <strong>{{ v.fullName }}</strong>
-                        <span class="muted">{{ v.language }}</span>
-                      </div>
-                    </button>
+                    <div class="ver-row">
+                      <button
+                        type="button"
+                        class="ver-main"
+                        (click)="onSelectSingle(v.id)"
+                      >
+                        <span class="ver-badge">{{ v.label }}</span>
+                        <div class="ver-meta">
+                          <strong>{{ v.fullName }}</strong>
+                          <span class="muted">{{ v.language }}</span>
+                        </div>
+                      </button>
+                      @if (maxSelections() > 1) {
+                        <button
+                          type="button"
+                          class="ver-compare-btn"
+                          title="Add to parallel compare"
+                          [attr.aria-label]="'Compare ' + v.fullName"
+                          (click)="$event.stopPropagation(); onToggleComparison(v.id)"
+                        >
+                          <span class="material-symbols-rounded check-ico muted-ico">check_box_outline_blank</span>
+                        </button>
+                      }
+                    </div>
                   }
                 }
               }
@@ -207,6 +235,7 @@ export interface BibleVersionSelectionEvent {
         height: 34px;
         max-width: 100%;
         min-width: 0;
+        overflow: hidden;
         padding: 0 11px;
         border-radius: var(--radius-pill);
         background-color: var(--surface-variant);
@@ -239,7 +268,7 @@ export interface BibleVersionSelectionEvent {
         padding: 1px 6px;
         border-radius: 999px;
         background-color: var(--accent);
-        color: #ffffff;
+        color: var(--on-accent);
         font-size: 10.5px;
         font-weight: 700;
         flex-shrink: 0;
@@ -344,9 +373,22 @@ export interface BibleVersionSelectionEvent {
       }
 
       .check-ico {
-        font-size: 19px;
+        font-size: 20px;
         color: var(--accent);
         flex-shrink: 0;
+      }
+
+      .ver-compare-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+
+      .ver-compare-btn:hover {
+        background-color: var(--surface-variant);
       }
 
       .muted-ico {
@@ -389,7 +431,7 @@ export interface BibleVersionSelectionEvent {
         padding: 2px 6px;
         border-radius: var(--radius-pill);
         background-color: var(--accent);
-        color: #ffffff;
+        color: var(--on-accent);
         flex-shrink: 0;
       }
 
@@ -569,16 +611,22 @@ export class BibleVersionPickerComponent {
     this.panelPos.set({ top, left, width, maxHeight });
   }
 
-  onToggleVersion(versionId: string): void {
+  onSelectSingle(versionId: string): void {
+    const res = this.selectionService.selectSingle(this.contextKey(), versionId);
+    this.open.set(false);
+    this.search.set('');
+    if (res !== 'noop') {
+      this.emitChange('primary');
+    }
+  }
+
+  onToggleComparison(versionId: string): void {
     const res = this.selectionService.toggleVersion(
       this.contextKey(),
       versionId,
       this.maxSelections(),
     );
     if (res === 'noop') return;
-    if (this.maxSelections() === 1) {
-      this.open.set(false);
-    }
     this.emitChange(res === 'primary-changed' ? 'primary' : 'comparison');
   }
 

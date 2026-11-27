@@ -45,9 +45,13 @@ export class ReaderFullscreenService {
     const delays = [0, 30, 60, 120];
     const current = this.autoFullscreenSeconds();
     const next = delays[(delays.indexOf(current) + 1) % delays.length];
-    this.autoFullscreenSeconds.set(next);
+    this.setAutoFullscreenSeconds(next);
+  }
+
+  setAutoFullscreenSeconds(seconds: number): void {
+    this.autoFullscreenSeconds.set(seconds);
     try {
-      localStorage.setItem(AUTO_FULLSCREEN_KEY, String(next));
+      localStorage.setItem(AUTO_FULLSCREEN_KEY, String(seconds));
     } catch {
       // The setting remains active in memory when storage is unavailable.
     }

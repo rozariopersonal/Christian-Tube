@@ -470,8 +470,8 @@ import { AuthService } from './auth.service';
       .danger-btn {
         padding: 8px 14px;
         border-radius: var(--radius-pill);
-        background-color: #dc2626;
-        color: #ffffff;
+        background-color: var(--error);
+        color: var(--on-error);
         font-size: 13px;
         font-weight: 600;
       }

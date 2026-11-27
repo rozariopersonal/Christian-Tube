@@ -95,3 +95,9 @@ scratch_work/
 .render_token
 .vercel/
 .env*
+
+# E2E reports and local recordings
+e2e-results/
+apps/web/playwright-report/
+apps/web/test-results/
+coverage/

@@ -39,6 +39,8 @@ class AudioPlayerController extends ChangeNotifier {
   DateTime? _lastPositionSaveTime;
   int? _lastSavedPositionSec;
   int _currentPlayRequestId = 0;
+  String? _loadedTrackId;
+  bool _engineNeedsReload = false;
 
   AudioPlayerController({
     AudioPlaybackService? playbackService,
@@ -105,13 +107,15 @@ class AudioPlayerController extends ChangeNotifier {
     });
 
     _stateSub = _playbackService.playerStateStream.listen((ps) {
-      AudioPlaybackStatus newStatus = _state.status;
+      final prevStatus = _state.status;
+      AudioPlaybackStatus newStatus = prevStatus;
+      bool justCompleted = false;
       if (ps.processingState == ProcessingState.loading ||
           ps.processingState == ProcessingState.buffering) {
         newStatus = AudioPlaybackStatus.loading;
       } else if (ps.processingState == ProcessingState.completed) {
         newStatus = AudioPlaybackStatus.completed;
-        _onTrackCompleted();
+        justCompleted = prevStatus != AudioPlaybackStatus.completed;
       } else if (ps.playing) {
         newStatus = AudioPlaybackStatus.playing;
       } else {
@@ -121,6 +125,9 @@ class AudioPlayerController extends ChangeNotifier {
       if (newStatus != _state.status) {
         _state = _state.copyWith(status: newStatus);
         notifyListeners();
+      }
+      if (justCompleted) {
+        _onTrackCompleted();
       }
     });
 
@@ -176,6 +183,7 @@ class AudioPlayerController extends ChangeNotifier {
           updatedAt: remote.updatedAt,
         );
 
+        _engineNeedsReload = true;
         _state = _state.copyWith(
           currentTrack: remote.track,
           position: Duration(seconds: remote.positionSeconds),
@@ -235,6 +243,8 @@ class AudioPlayerController extends ChangeNotifier {
         initialPositionSec: startPos,
       );
       if (requestId != _currentPlayRequestId) return;
+      _loadedTrackId = track.id;
+      _engineNeedsReload = false;
       if (dur != null) {
         _state = _state.copyWith(duration: dur);
       }
@@ -316,9 +326,11 @@ class AudioPlayerController extends ChangeNotifier {
         if (_state.status == AudioPlaybackStatus.completed) {
           await seek(Duration.zero);
           await _playbackService.play();
-        } else if (_state.status == AudioPlaybackStatus.error ||
+        } else if (_engineNeedsReload ||
+            _loadedTrackId != _state.currentTrack!.id ||
+            _state.status == AudioPlaybackStatus.error ||
             _playbackService.playerState.processingState == ProcessingState.idle) {
-          // Fresh session launch or error retry: reload track into just_audio!
+          // Fresh session launch, cloud-synced track/position, or error retry: reload track into just_audio!
           await playTrack(
             _state.currentTrack!,
             queue: _state.queue.isNotEmpty ? _state.queue : [_state.currentTrack!],

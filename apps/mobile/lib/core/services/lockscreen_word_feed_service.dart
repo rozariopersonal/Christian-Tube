@@ -245,15 +245,20 @@ class LockScreenWordFeedService extends ChangeNotifier {
           await prefs.setInt(_prefKeyCanonicalOffset, page + 1);
         }
 
-        if (_isEnabled) {
+        final effectiveEnabled =
+            _isEnabled || (prefs.getBool(_prefKeyEnabled) ?? false);
+        if (effectiveEnabled) {
+          _isEnabled = true;
           await _publishNotification(card, isBookmarked: _isCurrentBookmarked);
         }
       } else if (isCanonical && page > 0) {
         await prefs.setInt(_prefKeyCanonicalOffset, 0);
+        _isRotating = false;
         await rotateNextWord(filterOverride);
         return;
       } else if (filters.readingOrder == 'bookmarked') {
         final fallbackFilters = filters.copyWith(readingOrder: 'random');
+        _isRotating = false;
         await rotateNextWord(fallbackFilters);
         return;
       } else {

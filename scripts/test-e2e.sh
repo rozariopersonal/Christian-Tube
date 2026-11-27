@@ -62,8 +62,36 @@ fi
 echo "📲 Installing APK on target device..."
 adb install -r "$APK_PATH"
 
-# 7. Run Maestro E2E Flow
-echo "🧪 Running Maestro E2E test: $FLOW..."
+# 7. Run Maestro E2E Flow with video & screenshot capture
+RESULTS_DIR="$ROOT_DIR/e2e-results/mobile"
+mkdir -p "$RESULTS_DIR"
+FLOW_BASE="${FLOW%.yaml}"
+DEVICE_VIDEO="/sdcard/e2e_${FLOW_BASE}.mp4"
+LOCAL_VIDEO="$RESULTS_DIR/${FLOW_BASE}.mp4"
+
+echo "🧪 Running Maestro E2E test: $FLOW (recording to $LOCAL_VIDEO)..."
 cd "$ROOT_DIR"
-maestro test ".maestro/$FLOW"
-echo "🎉 E2E Quality Gate passed successfully!"
+
+adb shell screenrecord --time-limit 180 "$DEVICE_VIDEO" &
+RECORD_PID=$!
+
+set +e
+maestro test ".maestro/$FLOW" --debug-output "$RESULTS_DIR/maestro-debug"
+MAESTRO_EXIT=$?
+set -e
+
+adb shell pkill -l INT screenrecord 2>/dev/null || true
+sleep 2
+kill "$RECORD_PID" 2>/dev/null || true
+wait "$RECORD_PID" 2>/dev/null || true
+
+adb pull "$DEVICE_VIDEO" "$LOCAL_VIDEO" 2>/dev/null || true
+adb shell rm -f "$DEVICE_VIDEO" 2>/dev/null || true
+find "$ROOT_DIR" -maxdepth 1 -name "*.png" -exec mv {} "$RESULTS_DIR/" \; 2>/dev/null || true
+
+if [ "$MAESTRO_EXIT" -ne 0 ]; then
+    echo "❌ Maestro E2E test failed! Media saved to $RESULTS_DIR"
+    exit "$MAESTRO_EXIT"
+fi
+
+echo "🎉 E2E Quality Gate passed successfully! Media saved to $RESULTS_DIR"

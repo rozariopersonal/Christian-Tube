@@ -412,15 +412,25 @@ type SearchSort = 'relevance' | 'latest' | 'popular';
 
       .result-row {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: 140px 1fr;
         gap: 12px;
         align-items: start;
       }
 
-      @media (min-width: 720px) {
+      @media (min-width: 600px) {
         .result-row {
           grid-template-columns: clamp(200px, 34vw, 300px) 1fr;
           gap: 16px;
+        }
+      }
+
+      @media (max-width: 599px) {
+        .res-title {
+          font-size: 14px;
+        }
+
+        .res-desc {
+          display: none;
         }
       }
 

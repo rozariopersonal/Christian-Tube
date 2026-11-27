@@ -48,7 +48,10 @@ class ApiClient {
         onError: (DioException error, handler) async {
           final status = error.response?.statusCode;
           final opts = error.requestOptions;
+          final hadAuthHeader = opts.headers['Authorization'] != null &&
+              opts.headers['Authorization'].toString().isNotEmpty;
           if (status == 401 &&
+              hadAuthHeader &&
               opts.extra['auth_retried'] != true &&
               !_isAuthEndpoint(opts.path)) {
             final newToken = await coordinator.refresh();

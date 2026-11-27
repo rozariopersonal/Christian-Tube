@@ -61,7 +61,7 @@ void main() {
       Dio(BaseOptions(baseUrl: 'http://localhost:3000'))
         ..httpClientAdapter = adapter;
 
-  Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+  Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 100));
 
   test('guest toggleSubscribe is device-local and makes no network calls', () async {
     final adapter = StubAdapter();

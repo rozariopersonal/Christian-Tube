@@ -108,7 +108,7 @@ class _ArticleReaderScreenState extends State<ArticleReaderScreen> {
     final link = DeepLinkService.article(widget.articleId, lang: widget.lang);
     final buffer = StringBuffer()
       ..writeln(article.title)
-      ..writeln('By ${article.author} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ ${article.date}\n');
+      ..writeln('By ${article.author} • ${article.date}\n');
     for (final line in article.lines.take(12)) {
       buffer.writeln(line.text);
     }
