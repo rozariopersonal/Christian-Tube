@@ -70,6 +70,13 @@ export class VideosService implements OnModuleInit {
   private async ensureSearchVectorTriggerAndBackfill(): Promise<void> {
     if (typeof (this.prisma as any).$executeRawUnsafe !== "function") return;
     try {
+      // Self-heal extension, column, and GIN indexes even if `prisma db push` skipped due to unrelated schema drift.
+      await this.prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+      await this.prisma.$executeRawUnsafe(`ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "searchVector" tsvector;`);
+      await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Video_searchVector_idx" ON "Video" USING GIN ("searchVector");`);
+      await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Video_title_trgm_idx" ON "Video" USING GIN ("title" gin_trgm_ops);`);
+      await this.prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Video_channelName_trgm_idx" ON "Video" USING GIN ("channelName" gin_trgm_ops);`);
+
       await this.prisma.$executeRawUnsafe(`
         CREATE OR REPLACE FUNCTION video_search_vector_update() RETURNS trigger AS $$
         BEGIN
